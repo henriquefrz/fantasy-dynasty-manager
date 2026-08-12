@@ -1,0 +1,1 @@
+print("Fantasy Dynasty Manager iniciado!")
