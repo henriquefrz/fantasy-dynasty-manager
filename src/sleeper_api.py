@@ -116,6 +116,10 @@ def get_free_agents(rosters, players):
         if player.get("position") not in RELEVANT_POSITIONS:
             continue
 
+        if player.get("position") == "DEF":
+            free_agents.append(player)
+            continue
+
         search_rank = player.get("search_rank")
 
         if search_rank is None or search_rank > SEARCH_RANK_LIMIT:

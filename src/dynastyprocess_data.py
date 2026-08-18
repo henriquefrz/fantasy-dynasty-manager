@@ -9,6 +9,10 @@ PLAYERIDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/fi
 
 POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
+TEAM_ABBR_ALIASES = {
+    "JAC": "JAX",
+}
+
 
 def _download_csv(url):
     response = requests.get(url)
@@ -79,6 +83,8 @@ def _build_dst_lookup(fp_rankings_raw, ranking_prefix):
 
         if not team:
             continue
+
+        team = TEAM_ABBR_ALIASES.get(team, team)
 
         try:
             rank_ecr = float(row["ecr"])

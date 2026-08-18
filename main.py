@@ -46,11 +46,6 @@ redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "redraft")
 print(f"Jogadores com ranking Dynasty disponível: {len(dynasty_lookup)}")
 print(f"Jogadores com ranking Redraft disponível: {len(redraft_lookup)}")
 
-defesas_no_lookup = [v["player_name"] for k, v in dynasty_lookup.items() if v["position"] == "DST"]
-print(f"Defesas encontradas no lookup Dynasty: {len(defesas_no_lookup)}")
-print("Times:", defesas_no_lookup)
-
-
 print()
 print("=" * 60)
 print("SUGESTÕES DE ADD/DROP POR LIGA")
