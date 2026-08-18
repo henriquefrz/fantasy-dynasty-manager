@@ -1,3 +1,6 @@
+from collections import Counter
+
+
 LEAGUE_TYPE_MAP = {
     0: "redraft",
     1: "keeper",
@@ -42,4 +45,20 @@ def classify_league(league, rosters):
         "name": league["name"],
         "type": get_league_type(league),
         "stage": get_league_stage(league, rosters),
+    }
+
+
+def get_starter_counts(league):
+    roster_positions = league.get("roster_positions", [])
+    counts = Counter(roster_positions)
+
+    flex_slots = counts.get("FLEX", 0) + counts.get("SUPER_FLEX", 0)
+
+    return {
+        "QB": counts.get("QB", 0) + counts.get("SUPER_FLEX", 0),
+        "RB": counts.get("RB", 0) + flex_slots,
+        "WR": counts.get("WR", 0) + flex_slots,
+        "TE": counts.get("TE", 0) + flex_slots,
+        "K": counts.get("K", 0),
+        "DEF": counts.get("DEF", 0),
     }

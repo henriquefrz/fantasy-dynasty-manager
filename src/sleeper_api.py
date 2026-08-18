@@ -131,3 +131,12 @@ def get_free_agents(rosters, players):
         free_agents.append(player)
 
     return free_agents
+
+def get_traded_picks(league_id):
+    url = f"{BASE_URL}/league/{league_id}/traded_picks"
+
+    response = requests.get(url)
+
+    response.raise_for_status()
+
+    return response.json()
