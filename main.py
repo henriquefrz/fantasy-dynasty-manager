@@ -18,6 +18,13 @@ from src.team_strength import (
     get_current_strength_tier,
     classify_dynasty_team,
     classify_redraft_team,
+    get_picks_qualifier,
+)
+from src.draft_picks import (
+    build_picks_ownership,
+    get_picks_for_roster,
+    format_picks_summary,
+    rank_teams_by_picks,
 )
 
 
@@ -40,19 +47,6 @@ print(f"Ligas encontradas: {len(leagues)}")
 players = get_players()
 
 print(f"Jogadores disponíveis no banco do Sleeper: {len(players)}")
-
-
-print()
-print("Inspecionando traded_picks (Dinastia do Pão de Queijo):")
-
-league_teste = next(l for l in leagues if l["name"] == "Dinastia do Pão de Queijo")
-traded_picks = get_traded_picks(league_teste["league_id"])
-
-print(f"Total de picks negociadas: {len(traded_picks)}")
-print(f"Rodadas de draft da liga: {league_teste['settings']['draft_rounds']}")
-
-if traded_picks:
-    print("Exemplo de pick negociada:", traded_picks[0])
 
 
 print()
@@ -118,11 +112,22 @@ for league in leagues:
         dynasty_ranked = rank_teams_in_league(all_rosters_players, dynasty_lookup, starter_counts)
         dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_ranked)
 
-        situacao = classify_dynasty_team(current_tier, dynasty_tier)
+        traded_picks = get_traded_picks(league["league_id"])
+        picks_ownership = build_picks_ownership(league, traded_picks)
+        my_picks = get_picks_for_roster(picks_ownership, user_roster["roster_id"])
+
+        rounds_in_league = league["settings"]["draft_rounds"]
+        picks_ranked = rank_teams_by_picks(picks_ownership, league["total_rosters"], rounds_in_league)
+        picks_tier, picks_pos, picks_total = get_strength_tier(user_roster["roster_id"], picks_ranked)
+
+        situacao, categoria = classify_dynasty_team(current_tier, dynasty_tier)
+        qualificador = get_picks_qualifier(categoria, picks_tier)
+
         print(
-            f"Situação: {situacao} "
+            f"Situação: {situacao}{qualificador} "
             f"(força Dynasty: {dynasty_pos}º de {dynasty_total} — força Redraft: {redraft_pos}º de {redraft_total}, {games_played} jogos disputados)"
         )
+        print(f"Picks disponíveis ({len(my_picks)}, capital: {picks_pos}º de {picks_total}): {format_picks_summary(my_picks)}")
 
     roster_players = get_roster_players(user_roster, players)
     free_agents = get_free_agents(league_rosters, players)

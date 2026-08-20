@@ -117,21 +117,40 @@ def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_to
 
 def classify_dynasty_team(current_tier, dynasty_tier):
     if current_tier is None or dynasty_tier is None:
-        return "Dados insuficientes"
+        return "Dados insuficientes", "neutro"
 
     if current_tier == "alta" and dynasty_tier == "alta":
-        return "🏆 Contender consolidado"
+        return "🏆 Contender consolidado", "win"
 
     if current_tier == "alta":
-        return "⚡ Win-Now (elenco não tão forte no longo prazo — considere vender ativos de futuro por ganho imediato)"
+        return "⚡ Win-Now (elenco não tão forte no longo prazo — considere vender ativos de futuro por ganho imediato)", "win"
 
     if dynasty_tier == "alta":
-        return "🌱 Retooling (elenco forte no futuro, ainda não no auge agora)"
+        return "🌱 Retooling (elenco forte no futuro, ainda não no auge agora)", "rebuild"
 
     if current_tier == "baixa" and dynasty_tier == "baixa":
-        return "🔨 Rebuild"
+        return "🔨 Rebuild", "rebuild"
 
-    return "➖ Meio de tabela"
+    return "➖ Meio de tabela", "neutro"
+
+
+def get_picks_qualifier(category_type, picks_tier):
+    if picks_tier is None or category_type == "neutro":
+        return ""
+
+    if category_type == "win":
+        if picks_tier == "alta":
+            return " — com bom capital de picks para reforçar via trade se quiser"
+        elif picks_tier == "baixa":
+            return " — mas com pouco capital de picks, o que limita a margem de manobra"
+
+    if category_type == "rebuild":
+        if picks_tier == "alta":
+            return " — bem posicionado, com bastante capital de picks para reconstruir"
+        elif picks_tier == "baixa":
+            return " — mal posicionado, com pouco capital de picks para reconstruir"
+
+    return ""
 
 
 def classify_redraft_team(current_tier):
