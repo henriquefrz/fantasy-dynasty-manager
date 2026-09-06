@@ -159,12 +159,20 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    /* Fixed Streamlit Header Styling */
+    header[data-testid="stHeader"] {
+        background: rgba(11, 15, 23, 0.95) !important;
+        backdrop-filter: blur(10px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+        z-index: 99 !important;
+    }
+
     /* Global Container & Clean Layout */
     .block-container {
-        padding-top: 1.2rem;
-        padding-bottom: 2.5rem;
-        padding-left: 1.25rem;
-        padding-right: 1.25rem;
+        padding-top: 5rem !important;
+        padding-bottom: 3rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
         max-width: 1400px;
     }
 
@@ -288,9 +296,9 @@ st.markdown(
     /* Mobile Responsive Optimizations */
     @media (max-width: 768px) {
         .block-container {
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-            padding-top: 0.75rem !important;
+            padding-left: 0.65rem !important;
+            padding-right: 0.65rem !important;
+            padding-top: 4.5rem !important;
         }
         div[data-testid="column"] {
             min-width: 130px;
@@ -739,17 +747,30 @@ else:
 
     user_roster = get_user_roster(rosters, user["user_id"])
     if not user_roster:
-        user_roster = rosters[0]
+        user_roster = rosters[0] if rosters else {}
+
+    # Check for un-drafted / empty rosters
+    if not user_roster or not user_roster.get("players"):
+        st.warning("⚠️ This league is currently in pre-draft status and has not drafted rosters yet.")
+        if st.button("← Return to All Leagues", key="btn_predraft_back"):
+            st.session_state["selected_league_id"] = None
+            st.rerun()
+        st.stop()
 
     # League Classification & Scoring Adjustments
-    is_dynasty, is_superflex, total_rosters, is_valid = classify_league(selected_league)
-    tep_bonus = selected_league.get("settings", {}).get("tep_bonus", 0.0)
+    ltype = classify_league(selected_league, rosters)
+    is_dynasty = (ltype.get("type") != "redraft")
+    is_superflex = any(pos in ("SUPER_FLEX", "QB") for pos in roster_pos if roster_pos.count("QB") > 1 or pos == "SUPER_FLEX")
+    total_rosters = selected_league.get("total_rosters", len(rosters))
+
+    scoring = selected_league.get("scoring_settings", {})
+    tep_bonus = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0) or selected_league.get("settings", {}).get("tep_bonus", 0.0)
 
     # Primary valuation lookup selection
     raw_primary_lookup = market_db["dynasty_sf_lookup"] if is_superflex else market_db["dynasty_1qb_lookup"]
     primary_lookup = apply_valuation_mode(raw_primary_lookup, mode=selected_mode)
     if tep_bonus > 0:
-        primary_lookup = apply_te_premium(primary_lookup, tep_bonus=tep_bonus)
+        primary_lookup = apply_te_premium(primary_lookup, bonus_rec_te=tep_bonus)
 
     redraft_lookup = market_db["redraft_lookup"]
     picks_bundle = market_db["picks_bundle_sf"] if is_superflex else market_db["picks_bundle_1qb"]
