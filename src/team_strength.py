@@ -214,7 +214,7 @@ def rank_teams_by_record(rosters):
     return sorted(rosters, key=record_key)
 
 
-def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_total, season_length=14, max_record_weight=0.3):
+def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_total, season_length=14, playoff_pct=None):
     if not redraft_total or not redraft_position:
         return "medium", 0
 
@@ -231,41 +231,57 @@ def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_to
                 record_score = percentile_score(position, total)
                 break
 
-    if record_score is None:
+    if record_score is None or games_played == 0:
         blended_score = redraft_score
     else:
-        record_weight = min(games_played / season_length, 1.0) * max_record_weight
+        # Dynamic record scaling: small sample early, standings reality late
+        if games_played <= 3:
+            record_weight = 0.20
+        elif games_played <= 8:
+            record_weight = 0.50
+        else:
+            record_weight = 0.85
+
         blended_score = record_weight * record_score + (1 - record_weight) * redraft_score
 
-    return score_to_tier(blended_score), games_played
+    tier = score_to_tier(blended_score)
+
+    # Hard elimination guard: eliminated or 0-N/1-N teams past mid-season cannot be high tier
+    wins = user_roster.get("settings", {}).get("wins", 0)
+    if playoff_pct is not None and playoff_pct <= 5.0 and games_played >= 6:
+        tier = "low"
+    elif games_played >= 7 and wins <= 1:
+        tier = "low"
+
+    return tier, games_played
 
 
 def classify_dynasty_team(current_tier, dynasty_tier):
     if current_tier is None or dynasty_tier is None:
-        return "⚖️ Balanced Squad", "neutral"
+        return "Balanced Squad", "neutral"
 
     if current_tier == "high" and dynasty_tier == "high":
-        return "🏆 Championship Contender (Dominant Empire: Elite starting lineup & strong young core)", "win"
+        return "Dominant Empire (Elite starting lineup & strong young core)", "win"
     if current_tier == "high" and dynasty_tier == "medium":
-        return "🏆 Championship Contender (Win-Now Favorite: High-scoring firepower with solid depth)", "win"
+        return "Win-Now Favorite (High-scoring firepower with solid depth)", "win"
     if current_tier == "high" and dynasty_tier == "low":
-        return "⚡ All-In Win-Now (Peak Scoring Window: Veteran starting studs — push for the title)", "win"
+        return "All-In Win-Now (Peak Scoring Window: Veteran studs — push for the title)", "win"
 
     if current_tier == "medium" and dynasty_tier == "high":
-        return "🚀 Ascending Contender (Playoff Threat: Competitive starters backed by an elite young core)", "win"
+        return "Ascending Contender (Playoff Threat: Competitive starters backed by an elite young core)", "win"
     if current_tier == "medium" and dynasty_tier == "medium":
-        return "⚖️ Frisky Competitor (Playoff Bubble: Balanced roster capable of making a postseason run)", "neutral"
+        return "Frisky Competitor (Playoff Bubble: Balanced roster capable of a postseason run)", "neutral"
     if current_tier == "medium" and dynasty_tier == "low":
-        return "⚠️ Fragile Bubble Team (Fringe Contender: Competitive starters but depleted depth/picks)", "neutral"
+        return "Fragile Bubble Team (Fringe Contender: Competitive starters but depleted depth/picks)", "neutral"
 
     if current_tier == "low" and dynasty_tier == "high":
-        return "🌱 Retooling / Productive Struggle (Elite young talent & draft capital; building powerhouse)", "rebuild"
+        return "Productive Struggle (Elite young talent & draft capital; building powerhouse)", "rebuild"
     if current_tier == "low" and dynasty_tier == "medium":
-        return "🔄 Rebuilding (Retooling Roster: Developing youth & picks to return to contention)", "rebuild"
+        return "Retooling Roster (Developing youth & picks to return to contention)", "rebuild"
     if current_tier == "low" and dynasty_tier == "low":
-        return "🔨 Full Rebuild (Ground-Up Rebuild: Depleted roster; prioritize picks & high-upside youth)", "rebuild"
+        return "Ground-Up Rebuild (Depleted roster; prioritize picks & high-upside youth)", "rebuild"
 
-    return "⚖️ Frisky Competitor", "neutral"
+    return "Frisky Competitor", "neutral"
 
 
 def get_picks_qualifier(category_type, picks_tier):
@@ -274,9 +290,9 @@ def get_picks_qualifier(category_type, picks_tier):
 
     if category_type == "win":
         if picks_tier == "high":
-            return " — with strong draft capital to acquire win-now studs via trade"
+            return " — strong draft capital to acquire win-now studs via trade"
         elif picks_tier == "low":
-            return " — but scarce draft capital, limiting trade flexibility"
+            return " — scarce draft capital, limiting trade flexibility"
 
     if category_type == "rebuild":
         if picks_tier == "high":
@@ -289,12 +305,12 @@ def get_picks_qualifier(category_type, picks_tier):
 
 def classify_redraft_team(current_tier):
     if current_tier is None:
-        return "⚖️ Playoff Contender"
+        return "Playoff Contender"
 
     if current_tier == "high":
-        return "🏆 Title Contender (Top-tier starting lineup & scoring ceiling — Championship favorite)"
+        return "Title Contender (Top-tier starting lineup & scoring ceiling — Championship favorite)"
 
     if current_tier == "low":
-        return "⚠️ Uphill Battle / Bubble Team (Struggling scoring pace — needs aggressive moves)"
+        return "Uphill Battle / Rebuilding (Struggling scoring pace — needs aggressive moves)"
 
-    return "⚖️ Playoff Contender (Firmly in the playoff hunt — stream matchups & optimize starting depth)"
+    return "Playoff Contender (Firmly in the playoff hunt — stream matchups & optimize starting depth)"

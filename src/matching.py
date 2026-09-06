@@ -12,3 +12,34 @@ def match_players_by_sleeper_id(sleeper_players, dynasty_lookup):
             unmatched.append(player)
 
     return matched, unmatched
+
+
+def get_player_avatar_url(player_id, position=None, team=None):
+    """
+    Returns Sleeper CDN thumbnail URL for an NFL player or team defense.
+    """
+    if not player_id:
+        return ""
+
+    pos_upper = str(position or "").upper()
+    pid_str = str(player_id).strip()
+
+    # Team Defense (DST / DEF)
+    if pos_upper in ("DEF", "DST") or not pid_str.isdigit():
+        team_code = (team or pid_str).lower()
+        if team_code == "jax":
+            team_code = "jax"
+        return f"https://sleepercdn.com/images/team_logos/nfl/{team_code}.png"
+
+    # Standard NFL Player
+    return f"https://sleepercdn.com/content/nfl/players/thumb/{pid_str}.jpg"
+
+
+def get_team_logo_url(team_abbr):
+    """
+    Returns Sleeper CDN URL for an NFL team logo.
+    """
+    if not team_abbr:
+        return ""
+    code = str(team_abbr).strip().lower()
+    return f"https://sleepercdn.com/images/team_logos/nfl/{code}.png"
