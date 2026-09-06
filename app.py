@@ -14,9 +14,16 @@ Provides:
 
 import copy
 import os
+import sys
+import importlib
 from datetime import datetime
 import pandas as pd
 import streamlit as st
+
+# Ensure project root is at the head of sys.path for Cloud environments
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from src.sleeper_api import (
     get_user,
@@ -52,7 +59,48 @@ from src.market_data import (
     get_market_data_freshness,
     VALUATION_MODES,
 )
-from src.matching import match_players_by_sleeper_id, get_player_avatar_url, get_team_logo_url
+
+# Robust import with hot-reload for Streamlit Cloud daemon processes
+try:
+    import src.matching
+    importlib.reload(src.matching)
+    from src.matching import match_players_by_sleeper_id, get_player_avatar_url, get_team_logo_url
+except Exception:
+    try:
+        from src.matching import match_players_by_sleeper_id
+    except Exception:
+        def match_players_by_sleeper_id(sleeper_players, dynasty_lookup):
+            matched, unmatched = [], []
+            for player in sleeper_players:
+                pid = player.get("player_id")
+                ranking = dynasty_lookup.get(pid)
+                if ranking:
+                    matched.append((player, ranking))
+                else:
+                    unmatched.append(player)
+            return matched, unmatched
+
+    def get_player_avatar_url(player_id, position=None, team=None):
+        if not player_id:
+            return ""
+        pos_upper = str(position or "").upper()
+        pid_str = str(player_id).strip()
+        if pos_upper in ("DEF", "DST") or not pid_str.isdigit():
+            team_code = (team or pid_str).lower()
+            return f"https://sleepercdn.com/images/team_logos/nfl/{team_code}.png"
+        return f"https://sleepercdn.com/content/nfl/players/thumb/{pid_str}.jpg"
+
+    def get_team_logo_url(team_abbr):
+        if not team_abbr:
+            return ""
+        code = str(team_abbr).strip().lower()
+        return f"https://sleepercdn.com/images/team_logos/nfl/{code}.png"
+
+try:
+    import src.team_strength
+    importlib.reload(src.team_strength)
+except Exception:
+    pass
 from src.analysis_engine import (
     build_intelligent_waiver_suggestions,
     enrich_with_alt_ranking,
@@ -269,47 +317,35 @@ st.markdown(
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v5_fantasy_analytics_hub"):
+def fetch_market_database(_cache_version="v5_fantasy_analytics_clean"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
     player_ids = get_player_ids_raw()
     values_players = get_values_players_raw()
     values_picks = get_values_picks_raw()
-    ktc_raw = get_ktc_data_raw()
-    fc_raw = get_fantasycalc_data_raw()
 
-    # Raw positional ECR lookups from FantasyPros
-    dynasty_sf_lookup = build_positional_lookup(fp_rankings, player_ids, "dynasty-overall-sf")
-    dynasty_1qb_lookup = build_positional_lookup(fp_rankings, player_ids, "dynasty-overall-1qb")
-    redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "draft-half-ppr")
+    ktc_sf = get_ktc_data_raw(is_superflex=True)
+    ktc_1qb = get_ktc_data_raw(is_superflex=False)
+    fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
+    fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
+    fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
 
-    # Draft pick bundles
-    picks_bundle_sf = build_picks_sources_bundle(values_picks, player_ids, ktc_raw, fc_raw, is_superflex=True)
-    picks_bundle_1qb = build_picks_sources_bundle(values_picks, player_ids, ktc_raw, fc_raw, is_superflex=False)
+    # Positional lookups with raw constituent values preserved
+    base_dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty")
+    enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal")
 
-    # Multi-source composite consensus
-    enriched_sf = enrich_lookup_with_consensus_values(
-        base_lookup=dynasty_sf_lookup,
-        ktc_raw=ktc_raw,
-        fc_raw=fc_raw,
-        values_players_raw=values_players,
-        player_ids_raw=player_ids,
-        is_superflex=True,
-        mode="equal",
-    )
-    enriched_1qb = enrich_lookup_with_consensus_values(
-        base_lookup=dynasty_1qb_lookup,
-        ktc_raw=ktc_raw,
-        fc_raw=fc_raw,
-        values_players_raw=values_players,
-        player_ids_raw=player_ids,
-        is_superflex=False,
-        mode="equal",
-    )
-    enriched_redraft = enrich_lookup_with_redraft_values(redraft_lookup, fc_raw, values_players_raw, player_ids_raw)
+    base_dynasty_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty")
+    enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
-    freshness = get_market_data_freshness(fp_raw=fp_rankings, dp_raw=values_players)
+    base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft")
+    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft)
+
+    # Raw pick bundles for instant mode switching
+    picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
+    picks_bundle_1qb = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
+
+    freshness_info = get_market_data_freshness(fp_rankings, values_players)
 
     return {
         "players": players,
@@ -317,14 +353,17 @@ def fetch_market_database(_cache_version="v5_fantasy_analytics_hub"):
         "fp_rankings": fp_rankings,
         "values_players": values_players,
         "values_picks": values_picks,
-        "ktc_raw": ktc_raw,
-        "fc_raw": fc_raw,
-        "dynasty_sf_lookup": enriched_sf,
-        "dynasty_1qb_lookup": enriched_1qb,
-        "redraft_lookup": enriched_redraft,
+        "ktc_sf": ktc_sf,
+        "ktc_1qb": ktc_1qb,
+        "fc_sf": fc_sf,
+        "fc_1qb": fc_1qb,
+        "fc_redraft": fc_redraft,
+        "dynasty_sf_lookup": base_dynasty_sf,
+        "dynasty_1qb_lookup": base_dynasty_1qb,
+        "redraft_lookup": base_redraft,
         "picks_bundle_sf": picks_bundle_sf,
         "picks_bundle_1qb": picks_bundle_1qb,
-        "freshness": freshness,
+        "freshness": freshness_info,
     }
 
 
@@ -539,11 +578,15 @@ selected_mode = mode_keys[mode_labels.index(selected_mode_label)]
 # Sidebar: Market Freshness Status
 st.sidebar.markdown("---")
 with st.sidebar.expander("🕒 Market Data Freshness", expanded=False):
-    fresh = market_db["freshness"]
-    st.markdown(f"**KeepTradeCut:** `{fresh['keeptradecut']['status']}`")
-    st.markdown(f"**FantasyCalc:** `{fresh['fantasycalc']['status']}`")
-    st.markdown(f"**DynastyProcess:** `{fresh['dynastyprocess']['status']}`")
-    st.markdown(f"**FantasyPros ECR:** `{fresh['fantasypros']['status']}`")
+    fresh = market_db.get("freshness", {})
+    ktc_stat = (fresh.get("ktc") or fresh.get("keeptradecut") or {}).get("status", "Live Current")
+    fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
+    dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
+    fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
+    st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
+    st.markdown(f"**FantasyCalc:** `{fc_stat}`")
+    st.markdown(f"**DynastyProcess:** `{dp_stat}`")
+    st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
 
 
 # Prepare Primary Lookup
@@ -609,10 +652,11 @@ if st.session_state.get("selected_league_id") is None:
         tep_b = settings.get("tep_bonus", 0.0)
 
         # Quick summary stats
-        w = my_r.get("settings", {}).get("wins", 0) if my_r else 0
-        l = my_r.get("settings", {}).get("losses", 0) if my_r else 0
-        fpts = (my_r.get("settings", {}).get("fpts", 0) + (my_r.get("settings", {}).get("fpts_decimal", 0) / 100.0)) if my_r else 0.0
-        p_count = len(my_r.get("players", [])) if my_r else 0
+        m_settings = (my_r.get("settings") or {}) if my_r else {}
+        w = m_settings.get("wins", 0)
+        l = m_settings.get("losses", 0)
+        fpts = (m_settings.get("fpts", 0) + (m_settings.get("fpts_decimal", 0) / 100.0))
+        p_count = len(my_r.get("players") or []) if my_r else 0
 
         # Trajectory badge
         if is_dyn:
