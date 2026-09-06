@@ -1,44 +1,165 @@
+from collections import Counter
 from src.matching import match_players_by_sleeper_id
 
 
-def calculate_team_strength(roster_players, lookup, starter_counts):
-    position_averages = {}
+FIXED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"}
+
+FLEX_RULES = [
+    # Slot name, eligible positions, order of filling (most specific first)
+    ("WRRB_FLEX", {"RB", "WR"}),
+    ("REC_FLEX", {"WR", "TE"}),
+    ("FLEX", {"RB", "WR", "TE"}),
+    ("SUPER_FLEX", {"QB", "RB", "WR", "TE"}),
+    ("IDP_FLEX", {"DL", "LB", "DB"}),
+]
+
+
+def simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty=True):
+    """
+    Optimizes a fantasy starting lineup based on Sleeper league roster_positions.
+    Fills fixed position slots first, then flex slots in order of specificity.
+    All remaining roster players are designated as the bench.
+
+    Returns (starters, bench) where each is a list of (player_obj, ranking_data).
+    """
+    if not roster_players:
+        return [], []
+
+    # If roster_positions is passed as a dict of counts, convert to list of slot strings
+    if isinstance(roster_positions, dict):
+        slots_list = []
+        for pos, count in roster_positions.items():
+            slots_list.extend([pos] * count)
+        roster_positions = slots_list
+
+    # Separate starting slots from bench/reserve slots
+    starting_slots = [p for p in roster_positions if p not in {"BN", "IR", "TAXI"}]
+
+    # Match roster players to lookup
+    matched, _ = match_players_by_sleeper_id(roster_players, lookup)
+    if not matched:
+        return [], []
+
+    # Sort players by priority:
+    # In Dynasty: market_value descending (tie-break by rank_ecr ascending)
+    # In Redraft: rank_ecr ascending (tie-break by market_value descending)
+    if is_dynasty:
+        sorted_players = sorted(
+            matched,
+            key=lambda item: (-item[1].get("market_value", 0.0), item[1].get("rank_ecr", 999.0))
+        )
+    else:
+        sorted_players = sorted(
+            matched,
+            key=lambda item: (item[1].get("rank_ecr", 999.0), -item[1].get("market_value", 0.0))
+        )
+
+    assigned_player_ids = set()
+    starters = []
+
+    # 1. Fill fixed position slots (e.g. QB, RB, WR, TE, K, DEF)
+    fixed_slots = [s for s in starting_slots if s in FIXED_POSITIONS]
+    fixed_needed = Counter(fixed_slots)
+
+    for pos, needed in fixed_needed.items():
+        count = 0
+        for p_obj, r_data in sorted_players:
+            pid = p_obj.get("player_id")
+            if pid not in assigned_player_ids and p_obj.get("position") == pos:
+                starters.append((p_obj, r_data))
+                assigned_player_ids.add(pid)
+                count += 1
+                if count >= needed:
+                    break
+
+    # 2. Fill flexible slots (e.g. WRRB_FLEX, FLEX, SUPER_FLEX) in order of specificity
+    flex_dict = dict(FLEX_RULES)
+    flex_order = [slot_name for slot_name, _ in FLEX_RULES]
+    league_flex_slots = [s for s in starting_slots if s in flex_dict]
+    league_flex_slots.sort(key=lambda s: flex_order.index(s) if s in flex_order else 99)
+
+    for flex_slot in league_flex_slots:
+        eligible_positions = flex_dict[flex_slot]
+        for p_obj, r_data in sorted_players:
+            pid = p_obj.get("player_id")
+            if pid not in assigned_player_ids and p_obj.get("position") in eligible_positions:
+                starters.append((p_obj, r_data))
+                assigned_player_ids.add(pid)
+                break
+
+    # 3. All remaining matched players become the bench
+    bench = [
+        (p_obj, r_data)
+        for p_obj, r_data in sorted_players
+        if p_obj.get("player_id") not in assigned_player_ids
+    ]
+
+    return starters, bench
+
+
+def calculate_team_strength(roster_players, lookup, roster_positions, starter_weight=0.70, bench_weight=0.30, is_dynasty=True):
+    """
+    Calculates team strength considering both:
+    1. Starting Lineup (70% weight) - weekly scoring potential.
+    2. Bench Depth (30% weight) - injury resilience and trade flexibility.
+
+    Returns (position_averages, overall_avg_rank, blended_points, details_dict).
+    """
+    starters, bench = simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty=is_dynasty)
+
+    position_ranks = {}
     all_starter_ranks = []
+    starter_counts_by_pos = {}
 
-    for position, starter_count in starter_counts.items():
-        if starter_count <= 0:
-            continue
+    for p_obj, r_data in starters:
+        pos = p_obj.get("position")
+        rank = r_data.get("rank_ecr")
+        if rank is not None:
+            position_ranks.setdefault(pos, []).append(rank)
+            all_starter_ranks.append(rank)
+        starter_counts_by_pos[pos] = starter_counts_by_pos.get(pos, 0) + 1
 
-        pos_players = [p for p in roster_players if p.get("position") == position]
-        matched, _ = match_players_by_sleeper_id(pos_players, lookup)
-
-        if not matched:
-            continue
-
-        matched_sorted = sorted(matched, key=lambda pr: pr[1]["rank_ecr"])
-        top_players = matched_sorted[:starter_count]
-
-        avg_rank = sum(ranking["rank_ecr"] for _, ranking in top_players) / len(top_players)
-        position_averages[position] = avg_rank
-
-        all_starter_ranks.extend(ranking["rank_ecr"] for _, ranking in top_players)
+    position_averages = {
+        pos: sum(ranks) / len(ranks) for pos, ranks in position_ranks.items() if ranks
+    }
 
     overall_avg = sum(all_starter_ranks) / len(all_starter_ranks) if all_starter_ranks else None
+    starters_total = sum(r_data.get("market_value", 0.0) for _, r_data in starters)
+    bench_total = sum(r_data.get("market_value", 0.0) for _, r_data in bench)
+    blended_points = starter_weight * starters_total + bench_weight * bench_total
 
-    return position_averages, overall_avg
+    details = {
+        "starters_market_value": starters_total,
+        "bench_market_value": bench_total,
+        "total_market_value": starters_total + bench_total,
+        "blended_points": blended_points,
+        "starter_counts_by_pos": starter_counts_by_pos,
+        "starters_count": len(starters),
+        "bench_count": len(bench),
+    }
+
+    return position_averages, overall_avg, blended_points, details
 
 
-def rank_teams_in_league(all_rosters_players, lookup, starter_counts):
+def rank_teams_in_league(all_rosters_players, lookup, roster_positions, is_dynasty=True):
+    """
+    Ranks all teams in the league.
+    - In Dynasty: ranked descending by blended market value points (Starters 70% + Bench 30%).
+    - In Redraft: ranked descending by blended market value points (Starters 80% + Bench 20%).
+    """
     team_strengths = []
 
     for roster_id, roster_players in all_rosters_players.items():
-        _, overall_avg = calculate_team_strength(roster_players, lookup, starter_counts)
+        w_starter = 0.70 if is_dynasty else 0.80
+        w_bench = 0.30 if is_dynasty else 0.20
+        _, overall_avg, blended_points, details = calculate_team_strength(
+            roster_players, lookup, roster_positions, starter_weight=w_starter, bench_weight=w_bench, is_dynasty=is_dynasty
+        )
 
-        if overall_avg is not None:
-            team_strengths.append((roster_id, overall_avg))
+        score = blended_points if blended_points is not None else 0.0
+        team_strengths.append((roster_id, score, details))
 
-    team_strengths.sort(key=lambda t: t[1])
-
+    team_strengths.sort(key=lambda t: -t[1])
     return team_strengths
 
 
@@ -46,9 +167,10 @@ def get_strength_tier(roster_id, ranked_teams):
     total = len(ranked_teams)
 
     if total == 0:
-        return None, None, None
+        return None, None, 0
 
-    for position, (rid, _) in enumerate(ranked_teams, start=1):
+    for position, item in enumerate(ranked_teams, start=1):
+        rid = item[0]
         if rid == roster_id:
             tier = score_to_tier(percentile_score(position, total))
             return tier, position, total
@@ -57,19 +179,21 @@ def get_strength_tier(roster_id, ranked_teams):
 
 
 def percentile_score(position, total):
-    if total <= 1:
-        return 1.0
+    if position is None or total is None or total <= 1:
+        return 0.5
 
     return (total - position) / (total - 1)
 
 
 def score_to_tier(score):
-    if score >= 2 / 3:
-        return "alta"
-    elif score >= 1 / 3:
-        return "média"
+    if score is None:
+        return "medium"
+    if score >= 0.60:
+        return "high"
+    elif score >= 0.35:
+        return "medium"
     else:
-        return "baixa"
+        return "low"
 
 
 def total_games_played(roster):
@@ -91,13 +215,14 @@ def rank_teams_by_record(rosters):
 
 
 def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_total, season_length=14, max_record_weight=0.3):
+    if not redraft_total or not redraft_position:
+        return "medium", 0
+
     redraft_score = percentile_score(redraft_position, redraft_total)
-
     games_played = total_games_played(user_roster)
-
     record_score = None
 
-    if games_played > 0:
+    if games_played > 0 and rosters:
         ranked = rank_teams_by_record(rosters)
         total = len(ranked)
 
@@ -117,50 +242,59 @@ def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_to
 
 def classify_dynasty_team(current_tier, dynasty_tier):
     if current_tier is None or dynasty_tier is None:
-        return "Dados insuficientes", "neutro"
+        return "⚖️ Balanced Squad", "neutral"
 
-    if current_tier == "alta" and dynasty_tier == "alta":
-        return "🏆 Contender consolidado", "win"
+    if current_tier == "high" and dynasty_tier == "high":
+        return "🏆 Championship Contender (Dominant Empire: Elite starting lineup & strong young core)", "win"
+    if current_tier == "high" and dynasty_tier == "medium":
+        return "🏆 Championship Contender (Win-Now Favorite: High-scoring firepower with solid depth)", "win"
+    if current_tier == "high" and dynasty_tier == "low":
+        return "⚡ All-In Win-Now (Peak Scoring Window: Veteran starting studs — push for the title)", "win"
 
-    if current_tier == "alta":
-        return "⚡ Win-Now (elenco não tão forte no longo prazo — considere vender ativos de futuro por ganho imediato)", "win"
+    if current_tier == "medium" and dynasty_tier == "high":
+        return "🚀 Ascending Contender (Playoff Threat: Competitive starters backed by an elite young core)", "win"
+    if current_tier == "medium" and dynasty_tier == "medium":
+        return "⚖️ Frisky Competitor (Playoff Bubble: Balanced roster capable of making a postseason run)", "neutral"
+    if current_tier == "medium" and dynasty_tier == "low":
+        return "⚠️ Fragile Bubble Team (Fringe Contender: Competitive starters but depleted depth/picks)", "neutral"
 
-    if dynasty_tier == "alta":
-        return "🌱 Retooling (elenco forte no futuro, ainda não no auge agora)", "rebuild"
+    if current_tier == "low" and dynasty_tier == "high":
+        return "🌱 Retooling / Productive Struggle (Elite young talent & draft capital; building powerhouse)", "rebuild"
+    if current_tier == "low" and dynasty_tier == "medium":
+        return "🔄 Rebuilding (Retooling Roster: Developing youth & picks to return to contention)", "rebuild"
+    if current_tier == "low" and dynasty_tier == "low":
+        return "🔨 Full Rebuild (Ground-Up Rebuild: Depleted roster; prioritize picks & high-upside youth)", "rebuild"
 
-    if current_tier == "baixa" and dynasty_tier == "baixa":
-        return "🔨 Rebuild", "rebuild"
-
-    return "➖ Meio de tabela", "neutro"
+    return "⚖️ Frisky Competitor", "neutral"
 
 
 def get_picks_qualifier(category_type, picks_tier):
-    if picks_tier is None or category_type == "neutro":
+    if picks_tier is None or category_type == "neutral":
         return ""
 
     if category_type == "win":
-        if picks_tier == "alta":
-            return " — com bom capital de picks para reforçar via trade se quiser"
-        elif picks_tier == "baixa":
-            return " — mas com pouco capital de picks, o que limita a margem de manobra"
+        if picks_tier == "high":
+            return " — with strong draft capital to acquire win-now studs via trade"
+        elif picks_tier == "low":
+            return " — but scarce draft capital, limiting trade flexibility"
 
     if category_type == "rebuild":
-        if picks_tier == "alta":
-            return " — bem posicionado, com bastante capital de picks para reconstruir"
-        elif picks_tier == "baixa":
-            return " — mal posicionado, com pouco capital de picks para reconstruir"
+        if picks_tier == "high":
+            return " — well-positioned with abundant draft capital to accelerate the rebuild"
+        elif picks_tier == "low":
+            return " — poorly positioned with scarce draft capital to rebuild"
 
     return ""
 
 
 def classify_redraft_team(current_tier):
     if current_tier is None:
-        return "Dados insuficientes"
+        return "⚖️ Playoff Contender"
 
-    if current_tier == "alta":
-        return "🏆 Competindo pelo título"
+    if current_tier == "high":
+        return "🏆 Title Contender (Top-tier starting lineup & scoring ceiling — Championship favorite)"
 
-    if current_tier == "baixa":
-        return "❌ Fora da disputa real"
+    if current_tier == "low":
+        return "⚠️ Uphill Battle / Bubble Team (Struggling scoring pace — needs aggressive moves)"
 
-    return "➖ Meio de tabela"
+    return "⚖️ Playoff Contender (Firmly in the playoff hunt — stream matchups & optimize starting depth)"

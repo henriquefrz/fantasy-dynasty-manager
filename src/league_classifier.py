@@ -11,7 +11,7 @@ LEAGUE_TYPE_MAP = {
 def get_league_type(league):
     type_code = league.get("settings", {}).get("type")
 
-    return LEAGUE_TYPE_MAP.get(type_code, "desconhecido")
+    return LEAGUE_TYPE_MAP.get(type_code, "unknown")
 
 
 def has_assigned_rosters(rosters):
@@ -23,21 +23,21 @@ def get_league_stage(league, rosters):
     assigned = has_assigned_rosters(rosters)
 
     if status == "pre_draft" and not assigned:
-        return "pre_draft_sem_roster"
+        return "pre_draft_no_roster"
 
     if status == "pre_draft" and assigned:
-        return "pre_draft_com_roster"
+        return "pre_draft_with_roster"
 
     if status == "drafting":
-        return "em_draft"
+        return "drafting"
 
     if status == "in_season":
-        return "em_temporada"
+        return "in_season"
 
     if status == "complete":
-        return "temporada_encerrada"
+        return "complete"
 
-    return "desconhecido"
+    return "unknown"
 
 
 def classify_league(league, rosters):
@@ -52,13 +52,11 @@ def get_starter_counts(league):
     roster_positions = league.get("roster_positions", [])
     counts = Counter(roster_positions)
 
-    flex_slots = counts.get("FLEX", 0) + counts.get("SUPER_FLEX", 0)
-
     return {
-        "QB": counts.get("QB", 0) + counts.get("SUPER_FLEX", 0),
-        "RB": counts.get("RB", 0) + flex_slots,
-        "WR": counts.get("WR", 0) + flex_slots,
-        "TE": counts.get("TE", 0) + flex_slots,
+        "QB": counts.get("QB", 0),
+        "RB": counts.get("RB", 0),
+        "WR": counts.get("WR", 0),
+        "TE": counts.get("TE", 0),
         "K": counts.get("K", 0),
         "DEF": counts.get("DEF", 0),
     }
