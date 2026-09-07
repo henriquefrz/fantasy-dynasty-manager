@@ -132,6 +132,7 @@ def make_player_asset(player_obj: Dict[str, Any], ranking_data: Dict[str, Any], 
         "years_exp": player_obj.get("years_exp", 0),
         "market_value": ranking_data.get("market_value", 0.0),
         "rank_ecr": ranking_data.get("rank_ecr", 999.0),
+        "redraft_val": alt_data.get("market_value", ranking_data.get("market_value", 0.0)),
         "redraft_ecr": alt_data.get("rank_ecr", ranking_data.get("rank_ecr", 999.0)),
         "player_obj": player_obj,
         "ranking_data": ranking_data,
@@ -727,10 +728,13 @@ def format_asset_str(asset: Dict[str, Any]) -> str:
     return f"{name} ({pos} — {val:,.0f} pts{redraft_str})"
 
 
-def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]], use_redraft: bool = False) -> List[Dict[str, Any]]:
     """
     Ranks all teams side-by-side across QB Room, RB Room, WR Room, TE Room, and Draft Capital.
     Computes room valuations, starter vs total splits, and ordinal ranks (1 to N) for each category.
+    When use_redraft=True:
+      - Uses 3-pillar Redraft / ROS consensus values for players
+      - Excludes draft capital (future picks have 0 single-season ROS value)
     """
     room_data = []
     for p in all_team_profiles:
@@ -738,17 +742,22 @@ def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]]) -
         mgr = p.get("manager_name", f"Team {rid}")
         all_players = p.get("starter_assets", []) + p.get("bench_assets", []) + p.get("taxi_assets", [])
 
-        qb_players = sorted([a for a in all_players if a.get("position") == "QB"], key=lambda x: x.get("market_value", 0.0), reverse=True)
-        rb_players = sorted([a for a in all_players if a.get("position") == "RB"], key=lambda x: x.get("market_value", 0.0), reverse=True)
-        wr_players = sorted([a for a in all_players if a.get("position") == "WR"], key=lambda x: x.get("market_value", 0.0), reverse=True)
-        te_players = sorted([a for a in all_players if a.get("position") == "TE"], key=lambda x: x.get("market_value", 0.0), reverse=True)
-        picks = p.get("pick_assets", [])
+        def _get_val(a):
+            if use_redraft:
+                return float(a.get("redraft_val") if a.get("redraft_val") is not None else a.get("market_value", 0.0))
+            return float(a.get("market_value", 0.0))
 
-        qb_val = sum(float(a.get("market_value", 0.0)) for a in qb_players)
-        rb_val = sum(float(a.get("market_value", 0.0)) for a in rb_players)
-        wr_val = sum(float(a.get("market_value", 0.0)) for a in wr_players)
-        te_val = sum(float(a.get("market_value", 0.0)) for a in te_players)
-        picks_val = sum(float(pk.get("market_value", 0.0)) for pk in picks)
+        qb_players = sorted([a for a in all_players if a.get("position") == "QB"], key=_get_val, reverse=True)
+        rb_players = sorted([a for a in all_players if a.get("position") == "RB"], key=_get_val, reverse=True)
+        wr_players = sorted([a for a in all_players if a.get("position") == "WR"], key=_get_val, reverse=True)
+        te_players = sorted([a for a in all_players if a.get("position") == "TE"], key=_get_val, reverse=True)
+        picks = [] if use_redraft else p.get("pick_assets", [])
+
+        qb_val = sum(_get_val(a) for a in qb_players)
+        rb_val = sum(_get_val(a) for a in rb_players)
+        wr_val = sum(_get_val(a) for a in wr_players)
+        te_val = sum(_get_val(a) for a in te_players)
+        picks_val = sum(float(pk.get("market_value", 0.0)) for pk in picks) if not use_redraft else 0.0
         tot_val = qb_val + rb_val + wr_val + te_val + picks_val
 
         room_data.append({
@@ -764,7 +773,7 @@ def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]]) -
             "top_rbs": [a.get("name", "") for a in rb_players[:3]],
             "top_wrs": [a.get("name", "") for a in wr_players[:3]],
             "top_tes": [a.get("name", "") for a in te_players[:3]],
-            "top_picks": [pk.get("name", "") for pk in picks[:3]],
+            "top_picks": [pk.get("name", "") for pk in picks[:3]] if not use_redraft else [],
         })
 
     def assign_ranks(key, rank_field):
@@ -777,7 +786,11 @@ def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]]) -
     assign_ranks("rb_val", "rb_rank")
     assign_ranks("wr_val", "wr_rank")
     assign_ranks("te_val", "te_rank")
-    assign_ranks("picks_val", "picks_rank")
+    if not use_redraft:
+        assign_ranks("picks_val", "picks_rank")
+    else:
+        for item in room_data:
+            item["picks_rank"] = 0
 
     return room_data
 

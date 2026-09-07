@@ -1723,17 +1723,14 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
-def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val"):
+def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val", show_picks: bool = True):
     """
-    Renders the League-Wide Positional Room & Draft Capital Leaderboard table.
+    Renders the League-Wide Positional Room Leaderboard table.
     Highlights user's franchise row, and displays rank pills for each position room.
+    When show_picks=False (e.g. Redraft leagues or ROS scope), excludes Draft Capital column.
     """
-    html = """
-    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full room rankings</div>
-    <div class='table-responsive-wrapper'>
-    <table class='roster-table roster-table-power'>
-        <thead>
-            <tr>
+    if show_picks:
+        headers_html = """
                 <th style='width: 65px; text-align: center;'>Rank</th>
                 <th style='width: 22%; text-align: left;'>Manager / Team</th>
                 <th style='width: 13%; text-align: center;'>QB Room</th>
@@ -1742,6 +1739,25 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
                 <th style='width: 13%; text-align: center;'>TE Room</th>
                 <th style='width: 13%; text-align: center;'>Draft Capital</th>
                 <th style='width: 13%; text-align: center;'>Total Franchise</th>
+        """
+    else:
+        headers_html = """
+                <th style='width: 65px; text-align: center;'>Rank</th>
+                <th style='width: 25%; text-align: left;'>Manager / Team</th>
+                <th style='width: 15%; text-align: center;'>QB Room</th>
+                <th style='width: 15%; text-align: center;'>RB Room</th>
+                <th style='width: 15%; text-align: center;'>WR Room</th>
+                <th style='width: 15%; text-align: center;'>TE Room</th>
+                <th style='width: 15%; text-align: center;'>Total Roster</th>
+        """
+
+    html = f"""
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full room rankings</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
+        <thead>
+            <tr>
+                {headers_html}
             </tr>
         </thead>
         <tbody>
@@ -1769,6 +1785,8 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
         name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
         rank_disp = r.get("disp_rank", r.get("total_rank", 1))
 
+        picks_td = f"<td style='text-align: center;'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>" if show_picks else ""
+
         html += f"""
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>#{rank_disp}</td>
@@ -1777,7 +1795,7 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
             <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['rb_val']:,.0f}</span> {rank_pill(r['rb_rank'], sort_col=='rb_val')}</td>
             <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['wr_val']:,.0f}</span> {rank_pill(r['wr_rank'], sort_col=='wr_val')}</td>
             <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['te_val']:,.0f}</span> {rank_pill(r['te_rank'], sort_col=='te_val')}</td>
-            <td style='text-align: center;'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>
+            {picks_td}
             <td style='text-align: center;'><span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{r['total_val']:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
         </tr>
         """
@@ -4063,34 +4081,75 @@ else:
                         st.info("No draft pick assets in this league format.")
 
         def render_positional_room_view():
-            st.caption("League-wide Positional Room & Draft Capital Leaderboard (KeepTradeCut / Dynasty Daddy style).")
-            room_data = build_positional_room_leaderboard(all_team_profiles)
+            if is_dynasty:
+                col_scope, col_sort = st.columns([1.6, 2.4], vertical_alignment="bottom")
+                with col_scope:
+                    room_scope = st.radio(
+                        "Valuation Scope:",
+                        ["🏆 Dynasty Long-Term", "📅 Single-Season (ROS)"],
+                        horizontal=True,
+                        key="room_lb_scope_sel",
+                    )
+                use_redraft = ("Single-Season" in room_scope)
+            else:
+                col_sort = st.container()
+                use_redraft = True
 
-            col_sort, _ = st.columns([2.6, 4.4])
+            show_picks = (is_dynasty and not use_redraft)
+
+            if show_picks:
+                st.caption("League-wide Positional Room & Draft Capital Leaderboard (KeepTradeCut / Dynasty Daddy style).")
+            else:
+                st.caption("League-wide Positional Room Leaderboard (evaluated on 3-Pillar Single-Season / ROS values).")
+
+            room_data = build_positional_room_leaderboard(all_team_profiles, use_redraft=use_redraft)
+
             with col_sort:
-                sort_options = {
-                    "Total Franchise Value": "total_val",
-                    "QB Room Value": "qb_val",
-                    "RB Room Value": "rb_val",
-                    "WR Room Value": "wr_val",
-                    "TE Room Value": "te_val",
-                    "Draft Capital Value": "picks_val",
-                }
-                chosen_sort = st.selectbox("Sort Leaderboard By:", list(sort_options.keys()), index=0, key="room_lb_sort_sel")
+                if show_picks:
+                    sort_options = {
+                        "Total Franchise Value": "total_val",
+                        "QB Room Value": "qb_val",
+                        "RB Room Value": "rb_val",
+                        "WR Room Value": "wr_val",
+                        "TE Room Value": "te_val",
+                        "Draft Capital Value": "picks_val",
+                    }
+                else:
+                    sort_options = {
+                        "Total Roster Value": "total_val",
+                        "QB Room Value": "qb_val",
+                        "RB Room Value": "rb_val",
+                        "WR Room Value": "wr_val",
+                        "TE Room Value": "te_val",
+                    }
+                chosen_sort = st.selectbox(
+                    "Sort Leaderboard By:",
+                    list(sort_options.keys()),
+                    index=0,
+                    key=f"room_lb_sort_sel_{'redraft' if use_redraft else 'dynasty'}"
+                )
                 sort_key = sort_options[chosen_sort]
 
             sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
             for idx, r in enumerate(sorted_rooms, 1):
                 r["disp_rank"] = idx
 
-            st.html(render_positional_room_table_html(sorted_rooms, user_roster["roster_id"], sort_col=sort_key))
+            st.html(render_positional_room_table_html(sorted_rooms, user_roster["roster_id"], sort_col=sort_key, show_picks=show_picks))
 
             with st.expander("🔍 Inspect Franchise Positional Room Depth", expanded=False):
-                inspect_room_mgr = st.selectbox("Select Team to Inspect:", [t["manager_name"] for t in sorted_rooms], key="inspect_room_mgr_sel")
+                inspect_room_mgr = st.selectbox(
+                    "Select Team to Inspect:",
+                    [t["manager_name"] for t in sorted_rooms],
+                    key=f"inspect_room_mgr_sel_{'redraft' if use_redraft else 'dynasty'}"
+                )
                 sel_room_data = next((r for r in room_data if r["manager_name"] == inspect_room_mgr), sorted_rooms[0])
 
                 st.markdown(f"#### {inspect_room_mgr} — Room Asset Breakdown")
-                col_q, col_r, col_w, col_t, col_pk = st.columns(5)
+                if show_picks:
+                    col_q, col_r, col_w, col_t, col_pk = st.columns(5)
+                else:
+                    col_q, col_r, col_w, col_t = st.columns(4)
+
                 with col_q:
                     st.metric("QB Room", f"{sel_room_data['qb_val']:,.0f} pts", f"Rank #{sel_room_data['qb_rank']}")
                     for name in sel_room_data['top_qbs']:
@@ -4107,10 +4166,11 @@ else:
                     st.metric("TE Room", f"{sel_room_data['te_val']:,.0f} pts", f"Rank #{sel_room_data['te_rank']}")
                     for name in sel_room_data['top_tes']:
                         st.caption(f"• {name}")
-                with col_pk:
-                    st.metric("Draft Capital", f"{sel_room_data['picks_val']:,.0f} pts", f"Rank #{sel_room_data['picks_rank']}")
-                    for name in sel_room_data['top_picks']:
-                        st.caption(f"• {name}")
+                if show_picks:
+                    with col_pk:
+                        st.metric("Draft Capital", f"{sel_room_data['picks_val']:,.0f} pts", f"Rank #{sel_room_data['picks_rank']}")
+                        for name in sel_room_data['top_picks']:
+                            st.caption(f"• {name}")
 
         if is_dynasty:
             sub_mc, sub_dyn, sub_rooms = st.tabs([
