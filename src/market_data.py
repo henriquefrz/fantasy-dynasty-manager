@@ -37,11 +37,15 @@ VALUATION_MODES = {
 
 
 def _download_csv(url):
-    response = requests.get(url, timeout=15)
-    response.raise_for_status()
-    csv_text = response.text
-    reader = csv.DictReader(io.StringIO(csv_text))
-    return list(reader)
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        csv_text = response.text
+        reader = csv.DictReader(io.StringIO(csv_text))
+        return list(reader)
+    except Exception as e:
+        print(f"Warning: Failed to download CSV from {url}: {e}")
+        return []
 
 
 def get_fp_rankings_raw():
@@ -470,6 +474,8 @@ def enrich_lookup_with_consensus_values(
     is_superflex=True,
     mode="equal",
     values_picks_raw=None,
+    *args,
+    **kwargs,
 ):
     """
     Enriches player lookup with market consensus:
@@ -482,8 +488,17 @@ def enrich_lookup_with_consensus_values(
     ktc_values = _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex) if ktc_raw else {}
     dp_values = _extract_dp_player_values(values_players_raw, player_ids_raw, is_superflex) if values_players_raw else {}
 
-    ktc_picks_map = _parse_ktc_picks(ktc_raw, is_superflex) if ktc_raw else {}
-    dp_picks_map = _parse_dp_picks(values_picks_raw, values_players_raw, is_superflex) if (values_picks_raw and values_players_raw) else {}
+    try:
+        ktc_picks_map = _parse_ktc_picks(ktc_raw, is_superflex) if ktc_raw else {}
+    except Exception as e:
+        print(f"Warning parsing KTC picks: {e}")
+        ktc_picks_map = {}
+
+    try:
+        dp_picks_map = _parse_dp_picks(values_picks_raw, values_players_raw, is_superflex) if (values_picks_raw and values_players_raw) else {}
+    except Exception as e:
+        print(f"Warning parsing DP picks: {e}")
+        dp_picks_map = {}
 
     # Extract DynastyProcess ECR overall and positional ranks as secondary fallback
     fp_id_to_sleeper = {
@@ -817,71 +832,81 @@ def _interpolate_value_from_ecr(curve, target_ecr):
 
 
 def _parse_dp_picks(values_picks_raw, values_players_raw=None, is_superflex=True):
-    ecr_col = "ecr_2qb" if is_superflex else "ecr_1qb"
-    val_col = "value_2qb" if is_superflex else "value_1qb"
+    try:
+        ecr_col = "ecr_2qb" if is_superflex else "ecr_1qb"
+        val_col = "value_2qb" if is_superflex else "value_1qb"
 
-    curve = _build_ecr_to_value_curve(values_players_raw, is_superflex) if values_players_raw else []
-    dp_picks = {}
-    pattern = re.compile(r"^(\d{4})\s+(?:(Early|Mid|Late)\s+)?(\d+)(?:st|nd|rd|th)$", re.IGNORECASE)
+        curve = _build_ecr_to_value_curve(values_players_raw, is_superflex) if values_players_raw else []
+        dp_picks = {}
+        pattern = re.compile(r"^(\d{4})\s+(?:(Early|Mid|Late)\s+)?(\d+)(?:st|nd|rd|th)$", re.IGNORECASE)
 
-    for row in values_picks_raw:
-        player_name = row.get("player", "").strip()
-        match = pattern.match(player_name)
-        if not match:
-            continue
+        for row in (values_picks_raw or []):
+            if not isinstance(row, dict):
+                continue
+            player_name = row.get("player", "").strip()
+            match = pattern.match(player_name)
+            if not match:
+                continue
 
-        season = match.group(1)
-        tier = (match.group(2) or "mid").lower()
-        round_num = int(match.group(3))
-
-        raw_val = row.get(val_col)
-        if raw_val and raw_val != "NA":
-            try:
-                val = float(raw_val)
-            except (ValueError, TypeError):
-                val = 0.0
-        elif curve and row.get(ecr_col):
-            try:
-                pick_ecr = float(row[ecr_col])
-                val = _interpolate_value_from_ecr(curve, pick_ecr)
-            except (ValueError, TypeError):
-                val = 0.0
-        else:
-            val = 0.0
-
-        dp_picks[(season, round_num, tier)] = val
-        if tier == "mid":
-            dp_picks[(season, round_num)] = val
-
-    return dp_picks
-
-
-def _parse_ktc_picks(ktc_raw, is_superflex=True):
-    ktc_picks = {}
-    if not ktc_raw:
-        return ktc_picks
-
-    val_key = "superflexValues" if is_superflex else "oneQBValues"
-    pattern = re.compile(r"^(\d{4})\s+(?:(Early|Mid|Late)\s+)?(\d+)(?:st|nd|rd|th)$", re.IGNORECASE)
-
-    for p in ktc_raw:
-        if p.get("position") != "RDP":
-            continue
-        name = p.get("playerName", "").strip()
-        match = pattern.match(name)
-        if match:
             season = match.group(1)
             tier = (match.group(2) or "mid").lower()
             round_num = int(match.group(3))
-            try:
-                val = float(p.get(val_key, {}).get("value", 0.0))
-                ktc_picks[(season, round_num, tier)] = val
-                if tier == "mid":
-                    ktc_picks[(season, round_num)] = val
-            except (ValueError, TypeError):
-                continue
 
-    return ktc_picks
+            raw_val = row.get(val_col)
+            if raw_val and raw_val != "NA":
+                try:
+                    val = float(raw_val)
+                except (ValueError, TypeError):
+                    val = 0.0
+            elif curve and row.get(ecr_col):
+                try:
+                    pick_ecr = float(row[ecr_col])
+                    val = _interpolate_value_from_ecr(curve, pick_ecr)
+                except (ValueError, TypeError):
+                    val = 0.0
+            else:
+                val = 0.0
+
+            dp_picks[(season, round_num, tier)] = val
+            if tier == "mid":
+                dp_picks[(season, round_num)] = val
+
+        return dp_picks
+    except Exception as e:
+        print(f"Warning parsing DP picks: {e}")
+        return {}
+
+
+def _parse_ktc_picks(ktc_raw, is_superflex=True):
+    try:
+        ktc_picks = {}
+        if not ktc_raw:
+            return ktc_picks
+
+        val_key = "superflexValues" if is_superflex else "oneQBValues"
+        pattern = re.compile(r"^(\d{4})\s+(?:(Early|Mid|Late)\s+)?(\d+)(?:st|nd|rd|th)$", re.IGNORECASE)
+
+        for p in (ktc_raw or []):
+            if not isinstance(p, dict) or p.get("position") != "RDP":
+                continue
+            name = p.get("playerName", "").strip()
+            match = pattern.match(name)
+            if match:
+                season = match.group(1)
+                tier = (match.group(2) or "mid").lower()
+                round_num = int(match.group(3))
+                try:
+                    val = float(p.get(val_key, {}).get("value", 0.0))
+                    ktc_picks[(season, round_num, tier)] = val
+                    if tier == "mid":
+                        ktc_picks[(season, round_num)] = val
+                except (ValueError, TypeError):
+                    continue
+
+        return ktc_picks
+    except Exception as e:
+        print(f"Warning parsing KTC picks: {e}")
+        return {}
 
 
 def _parse_fc_picks(fc_raw):

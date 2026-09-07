@@ -64,6 +64,12 @@ from src.market_data import (
 
 # Robust import with hot-reload for Streamlit Cloud daemon processes
 try:
+    import src.market_data
+    importlib.reload(src.market_data)
+except Exception:
+    pass
+
+try:
     import src.matching
     importlib.reload(src.matching)
     from src.matching import match_players_by_sleeper_id, get_player_avatar_url, get_team_logo_url, is_draft_pick_asset
@@ -1783,7 +1789,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v11_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v12_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -1799,10 +1805,16 @@ def fetch_market_database(_cache_version="v11_fantasy_analytics_executive"):
 
     # Positional lookups with raw constituent values preserved
     base_dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=True)
-    enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal", values_picks_raw=values_picks)
+    try:
+        enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal", values_picks_raw=values_picks)
+    except TypeError:
+        enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal")
 
     base_dynasty_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=False)
-    enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal", values_picks_raw=values_picks)
+    try:
+        enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal", values_picks_raw=values_picks)
+    except TypeError:
+        enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
     enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft)
