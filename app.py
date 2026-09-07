@@ -178,11 +178,16 @@ st.markdown(
 
     /* Global Container & Clean Layout */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 5.5rem !important;
         padding-bottom: 3rem !important;
         padding-left: 1.25rem !important;
         padding-right: 1.25rem !important;
         max-width: 1400px;
+    }
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 5.5rem !important;
+        }
     }
 
     /* Positional Micro-Badges */
@@ -704,7 +709,7 @@ def render_player_table_html(player_rows, show_equity=True):
     </table>
     </div>
     """
-    return html
+    return "\n".join(l.lstrip() for l in html.splitlines())
 
 
 def render_starter_card_grid_html(starters_rows):
@@ -760,11 +765,12 @@ def render_starter_card_grid_html(starters_rows):
         """
         card_items.append(card_html)
 
-    return f"""
+    full_html = f"""
     <div class='lineup-grid-container'>
         {''.join(card_items)}
     </div>
     """
+    return "\n".join(l.lstrip() for l in full_html.splitlines())
 
 
 def render_opponent_lineup_html(opp_rows):
@@ -811,7 +817,7 @@ def render_opponent_lineup_html(opp_rows):
     </table>
     </div>
     """
-    return html
+    return "\n".join(l.lstrip() for l in html.splitlines())
 
 
 # -----------------------------------------------------------------------------
@@ -1078,6 +1084,15 @@ sorted_leagues = sorted(leagues, key=get_league_sort_key)
 PORTAL_LABEL = "Portal: All Leagues Overview"
 league_options = [PORTAL_LABEL] + [l["name"] for l in sorted_leagues]
 
+def set_active_workspace(lid):
+    st.session_state["selected_league_id"] = lid
+    if lid is None:
+        st.session_state["top_workspace_selector"] = PORTAL_LABEL
+    else:
+        target = next((l["name"] for l in sorted_leagues if l["league_id"] == lid), None)
+        if target:
+            st.session_state["top_workspace_selector"] = target
+
 mode_keys = list(VALUATION_MODES.keys())
 mode_labels = [VALUATION_MODES[k] for k in mode_keys]
 selected_mode = st.session_state.get("selected_mode", "equal")
@@ -1106,34 +1121,36 @@ with top_col_brand:
     with c_home_btn:
         if st.session_state.get("selected_league_id") is not None:
             if st.button("Home", key="btn_top_bar_home", use_container_width=True):
-                st.session_state["selected_league_id"] = None
+                set_active_workspace(None)
                 st.rerun()
 
 with top_col_nav:
     cur_lid = st.session_state.get("selected_league_id")
-    cur_idx = 0
+    target_label = PORTAL_LABEL
     if cur_lid is not None:
-        for idx, lg in enumerate(sorted_leagues, start=1):
-            if lg.get("league_id") == cur_lid:
-                cur_idx = idx
-                break
+        target_lg = next((l for l in sorted_leagues if l.get("league_id") == cur_lid), None)
+        if target_lg:
+            target_label = target_lg["name"]
 
-    selected_option = st.selectbox(
+    if st.session_state.get("top_workspace_selector") != target_label:
+        st.session_state["top_workspace_selector"] = target_label
+
+    def on_top_workspace_changed():
+        val = st.session_state.get("top_workspace_selector")
+        if val == PORTAL_LABEL:
+            st.session_state["selected_league_id"] = None
+        else:
+            chosen = next((l for l in sorted_leagues if l["name"] == val), None)
+            if chosen:
+                st.session_state["selected_league_id"] = chosen["league_id"]
+
+    st.selectbox(
         "Active Workspace",
         league_options,
-        index=cur_idx,
         key="top_workspace_selector",
+        on_change=on_top_workspace_changed,
         label_visibility="collapsed"
     )
-    if selected_option == PORTAL_LABEL:
-        if st.session_state.get("selected_league_id") is not None:
-            st.session_state["selected_league_id"] = None
-            st.rerun()
-    else:
-        chosen_lg = next(l for l in sorted_leagues if l["name"] == selected_option)
-        if st.session_state.get("selected_league_id") != chosen_lg["league_id"]:
-            st.session_state["selected_league_id"] = chosen_lg["league_id"]
-            st.rerun()
 
 with top_col_cfg:
     with st.popover("Settings", use_container_width=True):
@@ -1271,26 +1288,38 @@ if st.session_state.get("selected_league_id") is None:
         if slots_str:
             format_str += f"<br/><span style='color: #64748b; font-size: 0.78rem;'>Starters: {slots_str}</span>"
 
+        if is_dyn:
+            d_str = f"#{d_pos}" if d_pos else "—"
+            r_str = f"#{r_pos}" if r_pos else "—"
+            rank_grid_html = f"""
+                <div><span style='color: #94a3b8;'>Dynasty:</span> <b>{d_str}/{total_rosters}</b></div>
+                <div><span style='color: #94a3b8;'>Contender:</span> <b>{r_str}/{total_rosters}</b></div>
+            """
+        else:
+            r_str = f"#{r_pos}" if r_pos else "—"
+            rank_grid_html = f"""
+                <div><span style='color: #94a3b8;'>Season Rank:</span> <b>{r_str}/{total_rosters}</b></div>
+            """
+
+        card_html = f"""
+        <div class='card-container card-highlight'>
+            <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+                <h4 style='margin-bottom: 4px;'>{lname}</h4>
+                {badge_html}
+            </div>
+            <div style='color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px;'>{format_str}</div>
+            <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; font-size: 0.88rem;'>
+                <div><span style='color: #94a3b8;'>Record:</span> <b>{w}-{l}</b></div>
+                <div><span style='color: #94a3b8;'>Points:</span> <b>{fpts:,.1f}</b></div>
+                {rank_grid_html}
+            </div>
+        </div>
+        """
+
         with col:
-            st.markdown(
-                f"""
-                <div class='card-container card-highlight'>
-                    <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
-                        <h4 style='margin-bottom: 4px;'>{lname}</h4>
-                        {badge_html}
-                    </div>
-                    <div style='color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px;'>{format_str}</div>
-                    <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; font-size: 0.88rem;'>
-                        <div><b>Record:</b> {w}-{l}</div>
-                        <div><b>Points:</b> {fpts:,.1f}</div>
-                        <div><b>Rank:</b> {rank_str}</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.html("\n".join(line.lstrip() for line in card_html.splitlines()))
             if st.button(f"Open Workspace →", key=f"btn_enter_{lid}", use_container_width=True):
-                st.session_state["selected_league_id"] = lid
+                set_active_workspace(lid)
                 st.rerun()
 
     # Quick Top Exposure Table on Front Page (Clean 44px Avatars)
@@ -1311,7 +1340,7 @@ if st.session_state.get("selected_league_id") is None:
                 "Consensus Value": f"{r['Consensus Value']:,.0f} pts",
                 "Equity Share": r.get("Exposure", "0%"),
             })
-        st.markdown(render_player_table_html(front_exp, show_equity=True), unsafe_allow_html=True)
+        st.html(render_player_table_html(front_exp, show_equity=True))
 
 
 # =============================================================================
@@ -1350,7 +1379,7 @@ else:
     if not user_roster or not user_roster.get("players"):
         st.warning("This league is currently in pre-draft status and has not drafted rosters yet.")
         if st.button("← Return to All Leagues", key="btn_predraft_back"):
-            st.session_state["selected_league_id"] = None
+            set_active_workspace(None)
             st.rerun()
         st.stop()
 
@@ -1737,32 +1766,32 @@ else:
                 )
             if starters_data:
                 if starter_view_mode == "Card Grid (Dashboard)":
-                    st.markdown(render_starter_card_grid_html(starters_data), unsafe_allow_html=True)
+                    st.html(render_starter_card_grid_html(starters_data))
                 else:
-                    st.markdown(render_player_table_html(starters_data, show_equity=True), unsafe_allow_html=True)
+                    st.html(render_player_table_html(starters_data, show_equity=True))
             else:
                 st.info("No active starters designated.")
 
         with roster_sub_bench:
             if bench_data:
-                st.markdown(render_player_table_html(bench_data, show_equity=True), unsafe_allow_html=True)
+                st.html(render_player_table_html(bench_data, show_equity=True))
             else:
                 st.info("No bench players detected.")
 
         with roster_sub_taxi:
             if taxi_data:
                 st.markdown("#### Taxi Squad Assets")
-                st.markdown(render_player_table_html(taxi_data, show_equity=True), unsafe_allow_html=True)
+                st.html(render_player_table_html(taxi_data, show_equity=True))
             if ir_data:
                 st.markdown("#### Injured Reserve (IR)")
-                st.markdown(render_player_table_html(ir_data, show_equity=True), unsafe_allow_html=True)
+                st.html(render_player_table_html(ir_data, show_equity=True))
             if not taxi_data and not ir_data:
                 st.info("No taxi squad or IR reserve players.")
 
         with roster_sub_all:
             all_roster_rows = starters_data + bench_data + taxi_data + ir_data
             all_roster_rows.sort(key=lambda x: x["_val"], reverse=True)
-            st.markdown(render_player_table_html(all_roster_rows, show_equity=True), unsafe_allow_html=True)
+            st.html(render_player_table_html(all_roster_rows, show_equity=True))
 
         # Draft Capital Table for Dynasty
         if is_dynasty and user_profile and user_profile.get("picks"):
@@ -1770,17 +1799,22 @@ else:
             st.markdown("### Future Draft Capital Portfolio")
             pick_rows = []
             for pk in user_profile["picks"]:
-                val = pk.get("market_value", 0.0)
+                val = pk.get("market_value") or 0.0
                 pick_rows.append({
                     "Draft Pick Asset": pk.get("name", "Draft Pick"),
                     "Season": pk.get("season", "—"),
                     "Round": f"Round {pk.get('round', '—')}",
-                    "Consensus Market Value": f"{val:,.0f} pts",
-                    "_val": val,
+                    "Consensus Market Value": f"{float(val):,.0f} pts",
+                    "_val": float(val),
                 })
-            pick_rows.sort(key=lambda x: x["_val"], reverse=True)
-            df_picks = pd.DataFrame(pick_rows).drop(columns=["_val"])
-            st.dataframe(df_picks, hide_index=True, use_container_width=True)
+            if pick_rows:
+                pick_rows.sort(key=lambda x: x["_val"], reverse=True)
+                df_picks = pd.DataFrame(pick_rows)
+                if "_val" in df_picks.columns:
+                    df_picks = df_picks.drop(columns=["_val"])
+                st.dataframe(df_picks, hide_index=True, use_container_width=True)
+            else:
+                st.info("No future draft picks recorded.")
 
 
     # =========================================================================
@@ -1867,7 +1901,7 @@ else:
 
         if opp_roster and opp_lineup_rows:
             with st.expander(f"View Opponent Starting Lineup ({opp_name})", expanded=False):
-                st.markdown(render_opponent_lineup_html(opp_lineup_rows), unsafe_allow_html=True)
+                st.html(render_opponent_lineup_html(opp_lineup_rows))
 
         # Optimization alerts
         if audit["start_sit_swaps"]:
@@ -1993,7 +2027,7 @@ else:
                     drops_html += f"<li><code>{c_name}</code> ({c_pos} • {c_val:,.0f} pts) ➔ Net Gain: <b>+{c_gain:,.0f} pts</b></li>"
                 drops_html += "</ul></div>"
 
-            return f"""
+            card_html = f"""
             <div class='card-container card-success'>
                 <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
                     <div style='display: flex; gap: 14px; align-items: center;'>
@@ -2020,6 +2054,7 @@ else:
                 </div>
             </div>
             """
+            return "\n".join(l.lstrip() for l in card_html.splitlines())
 
         # IR Slot Actions
         ir_suggestions = waivers.get("ir_suggestions", [])
@@ -2035,14 +2070,14 @@ else:
         if starter_upgrades:
             st.markdown("### Starting Lineup Upgrades")
             for s in starter_upgrades[:3]:
-                st.markdown(render_waiver_upgrade_card(s, is_starter=True), unsafe_allow_html=True)
+                st.html(render_waiver_upgrade_card(s, is_starter=True))
 
         # Bench Upgrades
         cross_upgrades = waivers.get("cross_pos_upgrades", [])
         if cross_upgrades:
             st.markdown("### Top Bench Upgrades")
             for s in cross_upgrades[:3]:
-                st.markdown(render_waiver_upgrade_card(s, is_starter=False), unsafe_allow_html=True)
+                st.html(render_waiver_upgrade_card(s, is_starter=False))
 
         # Empty state notification if no waiver suggestions found
         if not starter_upgrades and not cross_upgrades:
@@ -2076,14 +2111,37 @@ else:
 
             pid = fa.get("player_id")
             p_val_data = primary_lookup.get(pid, {})
-            val = p_val_data.get("market_value", 0.0)
+            val = float(p_val_data.get("market_value") or 0.0)
             ecr = p_val_data.get("rank_ecr_pos", p_val_data.get("rank_ecr", 999.0))
             o_ecr = p_val_data.get("rank_ecr_overall", 999.0)
             fc_v = p_val_data.get("fc_val")
             ktc_v = p_val_data.get("ktc_val")
             dp_v = p_val_data.get("dp_val")
-            pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
-            overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+
+            try:
+                pos_ecr_str = f"{pos}{int(float(ecr))}" if (ecr is not None and float(ecr) < 900) else "—"
+            except (ValueError, TypeError):
+                pos_ecr_str = "—"
+
+            try:
+                overall_ecr_str = f"#{int(float(o_ecr))}" if (o_ecr is not None and float(o_ecr) < 900) else "—"
+            except (ValueError, TypeError):
+                overall_ecr_str = "—"
+
+            try:
+                fc_str = f"{float(fc_v):,.0f}" if fc_v is not None else "—"
+            except (ValueError, TypeError):
+                fc_str = "—"
+
+            try:
+                ktc_str = f"{float(ktc_v):,.0f}" if ktc_v is not None else "—"
+            except (ValueError, TypeError):
+                ktc_str = "—"
+
+            try:
+                dp_str = f"{float(dp_v):,.0f}" if dp_v is not None else "—"
+            except (ValueError, TypeError):
+                dp_str = "—"
 
             fa_rows.append({
                 "Avatar": get_player_avatar_url(pid, pos, fa.get("team")),
@@ -2093,9 +2151,9 @@ else:
                 "Consensus Value": f"{val:,.0f} pts",
                 "Overall ECR": overall_ecr_str,
                 "Pos ECR": pos_ecr_str,
-                "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
-                "KeepTradeCut": f"{ktc_v:,.0f}" if ktc_v is not None else "—",
-                "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
+                "FantasyCalc": fc_str,
+                "KeepTradeCut": ktc_str,
+                "DynastyProcess": dp_str,
                 "_raw_val": val,
             })
 
@@ -2125,15 +2183,13 @@ else:
             team_expectations = {}
             for r in rosters:
                 rid = r["roster_id"]
-                exp_pts, std_dev = compute_team_lineup_expectation(
+                team_expectations[rid] = compute_team_lineup_expectation(
                     roster=r,
                     roster_players=all_rosters_players.get(rid, []),
-                    projections=weekly_projections,
+                    weekly_projections=weekly_projections,
                     scoring_settings=scoring,
                     roster_positions=roster_pos,
-                    redraft_lookup=redraft_lookup,
                 )
-                team_expectations[rid] = (exp_pts, std_dev)
 
             with st.spinner("Simulating remaining season (1,000 iterations)..."):
                 sim_results = run_monte_carlo_simulation(
@@ -2250,15 +2306,14 @@ else:
             give_html = ", ".join(f"<code>{a.get('name', 'Asset')}</code> ({a.get('market_value', 0):,.0f} pts)" for a in gives)
             recv_html = ", ".join(f"<code>{a.get('name', 'Asset')}</code> ({a.get('market_value', 0):,.0f} pts)" for a in recvs)
 
-            st.markdown(
+            st.html(
                 f"<div class='card-container card-highlight'>"
                 f"<h4>Proposal #{idx}: {arch} with {partner}</h4>"
                 f"<b>You Send:</b> {give_html} (Raw: {give_raw:,.0f} pts | Stud Adj: {eff_give:,.0f} pts)<br/>"
                 f"<b>You Receive:</b> {recv_html} (Raw: {recv_raw:,.0f} pts | Model 3: {eff_recv:,.0f} pts)<br/>"
                 f"<b>Net Differential:</b> <b>{diff_sign}{net_diff:,.0f} pts</b> ({status_label})<br/>"
                 f"<b>Rationale:</b> {why}"
-                f"</div>",
-                unsafe_allow_html=True,
+                f"</div>"
             )
             if show_chat_message:
                 send_names = " + ".join(a.get("name", "Asset") for a in gives)

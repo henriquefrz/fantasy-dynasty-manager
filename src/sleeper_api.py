@@ -56,10 +56,15 @@ def get_players():
 
 def get_roster_players(roster, players):
     roster_players = []
+    if isinstance(players, list):
+        p_dict = {p.get("player_id"): p for p in players if isinstance(p, dict)}
+    elif isinstance(players, dict):
+        p_dict = players
+    else:
+        p_dict = {}
 
-    for player_id in roster["players"]:
-        player = players.get(player_id)
-
+    for player_id in (roster.get("players") or []):
+        player = p_dict.get(player_id)
         if player:
             roster_players.append(player)
 
