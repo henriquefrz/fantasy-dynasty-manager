@@ -66,10 +66,10 @@ from src.market_data import (
 try:
     import src.matching
     importlib.reload(src.matching)
-    from src.matching import match_players_by_sleeper_id, get_player_avatar_url, get_team_logo_url
+    from src.matching import match_players_by_sleeper_id, get_player_avatar_url, get_team_logo_url, is_draft_pick_asset
 except Exception:
     try:
-        from src.matching import match_players_by_sleeper_id
+        from src.matching import match_players_by_sleeper_id, is_draft_pick_asset
     except Exception:
         def match_players_by_sleeper_id(sleeper_players, dynasty_lookup):
             matched, unmatched = [], []
@@ -82,12 +82,24 @@ except Exception:
                     unmatched.append(player)
             return matched, unmatched
 
+        def is_draft_pick_asset(player_id, player_name=None, position=None):
+            pid_str = str(player_id or "").strip()
+            if pid_str in ("8137", "8160"):
+                return False
+            pos_upper = str(position or "").upper()
+            if pos_upper in ("QB", "RB", "WR", "TE", "K", "DEF", "DST"):
+                return False
+            if pos_upper == "PICK" or pid_str.startswith("FP_") or pid_str.startswith("pick_"):
+                return True
+            pname_lower = str(player_name or "").lower()
+            return any(k in pname_lower for k in [" 1st", " 2nd", " 3rd", " 4th", " round ", "draft pick"])
+
     def get_player_avatar_url(player_id, position=None, team=None):
         if not player_id:
             return ""
         pos_upper = str(position or "").upper()
         pid_str = str(player_id).strip()
-        if pos_upper == "PICK" or pid_str.startswith("FP_") or pid_str.startswith("pick_") or "round" in pid_str.lower() or "pick" in pid_str.lower():
+        if is_draft_pick_asset(pid_str, position=pos_upper):
             return ""
         if pos_upper in ("DEF", "DST") or not pid_str.isdigit():
             team_code = (team or pid_str).lower()
@@ -984,32 +996,51 @@ def render_player_table_html(player_rows, show_equity=True):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
-def render_market_table_html(market_rows):
+def render_market_table_html(market_rows, is_redraft: bool = False):
     """
     Renders an executive table for Free Agents or Market Database with 44px avatars,
-    spacious rows (~56px), and consensus metrics.
+    spacious rows (~56px), and consensus metrics (dynasty or single-season).
     """
     if not market_rows:
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
 
-    html = """
-    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
-    <div class='table-responsive-wrapper'>
-    <table class='roster-table roster-table-market'>
-        <thead>
-            <tr>
-                <th style='width: 75px; text-align: center;'>Rank</th>
-                <th style='width: 28%; text-align: left;'>Player</th>
-                <th style='width: 12%; text-align: center;'>Overall Rank</th>
-                <th style='width: 12%; text-align: center;'>Pos Rank</th>
-                <th style='width: 16%; text-align: center;'>Consensus Value</th>
-                <th style='width: 11%; text-align: center;'>KeepTradeCut</th>
-                <th style='width: 11%; text-align: center;'>FantasyCalc</th>
-                <th style='width: 10%; text-align: center;'>DynastyProcess</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
+    if is_redraft:
+        html = """
+        <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+        <div class='table-responsive-wrapper'>
+        <table class='roster-table roster-table-market'>
+            <thead>
+                <tr>
+                    <th style='width: 75px; text-align: center;'>Rank</th>
+                    <th style='width: 32%; text-align: left;'>Player</th>
+                    <th style='width: 15%; text-align: center;'>Overall Rank</th>
+                    <th style='width: 15%; text-align: center;'>Pos Rank</th>
+                    <th style='width: 19%; text-align: center;'>Single-Season Value</th>
+                    <th style='width: 19%; text-align: center;'>FantasyCalc Redraft</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+    else:
+        html = """
+        <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+        <div class='table-responsive-wrapper'>
+        <table class='roster-table roster-table-market'>
+            <thead>
+                <tr>
+                    <th style='width: 75px; text-align: center;'>Rank</th>
+                    <th style='width: 28%; text-align: left;'>Player</th>
+                    <th style='width: 12%; text-align: center;'>Overall Rank</th>
+                    <th style='width: 12%; text-align: center;'>Pos Rank</th>
+                    <th style='width: 16%; text-align: center;'>Consensus Value</th>
+                    <th style='width: 11%; text-align: center;'>KeepTradeCut</th>
+                    <th style='width: 11%; text-align: center;'>FantasyCalc</th>
+                    <th style='width: 10%; text-align: center;'>DynastyProcess</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+
     for idx, r in enumerate(market_rows, start=1):
         pos = r.get("Pos", "UTIL")
         pname = r.get("Player", "Unknown")
@@ -1023,14 +1054,7 @@ def render_market_table_html(market_rows):
         fc = r.get("FantasyCalc", "—")
         dp = r.get("DynastyProcess", "—")
 
-        is_pick = (
-            pos == "PICK"
-            or pid.startswith("FP_")
-            or pid.startswith("pick_")
-            or "round" in pname.lower()
-            or "pick" in pname.lower()
-            or any(k in pname.lower() for k in [" 1st", " 2nd", " 3rd", " 4th"])
-        )
+        is_pick = False if is_redraft else is_draft_pick_asset(pid, pname, pos)
 
         if is_pick:
             avatar_img = "<div class='player-avatar-44' style='background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(126, 34, 206, 0.45) 100%); border: 1px solid rgba(168, 85, 247, 0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d8b4fe; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;'><span>PICK</span></div>"
@@ -1045,29 +1069,52 @@ def render_market_table_html(market_rows):
             else:
                 avatar_img = "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
 
-        html += f"""
-            <tr>
-                <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{rank_str}</td>
-                <td style='text-align: left;'>
-                    <div class='player-cell'>
-                        {avatar_img}
-                        <div class='player-info'>
-                            <span class='player-name'>{pname}</span>
-                            <div class='player-meta'>
-                                <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
-                                <span>{team}</span>
+        if is_redraft:
+            html += f"""
+                <tr>
+                    <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{rank_str}</td>
+                    <td style='text-align: left;'>
+                        <div class='player-cell'>
+                            {avatar_img}
+                            <div class='player-info'>
+                                <span class='player-name'>{pname}</span>
+                                <div class='player-meta'>
+                                    <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
+                                    <span>{team}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </td>
-                <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
-                <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
-                <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
-                <td style='text-align: center; color: #94a3b8;'>{fc}</td>
-                <td style='text-align: center; color: #94a3b8;'>{dp}</td>
-            </tr>
-        """
+                    </td>
+                    <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
+                    <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
+                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
+                    <td style='text-align: center; color: #94a3b8;'>{fc}</td>
+                </tr>
+            """
+        else:
+            html += f"""
+                <tr>
+                    <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{rank_str}</td>
+                    <td style='text-align: left;'>
+                        <div class='player-cell'>
+                            {avatar_img}
+                            <div class='player-info'>
+                                <span class='player-name'>{pname}</span>
+                                <div class='player-meta'>
+                                    <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
+                                    <span>{team}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
+                    <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
+                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
+                    <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
+                    <td style='text-align: center; color: #94a3b8;'>{fc}</td>
+                    <td style='text-align: center; color: #94a3b8;'>{dp}</td>
+                </tr>
+            """
     html += """
         </tbody>
     </table>
@@ -1076,9 +1123,9 @@ def render_market_table_html(market_rows):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
-def render_player_comparison_table_html(comparison_assets):
+def render_player_comparison_table_html(comparison_assets, is_redraft: bool = False):
     """
-    Renders an executive side-by-side comparison table for 2 or 3 players/picks.
+    Renders an executive side-by-side comparison table for 2 or 3 players/picks (dynasty or single-season).
     """
     if not comparison_assets or len(comparison_assets) < 2:
         return ""
@@ -1132,24 +1179,7 @@ def render_player_comparison_table_html(comparison_assets):
         pos_cells += f"<td style='text-align: center; font-weight: 700; color: #cbd5e1;'>{pos_str}</td>"
     pos_adv = "<span style='color: #94a3b8;'>Per Position Tier</span>"
 
-    # 4. KeepTradeCut Row
-    ktc_cells = ""
-    ktc_vals = [(p, float(p.get("ktc_val") or 0.0)) for p in comparison_assets if p.get("ktc_val") is not None]
-    if ktc_vals and max(x[1] for x in ktc_vals) > 0:
-        ktc_leader, ktc_max = max(ktc_vals, key=lambda x: x[1])
-        ktc_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{ktc_leader['name']} ({ktc_max:,.0f})</span>"
-    else:
-        ktc_max = None
-        ktc_adv = "—"
-
-    for p in comparison_assets:
-        kv = p.get("ktc_val")
-        kv_str = f"{float(kv):,.0f}" if kv is not None else "—"
-        is_ktc_lead = (kv is not None and float(kv) == ktc_max and ktc_max > 0)
-        color = "#38bdf8" if is_ktc_lead else "#94a3b8"
-        ktc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{kv_str}</td>"
-
-    # 5. FantasyCalc Row
+    # 4. FantasyCalc Row
     fc_cells = ""
     fc_vals = [(p, float(p.get("fc_val") or 0.0)) for p in comparison_assets if p.get("fc_val") is not None]
     if fc_vals and max(x[1] for x in fc_vals) > 0:
@@ -1166,24 +1196,7 @@ def render_player_comparison_table_html(comparison_assets):
         color = "#34d399" if is_fc_lead else "#94a3b8"
         fc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fv_str}</td>"
 
-    # 6. DynastyProcess Row
-    dp_cells = ""
-    dp_vals = [(p, float(p.get("dp_val") or 0.0)) for p in comparison_assets if p.get("dp_val") is not None]
-    if dp_vals and max(x[1] for x in dp_vals) > 0:
-        dp_leader, dp_max = max(dp_vals, key=lambda x: x[1])
-        dp_adv = f"<span style='color: #c084fc; font-weight: 700;'>{dp_leader['name']} ({dp_max:,.0f})</span>"
-    else:
-        dp_max = None
-        dp_adv = "—"
-
-    for p in comparison_assets:
-        dv = p.get("dp_val")
-        dv_str = f"{float(dv):,.0f}" if dv is not None else "—"
-        is_dp_lead = (dv is not None and float(dv) == dp_max and dp_max > 0)
-        color = "#c084fc" if is_dp_lead else "#94a3b8"
-        dp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{dv_str}</td>"
-
-    # 7. Age & Horizon Row
+    # 5. Age & Horizon Row
     age_cells = ""
     valid_ages = []
     for p in comparison_assets:
@@ -1210,14 +1223,70 @@ def render_player_comparison_table_html(comparison_assets):
         color = "#34d399" if is_youngest else "#94a3b8"
         age_cells += f"<td style='text-align: center; font-weight: 600; color: {color};'>{age_disp}</td>"
 
-    html = f"""
-    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full comparison</div>
-    <div class='table-responsive-wrapper' style='margin-top: 16px;'>
-    <table class='roster-table roster-table-market'>
-        <thead>
-            <tr>{headers}</tr>
-        </thead>
-        <tbody>
+    if is_redraft:
+        rows_html = f"""
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Consensus Value</td>
+                {val_cells}
+                <td style='text-align: center;'>{val_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Overall Rank</td>
+                {ovr_cells}
+                <td style='text-align: center;'>{ovr_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Pos Rank</td>
+                {pos_cells}
+                <td style='text-align: center;'>{pos_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc (Single-Season)</td>
+                {fc_cells}
+                <td style='text-align: center;'>{fc_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
+                {age_cells}
+                <td style='text-align: center;'>{age_adv}</td>
+            </tr>
+        """
+    else:
+        # 4. KeepTradeCut Row
+        ktc_cells = ""
+        ktc_vals = [(p, float(p.get("ktc_val") or 0.0)) for p in comparison_assets if p.get("ktc_val") is not None]
+        if ktc_vals and max(x[1] for x in ktc_vals) > 0:
+            ktc_leader, ktc_max = max(ktc_vals, key=lambda x: x[1])
+            ktc_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{ktc_leader['name']} ({ktc_max:,.0f})</span>"
+        else:
+            ktc_max = None
+            ktc_adv = "—"
+
+        for p in comparison_assets:
+            kv = p.get("ktc_val")
+            kv_str = f"{float(kv):,.0f}" if kv is not None else "—"
+            is_ktc_lead = (kv is not None and float(kv) == ktc_max and ktc_max > 0)
+            color = "#38bdf8" if is_ktc_lead else "#94a3b8"
+            ktc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{kv_str}</td>"
+
+        # 6. DynastyProcess Row
+        dp_cells = ""
+        dp_vals = [(p, float(p.get("dp_val") or 0.0)) for p in comparison_assets if p.get("dp_val") is not None]
+        if dp_vals and max(x[1] for x in dp_vals) > 0:
+            dp_leader, dp_max = max(dp_vals, key=lambda x: x[1])
+            dp_adv = f"<span style='color: #c084fc; font-weight: 700;'>{dp_leader['name']} ({dp_max:,.0f})</span>"
+        else:
+            dp_max = None
+            dp_adv = "—"
+
+        for p in comparison_assets:
+            dv = p.get("dp_val")
+            dv_str = f"{float(dv):,.0f}" if dv is not None else "—"
+            is_dp_lead = (dv is not None and float(dv) == dp_max and dp_max > 0)
+            color = "#c084fc" if is_dp_lead else "#94a3b8"
+            dp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{dv_str}</td>"
+
+        rows_html = f"""
             <tr>
                 <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Market Value</td>
                 {val_cells}
@@ -1253,6 +1322,17 @@ def render_player_comparison_table_html(comparison_assets):
                 {age_cells}
                 <td style='text-align: center;'>{age_adv}</td>
             </tr>
+        """
+
+    html = f"""
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full comparison</div>
+    <div class='table-responsive-wrapper' style='margin-top: 16px;'>
+    <table class='roster-table roster-table-market'>
+        <thead>
+            <tr>{headers}</tr>
+        </thead>
+        <tbody>
+            {rows_html}
         </tbody>
     </table>
     </div>
@@ -1703,7 +1783,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v10_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v11_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -1719,10 +1799,10 @@ def fetch_market_database(_cache_version="v10_fantasy_analytics_executive"):
 
     # Positional lookups with raw constituent values preserved
     base_dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=True)
-    enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal")
+    enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal", values_picks_raw=values_picks)
 
     base_dynasty_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=False)
-    enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
+    enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal", values_picks_raw=values_picks)
 
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
     enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft)
@@ -3711,11 +3791,6 @@ else:
             </div>
             """
             st.html(card_html)
-            if show_chat_message:
-                send_names = " + ".join(a.get("name", "Asset") for a in gives)
-                recv_names = " + ".join(a.get("name", "Asset") for a in recvs)
-                chat_msg = f"Hey {partner}, would you consider {send_names} for {recv_names}? Evaluated as fair on consensus market values."
-                st.code(chat_msg, language="markdown")
 
         trade_view = st.radio(
             "Trade Mode:",
@@ -3868,29 +3943,33 @@ else:
         st.subheader("Market Rankings & Player Database")
         st.caption("Explore comprehensive valuations and rankings for all players comparing KeepTradeCut, FantasyCalc, DynastyProcess, and Positional ECR.")
 
-        market_subview = st.radio(
-            "Market Section:",
-            ["📊 Market Player Database", "⚖️ Player Head-to-Head Comparison"],
-            horizontal=True,
-            key="market_subview_toggle",
-            label_visibility="collapsed",
-        )
+        c_fmt, c_sec = st.columns([1.1, 1], vertical_alignment="center")
+        with c_fmt:
+            ranking_scope = st.radio(
+                "Valuation Scope:",
+                ["🏆 Dynasty Market Values", "📅 Single-Season (Redraft / ROS)"],
+                horizontal=True,
+                key="mkt_ranking_scope",
+            )
+        with c_sec:
+            market_subview = st.radio(
+                "Market Section:",
+                ["📊 Market Player Database", "⚖️ Player Head-to-Head Comparison"],
+                horizontal=True,
+                key="market_subview_toggle",
+            )
+
+        is_redraft = ("Single-Season" in ranking_scope)
+        active_lookup = redraft_lookup if is_redraft else primary_lookup
 
         # Build unified market assets collection
         all_market_assets = []
-        for pid, p_data in primary_lookup.items():
+        for pid, p_data in active_lookup.items():
             p_obj = players.get(str(pid), {})
             pname = p_obj.get("full_name") or p_data.get("player_name") or str(pid)
             raw_pos = p_obj.get("position") or p_data.get("position") or "UTIL"
 
-            is_pick_asset = (
-                raw_pos == "PICK"
-                or str(pid).startswith("FP_")
-                or str(pid).startswith("pick_")
-                or "round" in pname.lower()
-                or "pick" in pname.lower()
-                or any(k in pname.lower() for k in [" 1st", " 2nd", " 3rd", " 4th"])
-            )
+            is_pick_asset = False if is_redraft else is_draft_pick_asset(pid, pname, raw_pos)
 
             pos = "PICK" if is_pick_asset else raw_pos
             team = "DRAFT" if is_pick_asset else (p_obj.get("team") or "FA")
@@ -3956,9 +4035,11 @@ else:
         if "Database" in market_subview:
             c_mkt1, c_mkt2 = st.columns([1, 2])
             with c_mkt1:
-                pos_mkt = st.selectbox("Position Filter:", ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"], key="mkt_pos_filter")
+                pos_options = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"] if is_redraft else ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"]
+                pos_mkt = st.selectbox("Position Filter:", pos_options, key=f"mkt_pos_filter_{'redraft' if is_redraft else 'dynasty'}")
             with c_mkt2:
-                search_mkt = st.text_input("Search Player / Team / Pick:", "", key="mkt_search_filter")
+                search_label = "Search Player / Team:" if is_redraft else "Search Player / Team / Pick:"
+                search_mkt = st.text_input(search_label, "", key=f"mkt_search_filter_{'redraft' if is_redraft else 'dynasty'}")
 
             filtered_rows = []
             for r in all_market_assets:
@@ -3971,23 +4052,28 @@ else:
             if filtered_rows:
                 c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
                 with c_mksort1:
+                    sort_options = (
+                        ["Consensus Value", "Overall Rank", "Pos Rank", "FantasyCalc", "Player Name"]
+                        if is_redraft
+                        else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
+                    )
                     sort_mkt_col = st.selectbox(
                         "Sort Market Players By:",
-                        ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
-                        key="mkt_sort_col"
+                        sort_options,
+                        key=f"mkt_sort_col_{'redraft' if is_redraft else 'dynasty'}"
                     )
                 with c_mksort2:
                     sort_mkt_order = st.selectbox(
                         "Order:",
                         ["Descending (High / Best)", "Ascending (Low)"],
-                        key="mkt_sort_order"
+                        key=f"mkt_sort_order_{'redraft' if is_redraft else 'dynasty'}"
                     )
                 with c_mksort3:
                     page_size_choice = st.selectbox(
                         "Items Per Page:",
                         [50, 100, 200, "All"],
                         index=1,
-                        key="mkt_page_size"
+                        key=f"mkt_page_size_{'redraft' if is_redraft else 'dynasty'}"
                     )
 
                 sorted_mkt = list(filtered_rows)
@@ -4027,7 +4113,7 @@ else:
                 # Pagination Controls Bar
                 c_p1, c_p2, c_p3 = st.columns([1, 2, 1], vertical_alignment="center")
                 with c_p1:
-                    if st.button("← Previous", key="mkt_prev_btn", disabled=(cur_page <= 1), use_container_width=True):
+                    if st.button("← Previous", key=f"mkt_prev_btn_{'redraft' if is_redraft else 'dynasty'}", disabled=(cur_page <= 1), use_container_width=True):
                         st.session_state["mkt_page"] = max(1, cur_page - 1)
                         st.rerun()
                 with c_p2:
@@ -4039,11 +4125,11 @@ else:
                         unsafe_allow_html=True
                     )
                 with c_p3:
-                    if st.button("Next →", key="mkt_next_btn", disabled=(cur_page >= total_pages), use_container_width=True):
+                    if st.button("Next →", key=f"mkt_next_btn_{'redraft' if is_redraft else 'dynasty'}", disabled=(cur_page >= total_pages), use_container_width=True):
                         st.session_state["mkt_page"] = min(total_pages, cur_page + 1)
                         st.rerun()
 
-                st.html(render_market_table_html(page_rows))
+                st.html(render_market_table_html(page_rows, is_redraft=is_redraft))
             else:
                 st.info("No players matched the filter criteria.")
 
@@ -4054,7 +4140,7 @@ else:
             st.markdown(
                 "<div style='margin: 8px 0 16px 0; color: #94a3b8; font-size: 0.88rem;'>"
                 "Compare 2 or 3 players or rookie draft picks side-by-side across consensus market values, "
-                "constituent platform models (KeepTradeCut, FantasyCalc, DynastyProcess), and expert ECR rankings."
+                "constituent platform models, and expert rankings."
                 "</div>",
                 unsafe_allow_html=True
             )
@@ -4073,7 +4159,7 @@ else:
                 preset_choice = st.selectbox(
                     "Quick Matchups:",
                     list(PRESET_MATCHUPS.keys()),
-                    key="cmp_preset_select"
+                    key=f"cmp_preset_select_{'redraft' if is_redraft else 'dynasty'}"
                 )
 
             # Resolve preset labels if chosen
@@ -4093,7 +4179,7 @@ else:
                     options=[a["label"] for a in all_market_assets],
                     default=default_cmp_labels[:3],
                     max_selections=3,
-                    key="cmp_players_multiselect" if not preset_labels else f"cmp_players_{preset_choice.replace(' ', '_')}",
+                    key=f"cmp_players_multiselect_{'redraft' if is_redraft else 'dynasty'}" if not preset_labels else f"cmp_players_{preset_choice.replace(' ', '_')}_{'redraft' if is_redraft else 'dynasty'}",
                     help="Search by player name or draft pick. Select 2 or 3 assets to compare side-by-side."
                 )
 
@@ -4124,32 +4210,36 @@ else:
 
                 # Source sentiment bullets
                 sentiment_bullets = []
-                if p1.get("ktc_val") and p2.get("ktc_val"):
-                    k_diff = float(p1["ktc_val"]) - float(p2["ktc_val"])
-                    if k_diff > 0:
-                        sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p1['name']}</b> (+{k_diff:,.0f} pts).")
-                    elif k_diff < 0:
-                        sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p2['name']}</b> (+{abs(k_diff):,.0f} pts).")
+                if not is_redraft:
+                    if p1.get("ktc_val") and p2.get("ktc_val"):
+                        k_diff = float(p1["ktc_val"]) - float(p2["ktc_val"])
+                        if k_diff > 0:
+                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p1['name']}</b> (+{k_diff:,.0f} pts).")
+                        elif k_diff < 0:
+                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p2['name']}</b> (+{abs(k_diff):,.0f} pts).")
 
                 if p1.get("fc_val") and p2.get("fc_val"):
                     f_diff = float(p1["fc_val"]) - float(p2["fc_val"])
+                    source_title = "FantasyCalc Redraft" if is_redraft else "FantasyCalc"
                     if f_diff > 0:
-                        sentiment_bullets.append(f"<span style='color: #34d399;'>FantasyCalc</span> real Sleeper trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
+                        sentiment_bullets.append(f"<span style='color: #34d399;'>{source_title}</span> real trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
                     elif f_diff < 0:
-                        sentiment_bullets.append(f"<span style='color: #34d399;'>FantasyCalc</span> real Sleeper trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
+                        sentiment_bullets.append(f"<span style='color: #34d399;'>{source_title}</span> real trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
 
-                if p1.get("dp_val") and p2.get("dp_val"):
-                    d_diff = float(p1["dp_val"]) - float(p2["dp_val"])
-                    if d_diff > 0:
-                        sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p1['name']}</b> (+{d_diff:,.0f} pts).")
-                    elif d_diff < 0:
-                        sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p2['name']}</b> (+{abs(d_diff):,.0f} pts).")
+                if not is_redraft:
+                    if p1.get("dp_val") and p2.get("dp_val"):
+                        d_diff = float(p1["dp_val"]) - float(p2["dp_val"])
+                        if d_diff > 0:
+                            sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p1['name']}</b> (+{d_diff:,.0f} pts).")
+                        elif d_diff < 0:
+                            sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p2['name']}</b> (+{abs(d_diff):,.0f} pts).")
 
                 # Executive Advantage Banner
+                lead_title = "Single-Season Value Leader" if is_redraft else "Consensus Value Leader"
                 verdict_html = f"""
                 <div style='background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 16px 20px; margin: 16px 0 20px 0;'>
                     <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;'>
-                        <span style='font-size: 0.76rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>Consensus Value Leader</span>
+                        <span style='font-size: 0.76rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>{lead_title}</span>
                         <span style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 0.8rem; font-weight: 800; border-radius: 9999px; padding: 3px 10px;'>
                             +{v_diff:,.0f} PTS (+{v_pct:.1f}%) ADVANTAGE
                         </span>
@@ -4187,6 +4277,45 @@ else:
                         fc_s = f"{float(asset['fc_val']):,.0f} pts" if asset.get("fc_val") is not None else "—"
                         dp_s = f"{float(asset['dp_val']):,.0f} pts" if asset.get("dp_val") is not None else "—"
 
+                        val_card_title = "Single-Season Market Value" if is_redraft else "Consensus Market Value"
+
+                        if is_redraft:
+                            constituent_grid = f"""
+                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
+                            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
+                                <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc Redraft</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                </div>
+                                <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Redraft Rank</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{asset['pos_ecr_str']}</div>
+                                </div>
+                            </div>
+                            """
+                        else:
+                            constituent_grid = f"""
+                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
+                            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
+                                <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #38bdf8; font-weight: 700;'>KeepTradeCut</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{ktc_s}</div>
+                                </div>
+                                <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                </div>
+                                <div style='background: rgba(168, 85, 247, 0.04); border: 1px solid rgba(168, 85, 247, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #c084fc; font-weight: 700;'>DynastyProcess</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{dp_s}</div>
+                                </div>
+                                <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Consensus ECR</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{asset['pos_ecr_str']}</div>
+                                </div>
+                            </div>
+                            """
+
                         card_html = f"""
                         <div class='card-container' style='height: 100%; border: 1px solid {border_c}; background: rgba(15, 23, 42, 0.75); border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
                             <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;'>
@@ -4207,7 +4336,7 @@ else:
                             </div>
 
                             <div style='background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;'>
-                                <div style='font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;'>Consensus Market Value</div>
+                                <div style='font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;'>{val_card_title}</div>
                                 <div style='display: flex; align-items: baseline; gap: 6px; margin-top: 2px;'>
                                     <span style='font-size: 1.55rem; font-weight: 800; color: #f8fafc;'>{asset['val']:,.0f}</span>
                                     <span style='color: #38bdf8; font-size: 0.8rem; font-weight: 700;'>PTS</span>
@@ -4218,31 +4347,13 @@ else:
                                 </div>
                             </div>
 
-                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
-                            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
-                                <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #38bdf8; font-weight: 700;'>KeepTradeCut</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{ktc_s}</div>
-                                </div>
-                                <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
-                                </div>
-                                <div style='background: rgba(168, 85, 247, 0.04); border: 1px solid rgba(168, 85, 247, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #c084fc; font-weight: 700;'>DynastyProcess</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{dp_s}</div>
-                                </div>
-                                <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Consensus ECR</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{asset['pos_ecr_str']}</div>
-                                </div>
-                            </div>
+                            {constituent_grid}
                         </div>
                         """
                         st.html(card_html)
 
                 # Render Detailed Table
-                st.html(render_player_comparison_table_html(selected_assets))
+                st.html(render_player_comparison_table_html(selected_assets, is_redraft=is_redraft))
 
 
     # =========================================================================

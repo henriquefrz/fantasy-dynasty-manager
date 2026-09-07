@@ -14,6 +14,27 @@ def match_players_by_sleeper_id(sleeper_players, dynasty_lookup):
     return matched, unmatched
 
 
+def is_draft_pick_asset(player_id, player_name=None, position=None):
+    """
+    Accurately identifies rookie draft picks without misclassifying NFL players
+    like George Pickens or Kenny Pickett.
+    """
+    pid_str = str(player_id or "").strip()
+    if pid_str in ("8137", "8160"):  # George Pickens, Kenny Pickett
+        return False
+    pos_upper = str(position or "").upper()
+    if pos_upper in ("QB", "RB", "WR", "TE", "K", "DEF", "DST"):
+        return False
+    if pos_upper == "PICK":
+        return True
+    if pid_str.startswith("FP_") or pid_str.startswith("pick_"):
+        return True
+    pname_lower = str(player_name or "").lower()
+    if any(k in pname_lower for k in [" 1st", " 2nd", " 3rd", " 4th", " round ", "draft pick"]):
+        return True
+    return False
+
+
 def get_player_avatar_url(player_id, position=None, team=None):
     """
     Returns Sleeper CDN thumbnail URL for an NFL player or team defense.
@@ -25,7 +46,7 @@ def get_player_avatar_url(player_id, position=None, team=None):
     pid_str = str(player_id).strip()
 
     # Draft Picks (no CDN thumbnail)
-    if pos_upper == "PICK" or pid_str.startswith("FP_") or pid_str.startswith("pick_") or "round" in pid_str.lower() or "pick" in pid_str.lower():
+    if is_draft_pick_asset(pid_str, position=pos_upper):
         return ""
 
     # Team Defense (DST / DEF)

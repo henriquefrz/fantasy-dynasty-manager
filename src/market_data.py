@@ -237,6 +237,47 @@ def _extract_fc_player_values(fc_raw):
     return fc_values
 
 
+def _extract_fc_player_metadata(fc_raw):
+    """
+    Extracts Sleeper ID -> dict(name, position) from FantasyCalc feed.
+    """
+    meta = {}
+    for item in (fc_raw or []):
+        player_info = item.get("player") or {}
+        sleeper_id = str(player_info.get("sleeperId") or "")
+        if sleeper_id and sleeper_id != "None":
+            name = player_info.get("name") or ""
+            pos = player_info.get("position") or ""
+            if sleeper_id.startswith("FP_"):
+                pos = "PICK"
+            meta[sleeper_id] = {"name": name, "position": pos}
+    return meta
+
+
+def parse_fp_pick_id(sid):
+    """
+    Parses a FantasyCalc pick ID (e.g. 'FP_2027_early_0' or 'FP_2027_1')
+    into (season_str, round_int, tier_str).
+    """
+    parts = str(sid).split("_")
+    if len(parts) == 4:
+        year = parts[1]
+        tier = parts[2].lower()
+        try:
+            r_num = int(parts[3]) + 1
+        except ValueError:
+            r_num = 1
+        return (year, r_num, tier)
+    elif len(parts) == 3:
+        year = parts[1]
+        try:
+            r_num = int(parts[2])
+        except ValueError:
+            r_num = 1
+        return (year, r_num, "mid")
+    return None
+
+
 def _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex=True):
     """
     Extracts Sleeper ID -> KeepTradeCut market value.
@@ -428,15 +469,21 @@ def enrich_lookup_with_consensus_values(
     fc_raw=None,
     is_superflex=True,
     mode="equal",
+    values_picks_raw=None,
 ):
     """
     Enriches player lookup with market consensus:
     Attaches individual values (fc_val, ktc_val, dp_val) and composite market_value.
     Defaults to Equal Share (33.3% FC / 33.3% KTC / 33.3% DP).
+    Accurately preserves draft pick names and resolves pick values from KTC and DP.
     """
     fc_values = _extract_fc_player_values(fc_raw) if fc_raw else {}
+    fc_meta = _extract_fc_player_metadata(fc_raw) if fc_raw else {}
     ktc_values = _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex) if ktc_raw else {}
     dp_values = _extract_dp_player_values(values_players_raw, player_ids_raw, is_superflex) if values_players_raw else {}
+
+    ktc_picks_map = _parse_ktc_picks(ktc_raw, is_superflex) if ktc_raw else {}
+    dp_picks_map = _parse_dp_picks(values_picks_raw, values_players_raw, is_superflex) if (values_picks_raw and values_players_raw) else {}
 
     # Extract DynastyProcess ECR overall and positional ranks as secondary fallback
     fp_id_to_sleeper = {
@@ -475,8 +522,24 @@ def enrich_lookup_with_consensus_values(
         ktc_val = ktc_values.get(pid)
         dp_val = dp_values.get(pid)
         p_data = lookup.get(pid, {})
-        rank_ecr = p_data.get("rank_ecr", dp_ecr_pos.get(pid, 999.0))
-        pos = p_data.get("position", "") or dp_positions.get(pid, "")
+
+        is_fc_pick = str(pid).startswith("FP_")
+        if is_fc_pick:
+            pick_k = parse_fp_pick_id(pid)
+            if pick_k:
+                if ktc_val is None:
+                    ktc_val = ktc_picks_map.get(pick_k)
+                if dp_val is None:
+                    dp_val = dp_picks_map.get(pick_k)
+            fc_m = fc_meta.get(pid, {})
+            p_name = fc_m.get("name") or str(pid)
+            pos = "PICK"
+            rank_ecr = p_data.get("rank_ecr", 999.0)
+        else:
+            fc_m = fc_meta.get(pid, {})
+            p_name = dp_player_names.get(pid) or fc_m.get("name") or ""
+            pos = p_data.get("position", "") or dp_positions.get(pid, "") or fc_m.get("position", "")
+            rank_ecr = p_data.get("rank_ecr", dp_ecr_pos.get(pid, 999.0))
 
         composite = compute_composite_value(fc_val, ktc_val, dp_val, mode=mode, rank_ecr=rank_ecr, position=pos)
 
@@ -489,17 +552,17 @@ def enrich_lookup_with_consensus_values(
                 lookup[pid]["rank_ecr_overall"] = dp_ecr_overall[pid]
             if lookup[pid].get("rank_ecr_pos", 999.0) >= 999.0 and pid in dp_ecr_pos:
                 lookup[pid]["rank_ecr_pos"] = dp_ecr_pos[pid]
-            if not lookup[pid].get("player_name") and pid in dp_player_names:
-                lookup[pid]["player_name"] = dp_player_names[pid]
-            if not lookup[pid].get("position") and pid in dp_positions:
-                lookup[pid]["position"] = dp_positions[pid]
+            if not lookup[pid].get("player_name"):
+                lookup[pid]["player_name"] = p_name
+            if not lookup[pid].get("position"):
+                lookup[pid]["position"] = pos
         else:
             lookup[pid] = {
-                "rank_ecr": dp_ecr_pos.get(pid, 999.0),
-                "rank_ecr_pos": dp_ecr_pos.get(pid, 999.0),
-                "rank_ecr_overall": dp_ecr_overall.get(pid, 999.0),
-                "player_name": dp_player_names.get(pid, ""),
-                "position": dp_positions.get(pid, ""),
+                "rank_ecr": dp_ecr_pos.get(pid, 999.0) if not is_fc_pick else 999.0,
+                "rank_ecr_pos": dp_ecr_pos.get(pid, 999.0) if not is_fc_pick else 999.0,
+                "rank_ecr_overall": dp_ecr_overall.get(pid, 999.0) if not is_fc_pick else 999.0,
+                "player_name": p_name,
+                "position": pos,
                 "market_value": composite,
                 "fc_val": fc_val,
                 "ktc_val": ktc_val,
