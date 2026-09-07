@@ -141,7 +141,8 @@ from src.trade_finder import (
     find_targeted_sell_trades,
 )
 
-USERNAME = "henriquefrz"
+DEFAULT_USERNAME = "henriquefrz"
+ALLOWED_USERS = ["henriquefrz", "LucasFrazao"]
 
 # -----------------------------------------------------------------------------
 # Streamlit Page Setup & Custom Mobile-Responsive CSS
@@ -153,12 +154,20 @@ st.set_page_config(
     page_title="Fantasy Analytics",
     page_icon=PAGE_ICON,
     layout="wide",
-    initial_sidebar_state="auto",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
     """
     <style>
+    /* Complete Sidebar Elimination */
+    [data-testid="stSidebar"],
+    [data-testid="collapsedControl"],
+    section[data-testid="stSidebar"],
+    button[data-testid="baseButton-headerNoPadding"] {
+        display: none !important;
+    }
+
     /* Fixed Streamlit Header Styling */
     header[data-testid="stHeader"] {
         background: rgba(11, 15, 23, 0.95) !important;
@@ -169,7 +178,7 @@ st.markdown(
 
     /* Global Container & Clean Layout */
     .block-container {
-        padding-top: 5rem !important;
+        padding-top: 2rem !important;
         padding-bottom: 3rem !important;
         padding-left: 1.25rem !important;
         padding-right: 1.25rem !important;
@@ -377,6 +386,200 @@ st.markdown(
         font-variant-numeric: tabular-nums;
     }
 
+    /* Glowing Posture Capsules */
+    .status-glow-win, .status-glow-contender {
+        background: rgba(14, 165, 233, 0.15) !important;
+        color: #38bdf8 !important;
+        border: 1px solid #38bdf8 !important;
+        box-shadow: 0 0 14px rgba(56, 189, 248, 0.35) !important;
+    }
+    .status-glow-rebuild {
+        background: rgba(16, 185, 129, 0.15) !important;
+        color: #34d399 !important;
+        border: 1px solid #34d399 !important;
+        box-shadow: 0 0 14px rgba(52, 211, 153, 0.35) !important;
+    }
+    .status-glow-neutral, .status-glow-bubble {
+        background: rgba(245, 158, 11, 0.15) !important;
+        color: #fbbf24 !important;
+        border: 1px solid #fbbf24 !important;
+        box-shadow: 0 0 14px rgba(251, 191, 36, 0.35) !important;
+    }
+
+    /* Dashboard Key Stats & Playoff Probability Cards */
+    .dash-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .dash-stat-box {
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 12px 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    .dash-stat-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 4px;
+    }
+    .dash-stat-value {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #f8fafc;
+        letter-spacing: -0.01em;
+    }
+    .dash-stat-sub {
+        font-size: 0.74rem;
+        color: #64748b;
+        margin-top: 2px;
+    }
+    .prob-card-container {
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    .prob-title {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+    }
+    .prob-item {
+        margin-bottom: 8px;
+    }
+    .prob-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 3px;
+    }
+    .prob-track {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 9999px;
+        overflow: hidden;
+    }
+    .prob-fill {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.3s ease;
+    }
+
+    /* Lineup Overview Card Grid */
+    .lineup-grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+        margin-bottom: 20px;
+    }
+    .lineup-card {
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+    .lineup-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(56, 189, 248, 0.4);
+        box-shadow: 0 8px 20px rgba(56, 189, 248, 0.15);
+    }
+    .lineup-card-header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .lineup-card-team {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .lineup-avatar-wrap {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        padding: 2px;
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.5) 0%, rgba(139, 92, 246, 0.3) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+    .lineup-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #1e293b;
+    }
+    .lineup-card-body {
+        width: 100%;
+        text-align: center;
+    }
+    .lineup-name {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #f8fafc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 8px;
+    }
+    .lineup-stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 8px;
+        padding: 6px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .lineup-stat-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .lineup-stat-label {
+        font-size: 0.62rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    .lineup-stat-val {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: #e2e8f0;
+    }
+    .text-cyan {
+        color: #38bdf8 !important;
+    }
+    .text-gold {
+        color: #fbbf24 !important;
+    }
+
     /* Mobile Responsive Optimizations */
     @media (max-width: 768px) {
         .block-container {
@@ -502,6 +705,66 @@ def render_player_table_html(player_rows, show_equity=True):
     </div>
     """
     return html
+
+
+def render_starter_card_grid_html(starters_rows):
+    """
+    Renders modern dashboard starter cards inspired by cyberpunk sports UI.
+    Each card shows slot badge, 52px circular player headshot, player name,
+    positional ECR, overall ECR, and consensus value.
+    """
+    if not starters_rows:
+        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No active starters designated.</p>"
+
+    card_items = []
+    for s in starters_rows:
+        slot = s.get("Slot", "FLEX")
+        player = s.get("Player", "")
+        pos = s.get("Pos", "WR")
+        team = s.get("NFL Team", "FA")
+        avatar = s.get("Avatar") or "https://sleepercdn.com/images/v2/icons/player_default.webp"
+        pos_ecr = s.get("Pos ECR", "—")
+        overall_ecr = s.get("Overall ECR", "—")
+        val = s.get("Consensus Value", "0 pts")
+        eq = s.get("Equity Share", "0.0%")
+
+        pos_class = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
+
+        card_html = f"""
+        <div class='lineup-card'>
+            <div class='lineup-card-header'>
+                <span class='badge-pos {pos_class}'>{slot}</span>
+                <span class='lineup-card-team'>{team}</span>
+            </div>
+            <div class='lineup-avatar-wrap'>
+                <img src='{avatar}' class='lineup-avatar' alt='{player}' onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';" />
+            </div>
+            <div class='lineup-card-body'>
+                <div class='lineup-name' title='{player}'>{player}</div>
+                <div class='lineup-stats-grid'>
+                    <div class='lineup-stat-box'>
+                        <div class='lineup-stat-label'>POS ECR</div>
+                        <div class='lineup-stat-val text-cyan'>{pos_ecr}</div>
+                    </div>
+                    <div class='lineup-stat-box'>
+                        <div class='lineup-stat-label'>OVERALL</div>
+                        <div class='lineup-stat-val'>{overall_ecr}</div>
+                    </div>
+                    <div class='lineup-stat-box' style='grid-column: span 2;'>
+                        <div class='lineup-stat-label'>MARKET VALUE ({eq})</div>
+                        <div class='lineup-stat-val text-gold'>{val}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+        card_items.append(card_html)
+
+    return f"""
+    <div class='lineup-grid-container'>
+        {''.join(card_items)}
+    </div>
+    """
 
 
 def render_opponent_lineup_html(opp_rows):
@@ -779,33 +1042,24 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
 # -----------------------------------------------------------------------------
 if "selected_league_id" not in st.session_state:
     st.session_state["selected_league_id"] = None
+if "active_user_handle" not in st.session_state:
+    st.session_state["active_user_handle"] = DEFAULT_USERNAME
+if "selected_mode" not in st.session_state:
+    st.session_state["selected_mode"] = "equal"
 
-
-# -----------------------------------------------------------------------------
-# Sidebar: Branding, User Connection, and Navigation
-# -----------------------------------------------------------------------------
-if os.path.exists(LOGO_PATH):
-    st.sidebar.image(LOGO_PATH, use_container_width=True)
-
-st.sidebar.markdown("### Fantasy Analytics")
-st.sidebar.caption("Intelligent Multi-League & Dynasty Portfolio Management")
-
-input_username = st.sidebar.text_input(
-    "Sleeper Username",
-    value=USERNAME,
-    help="Enter any Sleeper username to analyze their leagues, rankings, and roster portfolio."
-).strip()
-active_user_handle = input_username if input_username else USERNAME
+active_user_handle = st.session_state["active_user_handle"]
+if active_user_handle not in ALLOWED_USERS:
+    active_user_handle = ALLOWED_USERS[0]
+    st.session_state["active_user_handle"] = active_user_handle
 
 with st.spinner(f"Connecting to Sleeper (@{active_user_handle}) & Market Feeds..."):
     market_db = fetch_market_database()
     try:
         user, active_season, active_week, leagues = fetch_user_and_leagues(active_user_handle)
     except Exception:
-        st.sidebar.error(f"User @{active_user_handle} not found. Reverting to @{USERNAME}.")
-        user, active_season, active_week, leagues = fetch_user_and_leagues(USERNAME)
-
-st.sidebar.caption(f"Connected: **@{user['username']}** | Season: **{active_season}** (Wk {active_week})")
+        active_user_handle = DEFAULT_USERNAME
+        st.session_state["active_user_handle"] = DEFAULT_USERNAME
+        user, active_season, active_week, leagues = fetch_user_and_leagues(DEFAULT_USERNAME)
 
 # League sorting
 def get_league_sort_key(lg):
@@ -821,57 +1075,113 @@ def get_league_sort_key(lg):
     return 10
 
 sorted_leagues = sorted(leagues, key=get_league_sort_key)
-
-# Sidebar: League Switcher
 PORTAL_LABEL = "Portal: All Leagues Overview"
 league_options = [PORTAL_LABEL] + [l["name"] for l in sorted_leagues]
 
-current_lid = st.session_state.get("selected_league_id")
-default_idx = 0
-if current_lid is not None:
-    for idx, lg in enumerate(sorted_leagues, start=1):
-        if lg.get("league_id") == current_lid:
-            default_idx = idx
-            break
-
-selected_option = st.sidebar.selectbox("Active Workspace:", league_options, index=default_idx)
-
-if selected_option == PORTAL_LABEL:
-    if st.session_state.get("selected_league_id") is not None:
-        st.session_state["selected_league_id"] = None
-        st.rerun()
-else:
-    chosen_lg = next(l for l in sorted_leagues if l["name"] == selected_option)
-    if st.session_state.get("selected_league_id") != chosen_lg["league_id"]:
-        st.session_state["selected_league_id"] = chosen_lg["league_id"]
-        st.rerun()
-
-# Sidebar: Valuation Mode Switcher
-st.sidebar.markdown("---")
-st.sidebar.markdown("#### Valuation Consensus Model")
 mode_keys = list(VALUATION_MODES.keys())
 mode_labels = [VALUATION_MODES[k] for k in mode_keys]
-selected_mode_label = st.sidebar.selectbox(
-    "Active Valuation Engine:",
-    mode_labels,
-    index=0,
-    help="Determines how players and draft picks are evaluated across all tabs."
+selected_mode = st.session_state.get("selected_mode", "equal")
+if selected_mode not in mode_keys:
+    selected_mode = "equal"
+
+# -----------------------------------------------------------------------------
+# Top Navigation Bar (Upper Bar)
+# -----------------------------------------------------------------------------
+top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
+    [2.8, 3.4, 1.6, 2.2], vertical_alignment="center"
 )
-selected_mode = mode_keys[mode_labels.index(selected_mode_label)]
 
-# Sidebar: Market Freshness Status
-st.sidebar.markdown("---")
-with st.sidebar.expander("Market Data Freshness", expanded=False):
-    fresh = market_db.get("freshness", {})
-    ktc_stat = (fresh.get("ktc") or fresh.get("keeptradecut") or {}).get("status", "Live Current")
-    fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
-    dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
-    fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
-    st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
-    st.markdown(f"**FantasyCalc:** `{fc_stat}`")
-    st.markdown(f"**DynastyProcess:** `{dp_stat}`")
-    st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
+with top_col_brand:
+    c_brand_info, c_home_btn = st.columns([1.6, 1.0], vertical_alignment="center")
+    with c_brand_info:
+        st.markdown(
+            """
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 900; font-size: 1.15rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
+                <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    with c_home_btn:
+        if st.session_state.get("selected_league_id") is not None:
+            if st.button("Home", key="btn_top_bar_home", use_container_width=True):
+                st.session_state["selected_league_id"] = None
+                st.rerun()
 
+with top_col_nav:
+    cur_lid = st.session_state.get("selected_league_id")
+    cur_idx = 0
+    if cur_lid is not None:
+        for idx, lg in enumerate(sorted_leagues, start=1):
+            if lg.get("league_id") == cur_lid:
+                cur_idx = idx
+                break
+
+    selected_option = st.selectbox(
+        "Active Workspace",
+        league_options,
+        index=cur_idx,
+        key="top_workspace_selector",
+        label_visibility="collapsed"
+    )
+    if selected_option == PORTAL_LABEL:
+        if st.session_state.get("selected_league_id") is not None:
+            st.session_state["selected_league_id"] = None
+            st.rerun()
+    else:
+        chosen_lg = next(l for l in sorted_leagues if l["name"] == selected_option)
+        if st.session_state.get("selected_league_id") != chosen_lg["league_id"]:
+            st.session_state["selected_league_id"] = chosen_lg["league_id"]
+            st.rerun()
+
+with top_col_cfg:
+    with st.popover("Settings", use_container_width=True):
+        st.markdown("#### Valuation Consensus Model")
+        cur_m_idx = mode_keys.index(selected_mode) if selected_mode in mode_keys else 0
+        selected_mode_label = st.selectbox(
+            "Consensus Engine:",
+            mode_labels,
+            index=cur_m_idx,
+            help="Determines how players and draft picks are evaluated across all tabs."
+        )
+        new_mode = mode_keys[mode_labels.index(selected_mode_label)]
+        if new_mode != st.session_state.get("selected_mode"):
+            st.session_state["selected_mode"] = new_mode
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown("#### Market Data Freshness")
+        fresh = market_db.get("freshness", {})
+        ktc_stat = (fresh.get("ktc") or fresh.get("keeptradecut") or {}).get("status", "Live Current")
+        fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
+        dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
+        fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
+        st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
+        st.markdown(f"**FantasyCalc:** `{fc_stat}`")
+        st.markdown(f"**DynastyProcess:** `{dp_stat}`")
+        st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
+        st.markdown("---")
+        if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+with top_col_user:
+    user_idx = ALLOWED_USERS.index(active_user_handle) if active_user_handle in ALLOWED_USERS else 0
+    selected_u = st.selectbox(
+        "Sleeper Account",
+        ALLOWED_USERS,
+        index=user_idx,
+        format_func=lambda u: f"@{u}",
+        key="top_account_selector",
+        label_visibility="collapsed"
+    )
+    if selected_u != st.session_state.get("active_user_handle"):
+        st.session_state["active_user_handle"] = selected_u
+        st.session_state["selected_league_id"] = None
+        st.rerun()
+
+st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
 
 # Prepare Primary Lookup
 players = market_db["players"]
@@ -1208,6 +1518,11 @@ else:
     with tab_hub:
         st.subheader(f"Franchise Executive Dashboard: {selected_league_name}")
 
+        owner_user = next((u for u in users if u.get("user_id") == user["user_id"]), {})
+        team_name = (owner_user.get("metadata") or {}).get("team_name") or owner_user.get("display_name") or f"Team {user_roster.get('roster_id')}"
+        user_avatar_id = owner_user.get("avatar") or user.get("avatar")
+        team_avatar = f"https://sleepercdn.com/avatars/thumbs/{user_avatar_id}" if user_avatar_id else "https://sleepercdn.com/images/v2/icons/player_default.webp"
+
         settings = user_roster.get("settings", {})
         wins = settings.get("wins", 0)
         losses = settings.get("losses", 0)
@@ -1218,58 +1533,118 @@ else:
         fpts_against = settings.get("fpts_against", 0) + (settings.get("fpts_against_decimal", 0) / 100.0)
         diff = fpts - fpts_against
 
-        col_h1, col_h2, col_h3 = st.columns([1.2, 1, 1])
-        with col_h1:
-            if team_cat == "win":
-                traj_badge = "<span class='status-capsule status-contender'>CONTENDER</span>"
-            elif team_cat == "rebuild":
-                traj_badge = "<span class='status-capsule status-rebuild'>REBUILD</span>"
-            else:
-                traj_badge = "<span class='status-capsule status-bubble'>BUBBLE</span>"
+        # Scoring rank calculation
+        sorted_by_pf = sorted(rosters, key=lambda r: (r.get("settings", {}).get("fpts", 0) + r.get("settings", {}).get("fpts_decimal", 0)/100.0), reverse=True)
+        scoring_rank = 1
+        for s_i, s_r in enumerate(sorted_by_pf, start=1):
+            if s_r.get("roster_id") == user_roster.get("roster_id"):
+                scoring_rank = s_i
+                break
 
+        # Projected finish and probabilities
+        fpg = (fpts / total_games) if total_games > 0 else (user_profile.get("projected_weekly_score", 0.0) if user_profile else 0.0)
+        total_teams = max(len(rosters), 1)
+        if redraft_pos:
+            raw_playoff = max(5.0, min(98.0, (1.0 - (redraft_pos - 1) / total_teams) * 100.0))
+            if total_games > 0:
+                win_weight = min(0.85, 0.2 + 0.05 * total_games)
+                playoff_prob = round(raw_playoff * (1.0 - win_weight) + win_pct * win_weight, 1)
+            else:
+                playoff_prob = round(raw_playoff, 1)
+        else:
+            playoff_prob = 50.0
+
+        finalist_prob = round(max(2.0, min(95.0, playoff_prob * 0.68)), 1)
+        champion_prob = round(max(1.0, min(85.0, finalist_prob * 0.45)), 1)
+
+        clean_status = team_status.split("(")[0].strip() if team_status else "Active"
+        glow_badge_class = f"status-glow-{team_cat}"
+        format_badge = f"{'Dynasty' if is_dynasty else 'Redraft'} • {'Superflex' if is_superflex else '1QB'} • {len(rosters)} Teams"
+        if tep_bonus > 0:
+            format_badge += f" • +{tep_bonus:g} TEP"
+
+        # 1. Team Identity Hero Banner
+        st.markdown(
+            f"""
+            <div style='display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(17, 24, 39, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px 22px; margin-bottom: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.35);'>
+                <div style='display: flex; align-items: center; gap: 16px;'>
+                    <img src='{team_avatar}' style='width: 50px; height: 50px; border-radius: 50%; border: 2px solid #38bdf8; object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                    <div>
+                        <div style='font-size: 1.35rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em;'>{team_name}</div>
+                        <div style='font-size: 0.82rem; color: #94a3b8; margin-top: 2px;'>{format_badge}</div>
+                    </div>
+                </div>
+                <div>
+                    <span class='status-capsule {glow_badge_class}' style='font-size: 0.85rem; padding: 6px 14px; border-radius: 9999px; font-weight: 800; letter-spacing: 0.08em;'>{clean_status}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # 2. Executive Dashboard Row (Key Stats & Playoff Probability)
+        col_dash_left, col_dash_right = st.columns([1.2, 1.0])
+        with col_dash_left:
             st.markdown(
-                f"<div class='card-container card-highlight'>"
-                f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>"
-                f"<b>Strategic Posture:</b> {traj_badge}"
-                f"</div>"
-                f"<b>Status:</b> {team_status}<br/>"
-                f"<b>Format:</b> {'Dynasty' if is_dynasty else 'Redraft'} • {'Superflex' if is_superflex else '1QB'} ({len(rosters)} Teams)"
-                f"</div>",
+                f"""
+                <div class='dash-stat-grid'>
+                    <div class='dash-stat-box'>
+                        <div class='dash-stat-label'>AVG FP / GM</div>
+                        <div class='dash-stat-value text-cyan'>{fpg:,.1f}</div>
+                        <div class='dash-stat-sub'>PF: {fpts:,.1f} pts</div>
+                    </div>
+                    <div class='dash-stat-box'>
+                        <div class='dash-stat-label'>SCORING RANK</div>
+                        <div class='dash-stat-value'>#{scoring_rank} <span style='font-size: 0.8rem; font-weight: 500; color: #64748b;'>of {len(rosters)}</span></div>
+                        <div class='dash-stat-sub'>Differential: {'+' if diff >= 0 else ''}{diff:,.1f}</div>
+                    </div>
+                    <div class='dash-stat-box'>
+                        <div class='dash-stat-label'>SEASON RECORD</div>
+                        <div class='dash-stat-value'>{wins}-{losses}{f'-{ties}' if ties > 0 else ''}</div>
+                        <div class='dash-stat-sub'>{win_pct:.1f}% Win Rate</div>
+                    </div>
+                    <div class='dash-stat-box'>
+                        <div class='dash-stat-label'>PROJ. FINISH</div>
+                        <div class='dash-stat-value text-gold'>#{redraft_pos if redraft_pos else '—'}</div>
+                        <div class='dash-stat-sub'>Tier: {team_status}</div>
+                    </div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
-        with col_h2:
+        with col_dash_right:
+            dyn_pos_txt = f"#{dynasty_pos} of {dynasty_total}" if (is_dynasty and dynasty_pos) else "—"
+            red_pos_txt = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "—"
+            tot_val_txt = f"{user_profile['total_value']:,.0f} pts" if user_profile else "—"
+            starter_val_txt = f"{user_profile['starter_value']:,.0f} pts" if user_profile else "—"
+            bench_val_txt = f"{user_profile['bench_value']:,.0f} pts" if user_profile else "—"
+
             st.markdown(
-                f"<div class='card-container'>"
-                f"<b>Standings:</b> {wins}W - {losses}L{f' - {ties}T' if ties > 0 else ''} ({win_pct:.1f}%)<br/>"
-                f"<b>Points For (PF):</b> {fpts:,.1f} pts<br/>"
-                f"<b>Points Against (PA):</b> {fpts_against:,.1f} pts (<b>{'+' if diff >= 0 else ''}{diff:,.1f}</b>)"
-                f"</div>",
+                f"""
+                <div class='prob-card-container'>
+                    <div class='prob-title'>Playoff & Contender Probability</div>
+                    <div class='prob-item'>
+                        <div class='prob-labels'><span>Playoff Contender</span><span style='color: #38bdf8; font-weight: 700;'>{playoff_prob:.0f}%</span></div>
+                        <div class='prob-track'><div class='prob-fill' style='width: {playoff_prob}%; background: linear-gradient(90deg, #06b6d4, #38bdf8);'></div></div>
+                    </div>
+                    <div class='prob-item'>
+                        <div class='prob-labels'><span>Finalist / Top 2</span><span style='color: #22d3ee; font-weight: 700;'>{finalist_prob:.0f}%</span></div>
+                        <div class='prob-track'><div class='prob-fill' style='width: {finalist_prob}%; background: linear-gradient(90deg, #0284c7, #06b6d4);'></div></div>
+                    </div>
+                    <div class='prob-item'>
+                        <div class='prob-labels'><span>Championship</span><span style='color: #c084fc; font-weight: 700;'>{champion_prob:.0f}%</span></div>
+                        <div class='prob-track'><div class='prob-fill' style='width: {champion_prob}%; background: linear-gradient(90deg, #8b5cf6, #c084fc);'></div></div>
+                    </div>
+                    <div style='margin-top: 10px; font-size: 0.74rem; color: #64748b; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; display: flex; justify-content: space-between;'>
+                        <span><b>Dynasty:</b> {dyn_pos_txt}</span>
+                        <span><b>Starters:</b> {starter_val_txt}</span>
+                        <span><b>Bench:</b> {bench_val_txt}</span>
+                    </div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
-
-        with col_h3:
-            if is_dynasty and user_profile:
-                dyn_pos_txt = f"#{dynasty_pos}" if dynasty_pos else "Pre-Draft"
-                red_pos_txt = f"#{redraft_pos}" if redraft_pos else "Pre-Draft"
-                st.markdown(
-                    f"<div class='card-container'>"
-                    f"<b>Dynasty Rank:</b> {dyn_pos_txt} of {dynasty_total} ({user_profile['total_value']:,.0f} pts)<br/>"
-                    f"<b>In-Season Rank:</b> {red_pos_txt} of {redraft_total}<br/>"
-                    f"<b>Starters:</b> {user_profile['starter_value']:,.0f} pts | <b>Bench:</b> {user_profile['bench_value']:,.0f} pts"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                red_pos_txt = f"#{redraft_pos}" if redraft_pos else "Pre-Draft"
-                st.markdown(
-                    f"<div class='card-container'>"
-                    f"<b>Redraft Rank:</b> {red_pos_txt} of {redraft_total}<br/>"
-                    f"<b>Active Starters:</b> {len(user_roster.get('starters') or [])} players<br/>"
-                    f"<b>Bench Depth:</b> {len(user_roster.get('players') or []) - len(user_roster.get('starters') or [])} players"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
 
         # Full Roster Breakdown & Equity Distribution
         st.markdown("---")
@@ -1348,8 +1723,23 @@ else:
         ])
 
         with roster_sub_starters:
+            col_v_txt, col_v_toggle = st.columns([3, 1.8], vertical_alignment="center")
+            with col_v_txt:
+                st.caption("Starters evaluated with consensus market values and ECR rankings.")
+            with col_v_toggle:
+                starter_view_mode = st.radio(
+                    "Starter Presentation",
+                    ["Card Grid (Dashboard)", "Detailed Table"],
+                    index=0,
+                    horizontal=True,
+                    key="starter_lineup_view_radio",
+                    label_visibility="collapsed"
+                )
             if starters_data:
-                st.markdown(render_player_table_html(starters_data, show_equity=True), unsafe_allow_html=True)
+                if starter_view_mode == "Card Grid (Dashboard)":
+                    st.markdown(render_starter_card_grid_html(starters_data), unsafe_allow_html=True)
+                else:
+                    st.markdown(render_player_table_html(starters_data, show_equity=True), unsafe_allow_html=True)
             else:
                 st.info("No active starters designated.")
 
