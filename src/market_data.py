@@ -701,6 +701,8 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
             kv = compute_kicker_dst_value(p_data.get("rank_ecr"))
             p_data["market_value"] = kv
             p_data["fc_val"] = kv
+            p_data["fp_ecr_overall"] = float(p_data.get("rank_ecr_overall") or 999.0)
+            p_data["fp_ecr_pos"] = float(p_data.get("rank_ecr_pos") or p_data.get("rank_ecr") or 999.0)
             continue
 
         fp_o = float(p_data.get("rank_ecr_overall") or 999.0)
@@ -754,6 +756,7 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
         p_data["rank_ecr_pos"] = blended_p
         p_data["rank_ecr"] = blended_p
 
+    recompute_consensus_ranks(lookup)
     return lookup
 
 
