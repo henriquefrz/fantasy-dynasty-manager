@@ -75,29 +75,39 @@ def run_monte_carlo_simulation(
     current_week: int = 1,
     playoff_week_start: int = 15,
     num_simulations: int = DEFAULT_SIMULATIONS,
+    custom_initial_records: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Runs num_simulations iterations of the remaining regular season and playoff bracket.
     Tracks wins, losses, playoff appearances, first-round byes, and championships.
+    Supports historical snapshots via custom_initial_records.
     """
     playoff_teams_count = league.get("settings", {}).get("playoff_teams", 6)
     roster_ids = [r["roster_id"] for r in rosters]
 
-    # Initial records (if season has already started)
+    # Initial records (if season has already started or custom historical records provided)
     initial_records = {}
     for r in rosters:
         rid = r["roster_id"]
-        settings = r.get("settings", {})
-        wins = settings.get("wins", 0)
-        losses = settings.get("losses", 0)
-        ties = settings.get("ties", 0)
-        fpts = settings.get("fpts", 0) + (settings.get("fpts_decimal", 0) / 100.0)
-        initial_records[rid] = {
-            "wins": wins,
-            "losses": losses,
-            "ties": ties,
-            "pf": fpts,
-        }
+        if custom_initial_records and rid in custom_initial_records:
+            initial_records[rid] = {
+                "wins": int(custom_initial_records[rid].get("wins", 0)),
+                "losses": int(custom_initial_records[rid].get("losses", 0)),
+                "ties": int(custom_initial_records[rid].get("ties", 0)),
+                "pf": float(custom_initial_records[rid].get("pf", 0.0)),
+            }
+        else:
+            settings = r.get("settings", {})
+            wins = settings.get("wins", 0)
+            losses = settings.get("losses", 0)
+            ties = settings.get("ties", 0)
+            fpts = settings.get("fpts", 0) + (settings.get("fpts_decimal", 0) / 100.0)
+            initial_records[rid] = {
+                "wins": wins,
+                "losses": losses,
+                "ties": ties,
+                "pf": fpts,
+            }
 
     # Tracking accumulators across all simulations
     sim_wins = {rid: 0 for rid in roster_ids}
@@ -251,9 +261,14 @@ def run_monte_carlo_simulation(
             "playoff_pct": round(playoff_pct, 1),
             "bye_pct": round(bye_pct, 1),
             "champ_pct": round(champ_pct, 1),
-            "expected_pts": team_expectations[rid]["expected_pts"],
-            "bench_depth_pts": team_expectations[rid]["bench_depth_pts"],
+            "expected_pts": team_expectations[rid].get("expected_pts", 105.0),
+            "bench_depth_pts": team_expectations[rid].get("bench_depth_pts", 0.0),
             "playoff_teams_count": playoff_teams_count,
+            "initial_wins": initial_records[rid]["wins"],
+            "initial_losses": initial_records[rid]["losses"],
+            "initial_ties": initial_records[rid]["ties"],
+            "initial_pf": round(initial_records[rid]["pf"], 1),
+            "sim_week": current_week,
         }
 
     # Compute Power Ranking Composite Score (0 - 100 scale)
@@ -432,3 +447,68 @@ def format_dynasty_power_rankings_table(
 
     lines.append("  " + "-" * 98)
     return "\n".join(lines)
+
+
+def run_historical_simulation_snapshot(
+    league: Dict[str, Any],
+    rosters: List[Dict[str, Any]],
+    schedule: Dict[int, List[Tuple[int, int]]],
+    team_expectations: Dict[int, Dict[str, Any]],
+    snapshot_week: int = 1,
+    current_week: int = 1,
+    playoff_week_start: int = 15,
+    num_simulations: int = DEFAULT_SIMULATIONS,
+) -> Dict[str, Any]:
+    """
+    Simulates the season as it was projected at the start of `snapshot_week`.
+    Reconstructs actual win/loss records through week `snapshot_week - 1`.
+    """
+    from src.sleeper_api import compute_historical_standings
+
+    if snapshot_week <= 1:
+        custom_records = {r["roster_id"]: {"wins": 0, "losses": 0, "ties": 0, "pf": 0.0} for r in rosters}
+    elif snapshot_week >= current_week and current_week > 1:
+        custom_records = None
+    else:
+        league_id = str(league.get("league_id", ""))
+        custom_records = compute_historical_standings(league_id, rosters, through_week=snapshot_week - 1)
+
+    return run_monte_carlo_simulation(
+        league=league,
+        rosters=rosters,
+        schedule=schedule,
+        team_expectations=team_expectations,
+        current_week=snapshot_week,
+        playoff_week_start=playoff_week_start,
+        num_simulations=num_simulations,
+        custom_initial_records=custom_records,
+    )
+
+
+def compute_weekly_evolution_history(
+    league: Dict[str, Any],
+    rosters: List[Dict[str, Any]],
+    schedule: Dict[int, List[Tuple[int, int]]],
+    team_expectations: Dict[int, Dict[str, Any]],
+    current_week: int = 1,
+    playoff_week_start: int = 15,
+    num_simulations: int = 500,
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Computes simulation snapshots for all weeks from 1 to current_week.
+    Returns dict mapping week_num -> simulation results dict.
+    """
+    evolution = {}
+    for w in range(1, max(1, current_week) + 1):
+        evolution[w] = run_historical_simulation_snapshot(
+            league=league,
+            rosters=rosters,
+            schedule=schedule,
+            team_expectations=team_expectations,
+            snapshot_week=w,
+            current_week=current_week,
+            playoff_week_start=playoff_week_start,
+            num_simulations=num_simulations,
+        )
+    return evolution
+

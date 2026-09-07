@@ -42,6 +42,7 @@ from src.sleeper_api import (
     get_league_schedule,
     get_league_matchups,
     get_league_history,
+    compute_historical_standings,
 )
 from src.league_classifier import classify_league, get_starter_counts
 from src.market_data import (
@@ -138,6 +139,7 @@ from src.start_sit import (
 from src.trade_engine import (
     analyze_team_profile,
     generate_trade_suggestions,
+    build_positional_room_leaderboard,
 )
 from src.team_strength import (
     rank_teams_in_league,
@@ -158,6 +160,8 @@ from src.playoff_simulator import (
     compute_team_lineup_expectation,
     run_monte_carlo_simulation,
     compute_dynasty_power_rankings,
+    run_historical_simulation_snapshot,
+    compute_weekly_evolution_history,
 )
 from src.trade_finder import (
     resolve_asset_from_query,
@@ -1583,6 +1587,73 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val"):
+    """
+    Renders the League-Wide Positional Room & Draft Capital Leaderboard table.
+    Highlights user's franchise row, and displays rank pills for each position room.
+    """
+    html = """
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full room rankings</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
+        <thead>
+            <tr>
+                <th style='width: 65px; text-align: center;'>Rank</th>
+                <th style='width: 22%; text-align: left;'>Manager / Team</th>
+                <th style='width: 13%; text-align: center;'>QB Room</th>
+                <th style='width: 13%; text-align: center;'>RB Room</th>
+                <th style='width: 13%; text-align: center;'>WR Room</th>
+                <th style='width: 13%; text-align: center;'>TE Room</th>
+                <th style='width: 13%; text-align: center;'>Draft Capital</th>
+                <th style='width: 13%; text-align: center;'>Total Franchise</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+
+    def rank_pill(rank_val, is_active_col=False):
+        if rank_val <= 3:
+            bg = "rgba(16, 185, 129, 0.15)"
+            color = "#34d399"
+            border = "rgba(16, 185, 129, 0.4)"
+        elif rank_val <= 6:
+            bg = "rgba(14, 165, 233, 0.15)"
+            color = "#38bdf8"
+            border = "rgba(14, 165, 233, 0.4)"
+        else:
+            bg = "rgba(148, 163, 184, 0.10)"
+            color = "#94a3b8"
+            border = "rgba(148, 163, 184, 0.25)"
+        hl_style = "border: 1px solid #38bdf8; font-weight: 800;" if is_active_col else f"border: 1px solid {border};"
+        return f"<span style='background: {bg}; color: {color}; {hl_style} border-radius: 4px; padding: 1px 6px; font-size: 0.70rem; font-weight: 700; margin-left: 4px;'>#{rank_val}</span>"
+
+    for r in room_rows:
+        is_me = (r.get("roster_id") == user_roster_id)
+        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
+        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        rank_disp = r.get("disp_rank", r.get("total_rank", 1))
+
+        html += f"""
+        <tr style='{row_style}'>
+            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>#{rank_disp}</td>
+            <td style='text-align: left; {name_weight}'>{r['manager_name']}</td>
+            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['qb_val']:,.0f}</span> {rank_pill(r['qb_rank'], sort_col=='qb_val')}</td>
+            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['rb_val']:,.0f}</span> {rank_pill(r['rb_rank'], sort_col=='rb_val')}</td>
+            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['wr_val']:,.0f}</span> {rank_pill(r['wr_rank'], sort_col=='wr_val')}</td>
+            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['te_val']:,.0f}</span> {rank_pill(r['te_rank'], sort_col=='te_val')}</td>
+            <td style='text-align: center;'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>
+            <td style='text-align: center;'><span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{r['total_val']:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
+        </tr>
+        """
+
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
 def render_starter_card_grid_html(starters_rows):
     """
     Renders modern dashboard starter cards inspired by cyberpunk sports UI.
@@ -1789,7 +1860,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v13_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v14_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2053,8 +2124,13 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
 # -----------------------------------------------------------------------------
 if "selected_league_id" not in st.session_state:
     st.session_state["selected_league_id"] = None
-if "active_user_handle" not in st.session_state:
+
+qp_user = st.query_params.get("user")
+if qp_user and qp_user in ALLOWED_USERS:
+    st.session_state["active_user_handle"] = qp_user
+elif "active_user_handle" not in st.session_state:
     st.session_state["active_user_handle"] = DEFAULT_USERNAME
+
 if "selected_mode" not in st.session_state:
     st.session_state["selected_mode"] = "equal"
 
@@ -2063,6 +2139,8 @@ if active_user_handle not in ALLOWED_USERS:
     active_user_handle = ALLOWED_USERS[0]
     st.session_state["active_user_handle"] = active_user_handle
 
+st.query_params["user"] = active_user_handle
+
 with st.spinner(f"Connecting to Sleeper (@{active_user_handle}) & Market Feeds..."):
     market_db = fetch_market_database()
     try:
@@ -2070,6 +2148,7 @@ with st.spinner(f"Connecting to Sleeper (@{active_user_handle}) & Market Feeds..
     except Exception:
         active_user_handle = DEFAULT_USERNAME
         st.session_state["active_user_handle"] = DEFAULT_USERNAME
+        st.query_params["user"] = DEFAULT_USERNAME
         user, active_season, active_week, leagues = fetch_user_and_leagues(DEFAULT_USERNAME)
 
 # League sorting
@@ -2105,6 +2184,7 @@ else:
 
 def set_active_workspace(lid):
     st.session_state["selected_league_id"] = lid
+    st.query_params["user"] = st.session_state.get("active_user_handle", DEFAULT_USERNAME)
     if lid is None:
         if "league" in st.query_params:
             del st.query_params["league"]
@@ -2133,7 +2213,7 @@ with st.container(key="topbar_nav_container"):
         if ICON_F_YARDS_B64:
             st.html(
                 f"""
-                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
+                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
                     <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
                     <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
                 </a>
@@ -2142,15 +2222,15 @@ with st.container(key="topbar_nav_container"):
         elif LOGO_HORIZONTAL_B64:
             st.html(
                 f"""
-                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
+                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
                     <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
                 </a>
                 """
             )
         else:
             st.html(
-                """
-                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
+                f"""
+                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
                     <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
                     <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
                 </a>
@@ -2228,7 +2308,10 @@ with st.container(key="topbar_nav_container"):
         )
         if selected_u != st.session_state.get("active_user_handle"):
             st.session_state["active_user_handle"] = selected_u
+            st.query_params["user"] = selected_u
             st.session_state["selected_league_id"] = None
+            if "league" in st.query_params:
+                del st.query_params["league"]
             st.rerun()
 
 st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
@@ -2371,7 +2454,7 @@ if st.session_state.get("selected_league_id") is None:
         <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
             <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
                 <div>
-                    <a href='?league={lid}' target='_self' style='text-decoration: none; color: inherit;'>
+                    <a href='?league={lid}&user={active_user_handle}' target='_self' style='text-decoration: none; color: inherit;'>
                         <h4 style='margin: 0; color: #f8fafc; font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
                     </a>
                     <div style='display: flex; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 4px;'>
@@ -2404,7 +2487,7 @@ if st.session_state.get("selected_league_id") is None:
                 {season_cell}
             </div>
 
-            <a href='?league={lid}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25); transition: all 0.2s ease;'>
+            <a href='?league={lid}&user={active_user_handle}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25); transition: all 0.2s ease;'>
                 Open Workspace →
             </a>
         </div>
@@ -2429,6 +2512,9 @@ else:
     with col_back:
         if st.button("← Return to All Leagues", use_container_width=True):
             st.session_state["selected_league_id"] = None
+            if "league" in st.query_params:
+                del st.query_params["league"]
+            st.query_params["user"] = st.session_state.get("active_user_handle", DEFAULT_USERNAME)
             st.rerun()
 
     with st.spinner(f"Loading Workspace: {selected_league_name}..."):
@@ -3485,8 +3571,6 @@ else:
         st.subheader("League Power Rankings & Playoff Simulations")
 
         def render_simulation_view():
-            st.caption("1,000-Run Monte Carlo Simulation incorporating dynamic season records, points scored, and rest-of-season schedule.")
-
             playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
             team_expectations = {}
             for r in rosters:
@@ -3499,12 +3583,43 @@ else:
                     roster_positions=roster_pos,
                 )
 
-            with st.spinner("Simulating remaining season (1,000 iterations)..."):
-                sim_results = run_monte_carlo_simulation(
+            max_sim_week = max(1, active_week)
+            if max_sim_week == 1:
+                snap_options = ["Week 1 (Kickoff)"]
+                snap_values = [1]
+            else:
+                snap_options = [
+                    (f"Week {w} (Current)" if w == max_sim_week else (f"Week {w} (Kickoff)" if w == 1 else f"Week {w}"))
+                    for w in range(1, max_sim_week + 1)
+                ]
+                snap_values = list(range(1, max_sim_week + 1))
+
+            col_snap, col_snap_info = st.columns([2.6, 4.4], vertical_alignment="center")
+            with col_snap:
+                chosen_snap = st.selectbox(
+                    "Simulation Snapshot:",
+                    snap_options,
+                    index=len(snap_options) - 1,
+                    key="sim_snapshot_week_selector",
+                    help="View what the Monte Carlo projections and playoff odds were as of any prior week."
+                )
+            selected_snap_week = snap_values[snap_options.index(chosen_snap)]
+
+            with col_snap_info:
+                if selected_snap_week == 1:
+                    st.caption("🏁 **Preseason Baseline:** Records start at 0-0; simulates entire season schedule based on roster strength.")
+                elif selected_snap_week == max_sim_week:
+                    st.caption(f"⚡ **Active Week {max_sim_week}:** Current live standings seeded; simulates remaining weeks to playoffs.")
+                else:
+                    st.caption(f"⏪ **Historical Snapshot (Week {selected_snap_week}):** Standings reconstructed through Week {selected_snap_week - 1}; simulated forward.")
+
+            with st.spinner(f"Simulating remaining season ({chosen_snap}, 1,000 iterations)..."):
+                sim_results = run_historical_simulation_snapshot(
                     league=selected_league,
                     rosters=rosters,
                     schedule=schedule,
                     team_expectations=team_expectations,
+                    snapshot_week=selected_snap_week,
                     current_week=active_week,
                     playoff_week_start=playoff_start,
                     num_simulations=1000,
@@ -3512,7 +3627,7 @@ else:
 
             sample_res = next(iter(sim_results.values())) if sim_results else {}
             p_count = sample_res.get("playoff_teams_count", 6)
-            st.info(f"Playoff Format: Top {p_count} Teams qualify for the postseason.")
+            st.info(f"Playoff Format: Top {p_count} Teams qualify for the postseason. Simulation as of **{chosen_snap}**.")
 
             ranked_sim = sorted(sim_results.values(), key=lambda t: t["power_score"], reverse=True)
             table_data = []
@@ -3534,6 +3649,103 @@ else:
 
             st.caption("Season Power Score Formula: 40% Starters PPG + 35% Projected Wins + 15% Playoff Odds + 10% Bench Depth PPG.")
             st.html(render_power_simulation_table_html(table_data, user_roster["roster_id"]))
+
+            # Week-by-Week Evolution History View
+            with st.expander("📈 View Week-by-Week Evolution & Trends", expanded=False):
+                st.caption("Compare how projected wins, playoff odds, and championship probabilities have shifted week-by-week.")
+                all_mgr_names = [user_map.get(r.get("owner_id"), f"Team {r['roster_id']}") for r in rosters]
+                user_mgr_name = user_map.get(user.get("user_id"), all_mgr_names[0] if all_mgr_names else "Team")
+                default_team_idx = all_mgr_names.index(user_mgr_name) if user_mgr_name in all_mgr_names else 0
+
+                inspect_team_name = st.selectbox(
+                    "Select Team to Inspect Evolution:",
+                    all_mgr_names,
+                    index=default_team_idx,
+                    key="sim_evo_team_sel",
+                )
+                target_roster = next((r for r in rosters if user_map.get(r.get("owner_id")) == inspect_team_name), rosters[0] if rosters else None)
+                if target_roster:
+                    target_rid = target_roster["roster_id"]
+                    with st.spinner("Calculating week-by-week progression..."):
+                        evo_history = compute_weekly_evolution_history(
+                            league=selected_league,
+                            rosters=rosters,
+                            schedule=schedule,
+                            team_expectations=team_expectations,
+                            current_week=active_week,
+                            playoff_week_start=playoff_start,
+                            num_simulations=500,
+                        )
+
+                    evo_rows = []
+                    prev_playoff_pct = None
+                    for w in sorted(evo_history.keys()):
+                        w_res = evo_history[w].get(target_rid, {})
+                        p_pct = w_res.get("playoff_pct", 0.0)
+                        if prev_playoff_pct is not None:
+                            diff = p_pct - prev_playoff_pct
+                            if diff > 0.5:
+                                trend_badge = f"<span style='color: #34d399; font-weight: 700;'>+{diff:.1f}% ↑</span>"
+                            elif diff < -0.5:
+                                trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{diff:.1f}% ↓</span>"
+                            else:
+                                trend_badge = "<span style='color: #94a3b8;'>— 0.0%</span>"
+                        else:
+                            trend_badge = "<span style='color: #64748b;'>Baseline</span>"
+                        prev_playoff_pct = p_pct
+
+                        init_w = w_res.get("initial_wins", 0)
+                        init_l = w_res.get("initial_losses", 0)
+                        w_rec = f"{init_w}-{init_l}" if w > 1 else "0-0"
+                        w_label = f"Week {w} (Kickoff)" if w == 1 else (f"Week {w} (Current)" if w == max_sim_week else f"Week {w}")
+
+                        evo_rows.append({
+                            "Week": w_label,
+                            "Record Entering Wk": w_rec,
+                            "Projected W-L": f"{w_res.get('avg_wins', 0):.1f} - {w_res.get('avg_losses', 0):.1f}",
+                            "Playoff Odds": f"{p_pct:.1f}%",
+                            "Bye Odds": f"{w_res.get('bye_pct', 0):.1f}%",
+                            "Champ Odds": f"{w_res.get('champ_pct', 0):.1f}%",
+                            "Power Score": f"{w_res.get('power_score', 0):.1f}",
+                            "Trend": trend_badge,
+                        })
+
+                    evo_html = """
+                    <div class='table-responsive-wrapper'>
+                    <table class='roster-table'>
+                        <thead>
+                            <tr>
+                                <th style='text-align: left;'>Snapshot Week</th>
+                                <th style='text-align: center;'>Record Entering</th>
+                                <th style='text-align: center;'>Projected W-L</th>
+                                <th style='text-align: center;'>Playoff Odds</th>
+                                <th style='text-align: center;'>1st-Round Bye</th>
+                                <th style='text-align: center;'>Champ Odds</th>
+                                <th style='text-align: center;'>Power Score</th>
+                                <th style='text-align: center;'>Weekly Shift</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    """
+                    for er in evo_rows:
+                        evo_html += f"""
+                        <tr>
+                            <td style='text-align: left; font-weight: 700; color: #f8fafc;'>{er['Week']}</td>
+                            <td style='text-align: center; color: #94a3b8; font-weight: 600;'>{er['Record Entering Wk']}</td>
+                            <td style='text-align: center; font-weight: 600;'>{er['Projected W-L']}</td>
+                            <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{er['Playoff Odds']}</span></td>
+                            <td style='text-align: center;'><span class='rank-pill'>{er['Bye Odds']}</span></td>
+                            <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{er['Champ Odds']}</span></td>
+                            <td class='val-pill' style='text-align: center;'>{er['Power Score']}</td>
+                            <td style='text-align: center;'>{er['Trend']}</td>
+                        </tr>
+                        """
+                    evo_html += """
+                        </tbody>
+                    </table>
+                    </div>
+                    """
+                    st.html(evo_html)
 
         def render_dynasty_power_view():
             st.caption("Dynasty Power Formula: 50% Starters Value + 30% Bench Depth + 20% Future Draft Capital (Industry Standard).")
@@ -3641,17 +3853,77 @@ else:
                     else:
                         st.info("No draft pick assets in this league format.")
 
+        def render_positional_room_view():
+            st.caption("League-wide Positional Room & Draft Capital Leaderboard (KeepTradeCut / Dynasty Daddy style).")
+            room_data = build_positional_room_leaderboard(all_team_profiles)
+
+            col_sort, _ = st.columns([2.6, 4.4])
+            with col_sort:
+                sort_options = {
+                    "Total Franchise Value": "total_val",
+                    "QB Room Value": "qb_val",
+                    "RB Room Value": "rb_val",
+                    "WR Room Value": "wr_val",
+                    "TE Room Value": "te_val",
+                    "Draft Capital Value": "picks_val",
+                }
+                chosen_sort = st.selectbox("Sort Leaderboard By:", list(sort_options.keys()), index=0, key="room_lb_sort_sel")
+                sort_key = sort_options[chosen_sort]
+
+            sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
+            for idx, r in enumerate(sorted_rooms, 1):
+                r["disp_rank"] = idx
+
+            st.html(render_positional_room_table_html(sorted_rooms, user_roster["roster_id"], sort_col=sort_key))
+
+            with st.expander("🔍 Inspect Franchise Positional Room Depth", expanded=False):
+                inspect_room_mgr = st.selectbox("Select Team to Inspect:", [t["manager_name"] for t in sorted_rooms], key="inspect_room_mgr_sel")
+                sel_room_data = next((r for r in room_data if r["manager_name"] == inspect_room_mgr), sorted_rooms[0])
+
+                st.markdown(f"#### {inspect_room_mgr} — Room Asset Breakdown")
+                col_q, col_r, col_w, col_t, col_pk = st.columns(5)
+                with col_q:
+                    st.metric("QB Room", f"{sel_room_data['qb_val']:,.0f} pts", f"Rank #{sel_room_data['qb_rank']}")
+                    for name in sel_room_data['top_qbs']:
+                        st.caption(f"• {name}")
+                with col_r:
+                    st.metric("RB Room", f"{sel_room_data['rb_val']:,.0f} pts", f"Rank #{sel_room_data['rb_rank']}")
+                    for name in sel_room_data['top_rbs']:
+                        st.caption(f"• {name}")
+                with col_w:
+                    st.metric("WR Room", f"{sel_room_data['wr_val']:,.0f} pts", f"Rank #{sel_room_data['wr_rank']}")
+                    for name in sel_room_data['top_wrs']:
+                        st.caption(f"• {name}")
+                with col_t:
+                    st.metric("TE Room", f"{sel_room_data['te_val']:,.0f} pts", f"Rank #{sel_room_data['te_rank']}")
+                    for name in sel_room_data['top_tes']:
+                        st.caption(f"• {name}")
+                with col_pk:
+                    st.metric("Draft Capital", f"{sel_room_data['picks_val']:,.0f} pts", f"Rank #{sel_room_data['picks_rank']}")
+                    for name in sel_room_data['top_picks']:
+                        st.caption(f"• {name}")
+
         if is_dynasty:
-            sub_mc, sub_dyn = st.tabs([
+            sub_mc, sub_dyn, sub_rooms = st.tabs([
                 "Season Standings & Playoff Simulation (Monte Carlo)",
                 "Dynasty Asset Power Rankings (50/30/20)",
+                "Positional Room & Draft Capital Leaderboard",
             ])
             with sub_mc:
                 render_simulation_view()
             with sub_dyn:
                 render_dynasty_power_view()
+            with sub_rooms:
+                render_positional_room_view()
         else:
-            render_simulation_view()
+            sub_mc, sub_rooms = st.tabs([
+                "Season Standings & Playoff Simulation (Monte Carlo)",
+                "Positional Room Leaderboard",
+            ])
+            with sub_mc:
+                render_simulation_view()
+            with sub_rooms:
+                render_positional_room_view()
 
 
     # =========================================================================

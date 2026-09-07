@@ -725,3 +725,59 @@ def format_asset_str(asset: Dict[str, Any]) -> str:
     redraft_str = f" | Redraft #{redraft:.0f}" if redraft and redraft < 999 else ""
 
     return f"{name} ({pos} — {val:,.0f} pts{redraft_str})"
+
+
+def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Ranks all teams side-by-side across QB Room, RB Room, WR Room, TE Room, and Draft Capital.
+    Computes room valuations, starter vs total splits, and ordinal ranks (1 to N) for each category.
+    """
+    room_data = []
+    for p in all_team_profiles:
+        rid = p["roster_id"]
+        mgr = p.get("manager_name", f"Team {rid}")
+        all_players = p.get("starter_assets", []) + p.get("bench_assets", []) + p.get("taxi_assets", [])
+
+        qb_players = sorted([a for a in all_players if a.get("position") == "QB"], key=lambda x: x.get("market_value", 0.0), reverse=True)
+        rb_players = sorted([a for a in all_players if a.get("position") == "RB"], key=lambda x: x.get("market_value", 0.0), reverse=True)
+        wr_players = sorted([a for a in all_players if a.get("position") == "WR"], key=lambda x: x.get("market_value", 0.0), reverse=True)
+        te_players = sorted([a for a in all_players if a.get("position") == "TE"], key=lambda x: x.get("market_value", 0.0), reverse=True)
+        picks = p.get("pick_assets", [])
+
+        qb_val = sum(float(a.get("market_value", 0.0)) for a in qb_players)
+        rb_val = sum(float(a.get("market_value", 0.0)) for a in rb_players)
+        wr_val = sum(float(a.get("market_value", 0.0)) for a in wr_players)
+        te_val = sum(float(a.get("market_value", 0.0)) for a in te_players)
+        picks_val = sum(float(pk.get("market_value", 0.0)) for pk in picks)
+        tot_val = qb_val + rb_val + wr_val + te_val + picks_val
+
+        room_data.append({
+            "roster_id": rid,
+            "manager_name": mgr,
+            "qb_val": qb_val,
+            "rb_val": rb_val,
+            "wr_val": wr_val,
+            "te_val": te_val,
+            "picks_val": picks_val,
+            "total_val": tot_val,
+            "top_qbs": [a.get("name", "") for a in qb_players[:3]],
+            "top_rbs": [a.get("name", "") for a in rb_players[:3]],
+            "top_wrs": [a.get("name", "") for a in wr_players[:3]],
+            "top_tes": [a.get("name", "") for a in te_players[:3]],
+            "top_picks": [pk.get("name", "") for pk in picks[:3]],
+        })
+
+    def assign_ranks(key, rank_field):
+        sorted_by_key = sorted(room_data, key=lambda x: x[key], reverse=True)
+        for idx, item in enumerate(sorted_by_key, 1):
+            item[rank_field] = idx
+
+    assign_ranks("total_val", "total_rank")
+    assign_ranks("qb_val", "qb_rank")
+    assign_ranks("rb_val", "rb_rank")
+    assign_ranks("wr_val", "wr_rank")
+    assign_ranks("te_val", "te_rank")
+    assign_ranks("picks_val", "picks_rank")
+
+    return room_data
+

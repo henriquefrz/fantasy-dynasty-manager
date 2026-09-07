@@ -251,6 +251,55 @@ def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 14)
     return schedule
 
 
+def compute_historical_standings(league_id: str, rosters: list, through_week: int) -> dict:
+    """
+    Computes cumulative wins, losses, ties, and points scored (PF)
+    for each roster from completed matchup weeks 1 through through_week.
+    If through_week <= 0, returns 0-0 records and 0.0 PF for all rosters.
+    """
+    records = {
+        r["roster_id"]: {"wins": 0, "losses": 0, "ties": 0, "pf": 0.0}
+        for r in rosters
+    }
+    if through_week <= 0:
+        return records
+
+    for w in range(1, through_week + 1):
+        matchups_data = get_league_matchups(league_id, w)
+        if not matchups_data:
+            continue
+
+        by_matchup_id = {}
+        for m in matchups_data:
+            m_id = m.get("matchup_id")
+            if m_id is not None:
+                by_matchup_id.setdefault(m_id, []).append(m)
+
+        for m_id, pair in by_matchup_id.items():
+            if len(pair) == 2:
+                m1, m2 = pair[0], pair[1]
+                r1, r2 = m1.get("roster_id"), m2.get("roster_id")
+                pts1 = float(m1.get("points") or 0.0)
+                pts2 = float(m2.get("points") or 0.0)
+
+                if r1 in records and r2 in records:
+                    records[r1]["pf"] = round(records[r1]["pf"] + pts1, 2)
+                    records[r2]["pf"] = round(records[r2]["pf"] + pts2, 2)
+
+                    if pts1 > 0 or pts2 > 0:
+                        if pts1 > pts2:
+                            records[r1]["wins"] += 1
+                            records[r2]["losses"] += 1
+                        elif pts2 > pts1:
+                            records[r2]["wins"] += 1
+                            records[r1]["losses"] += 1
+                        else:
+                            records[r1]["ties"] += 1
+                            records[r2]["ties"] += 1
+
+    return records
+
+
 MANUAL_LEAGUE_HISTORY = {
     "Samonte Dynasty": {
         "inaugural_season": "2020",
