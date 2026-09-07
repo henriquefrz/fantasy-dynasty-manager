@@ -113,34 +113,48 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_sup
     overall_page_type = f"{ranking_prefix}-op" if is_superflex else f"{ranking_prefix}-overall"
 
     lookup = {}
-    overall_map = {}
-    overall_counter = 0
-    pos_counters = {}
 
+    # 1. Collect and sort overall rows strictly by ecr_val
+    overall_rows = []
+    seen_overall = set()
+    for row in fp_rankings_raw:
+        if row.get("page_type") == overall_page_type:
+            sleeper_id = fp_id_to_sleeper_id.get(row.get("id"))
+            if sleeper_id and sleeper_id not in seen_overall:
+                try:
+                    ecr_val = float(row["ecr"])
+                    overall_rows.append((sleeper_id, ecr_val, row.get("player", ""), row.get("pos", "")))
+                    seen_overall.add(sleeper_id)
+                except (ValueError, TypeError):
+                    continue
+    overall_rows.sort(key=lambda x: x[1])
+    overall_map = {sid: float(idx) for idx, (sid, _, _, _) in enumerate(overall_rows, start=1)}
+
+    # 2. Collect and sort positional rows strictly by ecr_val within each position
+    pos_rows_by_pos = {}
+    seen_pos = set()
     for row in fp_rankings_raw:
         ptype = row.get("page_type")
-        sleeper_id = fp_id_to_sleeper_id.get(row.get("id"))
-        if not sleeper_id:
-            continue
+        if ptype in pos_page_types:
+            sleeper_id = fp_id_to_sleeper_id.get(row.get("id"))
+            if sleeper_id and sleeper_id not in seen_pos:
+                try:
+                    ecr_val = float(row["ecr"])
+                    pos_key = row.get("pos") or ptype.split("-")[-1].upper()
+                    pos_rows_by_pos.setdefault(pos_key, []).append((sleeper_id, ecr_val, row.get("player", ""), pos_key))
+                    seen_pos.add(sleeper_id)
+                except (ValueError, TypeError):
+                    continue
 
-        try:
-            ecr_val = float(row["ecr"])
-        except (ValueError, TypeError):
-            continue
-
-        if ptype == overall_page_type:
-            overall_counter += 1
-            overall_map[sleeper_id] = float(overall_counter)
-        elif ptype in pos_page_types:
-            pos_key = row.get("pos") or ptype
-            pos_counters[pos_key] = pos_counters.get(pos_key, 0) + 1
-            ordinal_pos = float(pos_counters[pos_key])
-            lookup[sleeper_id] = {
-                "rank_ecr": ordinal_pos,
-                "rank_ecr_pos": ordinal_pos,
+    for pos_key, p_list in pos_rows_by_pos.items():
+        p_list.sort(key=lambda x: x[1])
+        for idx, (sid, ecr_val, pname, pos) in enumerate(p_list, start=1):
+            lookup[sid] = {
+                "rank_ecr": float(idx),
+                "rank_ecr_pos": float(idx),
                 "raw_ecr": ecr_val,
-                "player_name": row["player"],
-                "position": row["pos"],
+                "player_name": pname,
+                "position": pos,
             }
 
     # Attach overall ECR to each player in lookup
@@ -148,12 +162,13 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_sup
         if s_id in lookup:
             lookup[s_id]["rank_ecr_overall"] = o_ecr
         else:
+            p_match = next((item for item in overall_rows if item[0] == s_id), None)
             lookup[s_id] = {
                 "rank_ecr": 999.0,
                 "rank_ecr_pos": 999.0,
                 "rank_ecr_overall": o_ecr,
-                "player_name": "",
-                "position": "",
+                "player_name": p_match[2] if p_match else "",
+                "position": p_match[3] if p_match else "",
             }
 
     for item in lookup.values():

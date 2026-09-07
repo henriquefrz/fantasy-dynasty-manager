@@ -85,8 +85,12 @@ except Exception:
             return ""
         pos_upper = str(position or "").upper()
         pid_str = str(player_id).strip()
+        if pos_upper == "PICK" or pid_str.startswith("pick_") or "round" in pid_str.lower() or "pick" in pid_str.lower():
+            return ""
         if pos_upper in ("DEF", "DST") or not pid_str.isdigit():
             team_code = (team or pid_str).lower()
+            if team_code in ("fa", "—", "") or not team_code.isalpha():
+                return ""
             return f"https://sleepercdn.com/images/team_logos/nfl/{team_code}.png"
         return f"https://sleepercdn.com/content/nfl/players/thumb/{pid_str}.jpg"
 
@@ -783,7 +787,12 @@ def render_market_table_html(market_rows):
         fc = r.get("FantasyCalc", "—")
         dp = r.get("DynastyProcess", "—")
 
-        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+        if pos == "PICK" or "round" in pname.lower() or "pick" in pname.lower():
+            avatar_img = "<div class='player-avatar-44' style='background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(126, 34, 206, 0.45) 100%); border: 1px solid rgba(168, 85, 247, 0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d8b4fe; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;'><span>PICK</span></div>"
+        elif avatar:
+            avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+        else:
+            avatar_img = "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
 
         html += f"""
             <tr>
@@ -1090,6 +1099,84 @@ def render_opponent_lineup_html(opp_rows):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_proj, active_week):
+    diff = user_proj - opp_proj
+    if diff >= 0:
+        spread_badge = f"<span style='background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>+{diff:.1f} PTS FAVORED</span>"
+    else:
+        spread_badge = f"<span style='background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>{diff:.1f} PTS UNDERDOG</span>"
+
+    arena_html = f"""
+    <div style='background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);'>
+        <div style='display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;'>
+            <!-- User Franchise -->
+            <div style='text-align: left;'>
+                <div style='font-size: 0.7rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>YOUR FRANCHISE</div>
+                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0;'>{user_name}</div>
+                <div style='font-size: 2.1rem; font-weight: 900; color: #38bdf8; line-height: 1;'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='font-size: 0.76rem; color: #94a3b8; margin-top: 6px;'>Optimal Ceiling: <strong style='color: #f8fafc;'>{user_ceiling:.1f} pts</strong></div>
+            </div>
+
+            <!-- VS & Spread Capsule -->
+            <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 12px;'>
+                <div style='background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 9999px; padding: 5px 14px; font-weight: 900; font-size: 1.05rem; color: #94a3b8; letter-spacing: 0.05em;'>VS</div>
+                {spread_badge}
+            </div>
+
+            <!-- Opponent Franchise -->
+            <div style='text-align: right;'>
+                <div style='font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
+                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0;'>{opp_name}</div>
+                <div style='font-size: 2.1rem; font-weight: 900; color: #f8fafc; line-height: 1;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='font-size: 0.76rem; color: #64748b; margin-top: 6px;'>Week {active_week} Matchup</div>
+            </div>
+        </div>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in arena_html.splitlines())
+
+
+def render_start_sit_card_html(swap):
+    st_p = swap["start_player"]
+    sit_p = swap["sit_player"]
+    gain = swap["gain"]
+    slot = swap["slot"]
+
+    st_avatar = get_player_avatar_url(st_p.get("player_id"), st_p.get("position"), st_p.get("team"))
+    sit_avatar = get_player_avatar_url(sit_p.get("player_id"), sit_p.get("position"), sit_p.get("team"))
+
+    card_html = f"""
+    <div style='background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
+        <!-- START Player -->
+        <div style='display: flex; align-items: center; gap: 10px;'>
+            <span style='background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>START</span>
+            <img src='{st_avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+            <div>
+                <div style='font-size: 0.92rem; font-weight: 800; color: #f8fafc;'>{st_p.get("full_name")}</div>
+                <div style='font-size: 0.74rem; color: #94a3b8;'>{st_p.get("position")} • {st_p.get("team") or "FA"} • <strong style='color: #34d399;'>{swap["start_proj"]:.1f} pts</strong></div>
+            </div>
+        </div>
+
+        <!-- Net Gain & Slot Pill -->
+        <div style='text-align: center;'>
+            <div style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 800;'>+{gain:.1f} PTS GAIN</div>
+            <div style='font-size: 0.7rem; color: #64748b; margin-top: 3px; font-weight: 600;'>Slot: {slot}</div>
+        </div>
+
+        <!-- SIT Player -->
+        <div style='display: flex; align-items: center; gap: 10px;'>
+            <div style='text-align: right;'>
+                <div style='font-size: 0.92rem; font-weight: 800; color: #cbd5e1;'>{sit_p.get("full_name")}</div>
+                <div style='font-size: 0.74rem; color: #64748b;'>{sit_p.get("position")} • {sit_p.get("team") or "FA"} • {swap["sit_proj"]:.1f} pts</div>
+            </div>
+            <img src='{sit_avatar}' class='player-avatar-44' style='opacity: 0.75;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+            <span style='background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 800; padding: 3px 7px; border-radius: 4px;'>SIT</span>
+        </div>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in card_html.splitlines())
+
+
 # -----------------------------------------------------------------------------
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
@@ -1276,8 +1363,8 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _pr
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _redraft_lookup, _players):
-    """Accurately calculates franchise status, category, record, and rank across leagues."""
+def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _redraft_lookup, _players, _picks_lookup=None, _weekly_proj=None, league_obj=None):
+    """Accurately calculates franchise status, category, record, and synchronized rank across leagues."""
     try:
         rosters = get_league_rosters(lid)
         my_r = next((r for r in rosters if r.get("owner_id") == user_id or user_id in (r.get("co_owners") or [])), None)
@@ -1289,23 +1376,57 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         l = m_settings.get("losses", 0)
         fpts = m_settings.get("fpts", 0) + (m_settings.get("fpts_decimal", 0) / 100.0)
         p_count = len(my_r.get("players") or [])
+        tot_rosters = len(rosters)
 
         all_rosters_players = {
             r["roster_id"]: get_roster_players(r, _players)
             for r in rosters if r.get("players")
         }
-        if is_dyn:
-            dynasty_ranked = rank_teams_in_league(all_rosters_players, _lookup, roster_pos, is_dynasty=True)
-            dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(my_r["roster_id"], dynasty_ranked)
-            redraft_ranked = rank_teams_in_league(all_rosters_players, _redraft_lookup, roster_pos, is_dynasty=False)
-            redraft_tier, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
-            current_tier, _ = get_current_strength_tier(my_r, rosters, redraft_pos, redraft_total)
-            status, cat = classify_dynasty_team(current_tier, dynasty_tier)
-            return status, cat, w, l, fpts, p_count, f"#{dynasty_pos}/{dynasty_total}", dynasty_pos, redraft_pos
+
+        # 1. Season rank based on starting lineup scoring projection expectation (matches Tab 4)
+        if _weekly_proj:
+            scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
+            expectations = {
+                r["roster_id"]: compute_team_lineup_expectation(
+                    r, all_rosters_players.get(r["roster_id"], []), _weekly_proj, scoring, roster_pos
+                )
+                for r in rosters if r["roster_id"] in all_rosters_players
+            }
+            ranked_pts = sorted(expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
+            redraft_pos = next((i for i, x in enumerate(ranked_pts, 1) if x["roster_id"] == my_r["roster_id"]), 0)
+            redraft_total = tot_rosters
         else:
             redraft_ranked = rank_teams_in_league(all_rosters_players, _redraft_lookup, roster_pos, is_dynasty=False)
-            redraft_tier, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
-            current_tier, _ = get_current_strength_tier(my_r, rosters, redraft_pos, redraft_total)
+            _, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
+
+        current_tier, _ = get_current_strength_tier(my_r, rosters, redraft_pos, redraft_total)
+
+        if is_dyn:
+            # 2. Dynasty rank based on 50% Starters + 30% Bench + 20% Draft Capital (exact match with Tab 4)
+            traded_picks = get_traded_picks(lid)
+            p_ownership = build_picks_ownership(league_obj or {"settings": {"draft_rounds": 3}, "season": "2026", "total_rosters": tot_rosters, "status": "in_season"}, traded_picks)
+            all_profs = []
+            for r in rosters:
+                rid = r["roster_id"]
+                rp = all_rosters_players.get(rid, [])
+                pks = get_picks_for_roster(p_ownership, rid)
+                prof = analyze_team_profile(
+                    roster=r, roster_players=rp, owned_picks=pks,
+                    primary_lookup=_lookup, redraft_lookup=_redraft_lookup, picks_lookup=_picks_lookup or {},
+                    team_tiers={}, roster_positions=roster_pos, is_dynasty=True,
+                    status="Active", category="neutral", manager_name=f"Team {rid}",
+                    total_rosters=tot_rosters
+                )
+                all_profs.append(prof)
+
+            dyn_res = compute_dynasty_power_rankings(all_profs)
+            ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
+            dynasty_pos = next((i for i, d in enumerate(ranked_dyn, 1) if d["roster_id"] == my_r["roster_id"]), 0)
+            d_tier, _, dynasty_total = get_strength_tier(my_r["roster_id"], [(d["roster_id"], d["dynasty_score"]) for d in ranked_dyn])
+
+            status, cat = classify_dynasty_team(current_tier, d_tier)
+            return status, cat, w, l, fpts, p_count, f"#{dynasty_pos}/{dynasty_total}", dynasty_pos, redraft_pos
+        else:
             status = classify_redraft_team(current_tier)
             cat = "win" if current_tier == "high" else ("rebuild" if current_tier == "low" else "neutral")
             return status, cat, w, l, fpts, p_count, f"#{redraft_pos}/{redraft_total}", redraft_pos, redraft_pos
@@ -1396,7 +1517,7 @@ top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
 with top_col_brand:
     st.html(
         """
-        <a href="./" target="_self" style="text-decoration: none; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
             <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
             <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
         </a>
@@ -1530,6 +1651,8 @@ if st.session_state.get("selected_league_id") is None:
     st.markdown("### League Workspaces")
     st.caption("Select any franchise to enter its dedicated analytical suite (Franchise Hub, Matchups & Start/Sit, Waivers, Power Rankings, Trade Center).")
 
+    weekly_proj_all = get_weekly_projections(active_season, active_week)
+
     # League Cards Grid (2-column responsive layout)
     grid_cols = st.columns(2)
     for idx, lg in enumerate(sorted_leagues):
@@ -1544,55 +1667,102 @@ if st.session_state.get("selected_league_id") is None:
         is_sf = any(pos in ("SUPER_FLEX", "QB") for pos in roster_pos if roster_pos.count("QB") > 1 or pos == "SUPER_FLEX")
         tep_b = settings.get("tep_bonus", 0.0)
 
-        # Accurately compute quick status, category, record, and rank
+        # Accurately compute quick status, category, record, and synchronized ranks
         league_lookup = primary_lookup if is_dyn else market_db["redraft_lookup"]
+        league_picks = picks_lookup if is_dyn else {}
         t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
-            lid, user["user_id"], is_dyn, roster_pos, league_lookup, market_db["redraft_lookup"], players
+            lid, user["user_id"], is_dyn, roster_pos, league_lookup, market_db["redraft_lookup"], players,
+            _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg
         )
 
         # Trajectory badge
         if is_dyn:
             if t_cat == "win":
                 badge_html = "<span class='status-capsule status-contender'>CONTENDER</span>"
+                border_accent = "border: 1px solid rgba(56, 189, 248, 0.35);"
             elif t_cat == "rebuild":
                 badge_html = "<span class='status-capsule status-rebuild'>REBUILD</span>"
+                border_accent = "border: 1px solid rgba(244, 63, 94, 0.35);"
             else:
                 badge_html = "<span class='status-capsule status-bubble'>BUBBLE</span>"
+                border_accent = "border: 1px solid rgba(245, 158, 11, 0.35);"
         else:
             badge_html = "<span class='status-capsule status-bubble'>REDRAFT</span>"
+            border_accent = "border: 1px solid rgba(56, 189, 248, 0.25);"
 
         slots_str = format_starter_slots_summary(roster_pos)
-        tep_str = f" • +{tep_b:g} TEP" if tep_b > 0 else ""
-        format_str = f"{'Dynasty' if is_dyn else 'Redraft'} • {'Superflex' if is_sf else '1QB'} ({total_rosters} Teams){tep_str}"
-        if slots_str:
-            format_str += f"<br/><span style='color: #64748b; font-size: 0.78rem;'>Starters: {slots_str}</span>"
+        tep_badge = f"<span style='background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 0.68rem; font-weight: 700; margin-left: 6px;'>+{tep_b:g} TEP</span>" if tep_b > 0 else ""
+        type_str = f"{'Dynasty' if is_dyn else 'Redraft'} • {'Superflex' if is_sf else '1QB'} ({total_rosters} Teams)"
 
-        if is_dyn:
-            d_str = f"#{d_pos}" if d_pos else "—"
-            r_str = f"#{r_pos}" if r_pos else "—"
-            rank_grid_html = f"""
-                <div><span style='color: #94a3b8;'>Dynasty:</span> <b>{d_str}/{total_rosters}</b></div>
-                <div><span style='color: #94a3b8;'>Season:</span> <b>{r_str}/{total_rosters}</b></div>
-            """
-        else:
-            r_str = f"#{r_pos}" if r_pos else "—"
-            rank_grid_html = f"""
-                <div><span style='color: #94a3b8;'>Season:</span> <b>{r_str}/{total_rosters}</b></div>
-            """
+        # Starter slots preview
+        starter_badges = f"""
+        <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: #94a3b8; margin: 8px 0 12px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
+            <span style='color: #64748b; font-weight: 700;'>Starters:</span>
+            <span style='color: #38bdf8; font-weight: 600;'>{slots_str}</span>
+        </div>
+        """ if slots_str else ""
+
+        # 4-Cell Matrix
+        dyn_cell = f"""
+        <div style='background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #38bdf8; letter-spacing: 0.04em;'>Dynasty</div>
+            <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{d_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
+            <div style='font-size: 0.65rem; color: #38bdf8; opacity: 0.85; margin-top: 2px;'>Capital</div>
+        </div>
+        """ if is_dyn else f"""
+        <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Type</div>
+            <div style='font-size: 0.85rem; font-weight: 800; color: #f8fafc; margin-top: 4px;'>Redraft</div>
+            <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Annual</div>
+        </div>
+        """
+
+        season_subtext = "🏆 Favorite" if r_pos == 1 else ("Playoff Lock" if r_pos <= 4 else ("In the Hunt" if r_pos <= 7 else "Rebuilding"))
+        season_color = "#34d399" if r_pos <= 3 else ("#38bdf8" if r_pos <= 6 else "#94a3b8")
+        season_bg = "rgba(16, 185, 129, 0.08)" if r_pos <= 3 else "rgba(15, 23, 42, 0.7)"
+        season_border = "rgba(16, 185, 129, 0.25)" if r_pos <= 3 else "rgba(51, 65, 85, 0.5)"
+
+        season_cell = f"""
+        <div style='background: {season_bg}; border: 1px solid {season_border}; border-radius: 8px; padding: 8px 4px; text-align: center;'>
+            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: {season_color}; letter-spacing: 0.04em;'>Season</div>
+            <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{r_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
+            <div style='font-size: 0.65rem; color: {season_color}; font-weight: 600; margin-top: 2px;'>{season_subtext}</div>
+        </div>
+        """
 
         card_html = f"""
-        <div class='card-container card-highlight'>
+        <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
             <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
-                <a href='?league={lid}' target='_self' style='text-decoration: none; color: inherit;'><h4 style='margin-bottom: 4px; color: #f8fafc;'>{lname}</h4></a>
+                <div>
+                    <a href='?league={lid}' target='_self' style='text-decoration: none; color: inherit;'>
+                        <h4 style='margin: 0; color: #f8fafc; font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
+                    </a>
+                    <div style='display: flex; align-items: center; margin-top: 4px;'>
+                        <span style='color: #94a3b8; font-size: 0.78rem; font-weight: 500;'>{type_str}</span>
+                        {tep_badge}
+                    </div>
+                </div>
                 {badge_html}
             </div>
-            <div style='color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px;'>{format_str}</div>
-            <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; font-size: 0.88rem;'>
-                <div><span style='color: #94a3b8;'>Record:</span> <b>{w}-{l}</b></div>
-                <div><span style='color: #94a3b8;'>Points:</span> <b>{fpts:,.1f}</b></div>
-                {rank_grid_html}
+
+            {starter_badges}
+
+            <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;'>
+                <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                    <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Record</div>
+                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{w}-{l}</div>
+                    <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Wk {active_week}</div>
+                </div>
+                <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                    <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Points</div>
+                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{fpts:,.1f}</div>
+                    <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>PF Scored</div>
+                </div>
+                {dyn_cell}
+                {season_cell}
             </div>
-            <a href='?league={lid}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.86rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 6px rgba(0,0,0,0.25);'>
+
+            <a href='?league={lid}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25); transition: all 0.2s ease;'>
                 Open Workspace →
             </a>
         </div>
@@ -1600,12 +1770,6 @@ if st.session_state.get("selected_league_id") is None:
 
         with col:
             st.html("\n".join(line.lstrip() for line in card_html.splitlines()))
-
-    # Quick Top Exposure Table on Front Page (Clean 44px Avatars)
-    st.markdown("---")
-    st.markdown("### Core Portfolio Exposure (Cross-League Foundations)")
-    if exp_rows:
-        st.html(render_portfolio_table_html(exp_rows[:10]))
 
 
 # =============================================================================
@@ -2130,84 +2294,129 @@ else:
                     opp_roster = next((r for r in rosters if r.get("roster_id") == m.get("roster_id")), None)
                     break
 
-        c1, c2, c3 = st.columns([2, 1, 2])
-        with c1:
-            st.markdown(f"**Your Team** (`{user_map.get(user['user_id'], 'You')}`)")
-            st.metric("Active Projected", f"{audit['active_points_total']:.1f} pts")
-            st.caption(f"Optimal Lineup Ceiling: **{audit['optimal_points_total']:.1f} pts**")
-        with c2:
-            st.markdown("<div style='text-align: center; padding-top: 15px; font-weight: bold; font-size: 1.5rem;'>VS</div>", unsafe_allow_html=True)
-        with c3:
-            opp_lineup_rows = []
-            if opp_roster:
-                opp_name = user_map.get(opp_roster.get("owner_id"), f"Team {opp_roster['roster_id']}")
-                opp_starter_pids = (
-                    opp_m_obj.get("starters")
-                    if opp_m_obj and opp_m_obj.get("starters")
-                    else (opp_roster.get("starters") or [])
-                )
-                opp_proj = 0.0
-                for s_idx, pid in enumerate(opp_starter_pids):
-                    slot_name = roster_pos[s_idx] if s_idx < len(roster_pos) else "FLEX"
-                    if pid and pid != "0":
-                        p = players.get(pid, {})
-                        p_proj = calculate_weekly_projected_points(pid, weekly_projections.get(pid), scoring, p)
-                        opp_proj += p_proj
-                        opp_lineup_rows.append({
-                            "Avatar": get_player_avatar_url(pid, p.get("position"), p.get("team")),
-                            "Slot": slot_name,
-                            "Player": p.get("full_name") or pid,
-                            "NFL Team": p.get("team") or "FA",
-                            "Projected": f"{p_proj:.1f} pts",
-                        })
-                    else:
-                        opp_lineup_rows.append({
-                            "Avatar": "",
-                            "Slot": slot_name,
-                            "Player": "— Empty Slot —",
-                            "NFL Team": "—",
-                            "Projected": "0.0 pts",
-                        })
+        c1_empty = None
+        user_name = user_map.get(user["user_id"], "You")
+        opp_name = "No Opponent (Bye)"
+        opp_proj = 0.0
+        opp_lineup_rows = []
 
-                st.markdown(f"**Opponent** (`{opp_name}`)")
-                st.metric("Opponent Projected", f"{opp_proj:.1f} pts")
-                diff = audit['active_points_total'] - opp_proj
-                delta_txt = f"{'+' if diff >= 0 else ''}{diff:.1f} pts"
-                verdict = "Favored" if diff >= 0 else "Underdog"
-                st.caption(f"Projected Spread: **{delta_txt}** ({verdict})")
-            else:
-                st.info("No head-to-head opponent scheduled for this week (or bye).")
+        if opp_roster:
+            opp_name = user_map.get(opp_roster.get("owner_id"), f"Team {opp_roster['roster_id']}")
+            opp_starter_pids = (
+                opp_m_obj.get("starters")
+                if opp_m_obj and opp_m_obj.get("starters")
+                else (opp_roster.get("starters") or [])
+            )
+            for s_idx, pid in enumerate(opp_starter_pids):
+                slot_name = roster_pos[s_idx] if s_idx < len(roster_pos) else "FLEX"
+                if pid and pid != "0":
+                    p = players.get(pid, {})
+                    p_proj = calculate_weekly_projected_points(pid, weekly_projections.get(pid), scoring, p)
+                    opp_proj += p_proj
+                    opp_lineup_rows.append({
+                        "Avatar": get_player_avatar_url(pid, p.get("position"), p.get("team")),
+                        "Slot": slot_name,
+                        "Player": p.get("full_name") or pid,
+                        "NFL Team": p.get("team") or "FA",
+                        "Projected": f"{p_proj:.1f} pts",
+                    })
+                else:
+                    opp_lineup_rows.append({
+                        "Avatar": "",
+                        "Slot": slot_name,
+                        "Player": "— Empty Slot —",
+                        "NFL Team": "—",
+                        "Projected": "0.0 pts",
+                    })
 
-        if opp_roster and opp_lineup_rows:
-            with st.expander(f"View Opponent Starting Lineup ({opp_name})", expanded=False):
-                st.html(render_opponent_lineup_html(opp_lineup_rows))
+        # Render Executive Head-to-Head Arena Card
+        st.html(render_matchup_arena_html(
+            user_name=user_name,
+            user_proj=audit["active_points_total"],
+            user_ceiling=audit["optimal_points_total"],
+            opp_name=opp_name,
+            opp_proj=opp_proj,
+            active_week=active_week,
+        ))
 
         # Optimization alerts
         if audit["start_sit_swaps"]:
-            st.warning(f"**Lineup Optimization Available:** You can gain **+{audit['points_differential']:.1f} pts** by adjusting your starters:")
+            st.markdown(
+                f"""
+                <div style='background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;'>
+                    <div>
+                        <strong style='color: #38bdf8;'>⚡ Lineup Optimization Available:</strong>
+                        <span style='color: #cbd5e1; font-size: 0.86rem; margin-left: 6px;'>You can gain <strong style='color: #34d399;'>+{audit['points_differential']:.1f} pts</strong> with optimal starter swaps.</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             for swap in audit["start_sit_swaps"]:
-                st.markdown(
-                    f"- **START:** `{swap['start_player'].get('full_name')}` ({swap['start_proj']:.1f} pts) "
-                    f"over **SIT:** `{swap['sit_player'].get('full_name')}` ({swap['sit_proj']:.1f} pts) in **{swap['slot']}** "
-                    f"(Net gain: **+{swap['gain']:.1f} pts**)"
-                )
+                st.html(render_start_sit_card_html(swap))
         else:
-            st.success("**Optimal Lineup Set:** Your active Sleeper lineup maximizes projected points for this week!")
+            st.markdown(
+                f"""
+                <div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;'>
+                    <strong style='color: #34d399;'>⭐ Optimal Lineup Configured:</strong>
+                    <span style='color: #cbd5e1; font-size: 0.86rem; margin-left: 6px;'>Your active starting lineup maximizes projected points for Week {active_week}.</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         # Active Starter Injury Alerts
         if audit["injury_alerts"]:
-            st.error("**Active Starter Injury Risk Detected:**")
+            st.markdown(
+                """
+                <div style='background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.35); border-radius: 8px; padding: 10px 14px; margin: 16px 0 10px 0;'>
+                    <strong style='color: #fb7185;'>⚠️ Active Starter Injury Risk Detected:</strong>
+                    <span style='color: #cbd5e1; font-size: 0.86rem; margin-left: 6px;'>The following players in your starting lineup carry official injury designations:</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             for inj in audit["injury_alerts"]:
                 sname = inj["starter"].get("full_name")
                 status = inj["status"]
                 slot = inj["slot"]
                 pivot = inj.get("pivot")
+                s_avatar = get_player_avatar_url(inj["starter"].get("player_id"), inj["starter"].get("position"), inj["starter"].get("team"))
                 if pivot:
                     pname = pivot[0].get("full_name")
                     pproj = pivot[1]
-                    st.markdown(f"- **[{status.upper()}]** `{sname}` ({slot}, {inj['starter_proj']:.1f} pts) ➔ **Recommended Pivot:** `{pname}` ({pproj:.1f} pts)")
+                    p_avatar = get_player_avatar_url(pivot[0].get("player_id"), pivot[0].get("position"), pivot[0].get("team"))
+                    pivot_html = f"""
+                    <div style='display: flex; align-items: center; gap: 8px;'>
+                        <span style='color: #38bdf8; font-size: 0.8rem; font-weight: 700;'>➔ Recommended Pivot:</span>
+                        <img src='{p_avatar}' class='player-avatar-44' style='width: 32px; height: 32px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                        <span style='font-weight: 700; color: #f8fafc; font-size: 0.85rem;'>{pname}</span>
+                        <span style='color: #34d399; font-weight: 700; font-size: 0.8rem;'>({pproj:.1f} pts)</span>
+                    </div>
+                    """
                 else:
-                    st.markdown(f"- **[{status.upper()}]** `{sname}` ({slot}, {inj['starter_proj']:.1f} pts) ➔ *No healthy bench substitute found!*")
+                    pivot_html = "<span style='color: #fb7185; font-size: 0.8rem; font-style: italic;'>No healthy bench substitute found</span>"
+
+                st.markdown(
+                    f"""
+                    <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
+                        <div style='display: flex; align-items: center; gap: 10px;'>
+                            <span style='background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; font-weight: 900;'>{status.upper()}</span>
+                            <img src='{s_avatar}' class='player-avatar-44' style='width: 36px; height: 36px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                            <div>
+                                <span style='font-weight: 800; color: #f8fafc; font-size: 0.9rem;'>{sname}</span>
+                                <span style='color: #94a3b8; font-size: 0.76rem; margin-left: 6px;'>({slot} • {inj['starter_proj']:.1f} pts)</span>
+                            </div>
+                        </div>
+                        {pivot_html}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        if opp_roster and opp_lineup_rows:
+            with st.expander(f"View Opponent Starting Lineup ({opp_name})", expanded=False):
+                st.html(render_opponent_lineup_html(opp_lineup_rows))
 
 
     # =========================================================================
@@ -2780,12 +2989,23 @@ else:
             give_chips = render_asset_chips(gives)
             recv_chips = render_asset_chips(recvs)
 
+            tier = prop.get("tier") or ("Blockbuster" if max(give_raw, recv_raw) >= 4500 else ("Starter Upgrade" if max(give_raw, recv_raw) >= 2500 else "Depth & Capital"))
+            if tier == "Blockbuster":
+                tier_badge = "<span class='status-capsule' style='background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);'>⭐ BLOCKBUSTER</span>"
+            elif tier == "Starter Upgrade":
+                tier_badge = "<span class='status-capsule' style='background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);'>🏆 STARTER UPGRADE</span>"
+            else:
+                tier_badge = "<span class='status-capsule' style='background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);'>🌱 DEPTH & CAPITAL</span>"
+
             card_html = f"""
             <div class='card-container card-highlight' style='padding: 16px; margin-bottom: 16px;'>
                 <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;'>
                     <div>
-                        <span style='font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #38bdf8;'>Proposal #{idx}</span>
-                        <h4 style='margin: 0; font-size: 1.05rem; font-weight: 800; color: #f8fafc;'>{arch}</h4>
+                        <div style='display: flex; align-items: center; gap: 8px;'>
+                            <span style='font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #38bdf8;'>Proposal #{idx}</span>
+                            {tier_badge}
+                        </div>
+                        <h4 style='margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 800; color: #f8fafc;'>{arch}</h4>
                     </div>
                     <div style='display: flex; align-items: center; gap: 10px;'>
                         <span style='font-size: 0.82rem; color: #94a3b8;'>Partner: <strong style='color: #e2e8f0;'>{partner}</strong></span>
@@ -2944,9 +3164,31 @@ else:
             )
 
             if gen_trades:
-                st.success(f"Found {len(gen_trades)} viable league trade opportunities:")
-                for idx, prop in enumerate(gen_trades[:8], 1):
-                    render_trade_proposal_card(idx, prop, show_chat_message=False)
+                c_tr1, c_tr2 = st.columns([1.5, 1])
+                with c_tr1:
+                    tier_filter = st.radio(
+                        "Filter by Proposal Tier:",
+                        ["All Tiers", "⭐ Blockbuster Trades", "🏆 Starter Upgrades", "🌱 Depth & Capital"],
+                        horizontal=True,
+                        key="trade_tier_filter",
+                    )
+                with c_tr2:
+                    st.caption(f"Showing proposals curated across asset value tiers.")
+
+                filtered_trades = gen_trades
+                if "Blockbuster" in tier_filter:
+                    filtered_trades = [p for p in gen_trades if p.get("tier") == "Blockbuster"]
+                elif "Starter" in tier_filter:
+                    filtered_trades = [p for p in gen_trades if p.get("tier") == "Starter Upgrade"]
+                elif "Depth" in tier_filter:
+                    filtered_trades = [p for p in gen_trades if p.get("tier") == "Depth & Capital"]
+
+                if filtered_trades:
+                    st.success(f"Displaying {len(filtered_trades)} trade opportunities ({tier_filter}):")
+                    for idx, prop in enumerate(filtered_trades, 1):
+                        render_trade_proposal_card(idx, prop, show_chat_message=False)
+                else:
+                    st.info(f"No trade proposals currently generated in {tier_filter} tier.")
             else:
                 st.info("No general trades currently generated under default thresholds.")
 

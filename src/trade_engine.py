@@ -416,9 +416,9 @@ def generate_trade_suggestions(
         if user_cat in ("win", "neutral"):
             # Target elite starters on Rebuilding or Neutral teams (or any team in Redraft)
             if not is_dynasty or partner_cat in ("rebuild", "neutral"):
-                min_stud_val = 3200.0 if is_dynasty else 3500.0
-                min_piece_val = 1100.0 if is_dynasty else 500.0
-                max_piece_val = 3200.0 if is_dynasty else 5500.0
+                min_stud_val = 3200.0 if is_dynasty else 3000.0
+                min_piece_val = 900.0 if is_dynasty else 500.0
+                max_piece_val = 6500.0 if is_dynasty else 6500.0
 
                 partner_studs = [
                     a for a in partner["starter_assets"]
@@ -435,14 +435,14 @@ def generate_trade_suggestions(
                 for stud in partner_studs:
                     # Option A: Player + Pick for Stud (Dynasty only)
                     if is_dynasty and user_picks:
-                        # For Championship Push: stud MUST be an established win-now point producer!
-                        if stud.get("redraft_ecr", 999) > 40:
+                        # In redraft, guard against low-value producers; in dynasty, high market value is key
+                        if not is_dynasty and stud.get("redraft_ecr", 999) > 60:
                             continue
 
                         for pk in user_picks:
                             for p in user_pieces:
-                                # Contender must not trade for a player with worse redraft ranking than given player
-                                if stud.get("redraft_ecr", 999) >= p.get("redraft_ecr", 999):
+                                # Contender must not trade for a player with worse redraft ranking if giving a top producer
+                                if not is_dynasty and stud.get("redraft_ecr", 999) >= p.get("redraft_ecr", 999):
                                     continue
 
                                 give = [pk, p]
@@ -458,9 +458,13 @@ def generate_trade_suggestions(
                                 if not is_viable:
                                     continue
 
+                                max_val = max(max(a.get("market_value", 0) for a in give), max(a.get("market_value", 0) for a in recv))
+                                tier = "Blockbuster" if max_val >= 4500.0 else ("Starter Upgrade" if max_val >= 2500.0 else "Depth & Capital")
+
                                 prox_bonus = get_pick_proximity_bonus(give) + get_pick_proximity_bonus(recv)
                                 proposals.append({
                                     "archetype": "🏆 Championship Push (Star Upgrade)",
+                                    "tier": tier,
                                     "partner_name": manager_name,
                                     "partner_status": partner["status"],
                                     "partner_category": partner_cat,
@@ -468,7 +472,7 @@ def generate_trade_suggestions(
                                     "receive_assets": recv,
                                     "eval_result": eval_result,
                                     "why": (
-                                        f"You consolidate depth ({p['name']}) and draft capital ({pk['name']}) to acquire elite win-now starter {stud['name']} (Redraft #{stud.get('redraft_ecr', 999):.0f}); "
+                                        f"You consolidate depth ({p['name']}) and draft capital ({pk['name']}) to acquire elite win-now starter {stud['name']}; "
                                         f"{manager_name} accelerates their timeline with premium pick capital and a productive young asset."
                                     ),
                                     "synergy_score": 96 + prox_bonus - abs(eval_result["net_diff"]) / 50.0,
@@ -492,8 +496,12 @@ def generate_trade_suggestions(
                             if not is_viable:
                                 continue
 
+                            max_val = max(max(a.get("market_value", 0) for a in give), max(a.get("market_value", 0) for a in recv))
+                            tier = "Blockbuster" if max_val >= 4500.0 else ("Starter Upgrade" if max_val >= 2500.0 else "Depth & Capital")
+
                             proposals.append({
                                 "archetype": "⭐ 2-for-1 Star Consolidation",
+                                "tier": tier,
                                 "partner_name": manager_name,
                                 "partner_status": partner["status"],
                                 "partner_category": partner_cat,
@@ -501,7 +509,7 @@ def generate_trade_suggestions(
                                 "receive_assets": recv,
                                 "eval_result": eval_result,
                                 "why": (
-                                    f"You package two quality depth assets ({p1['name']} + {p2['name']}) for a top-tier difference-maker ({stud['name']}); "
+                                    f"You package two quality assets ({p1['name']} + {p2['name']}) for a top-tier difference-maker ({stud['name']}); "
                                     f"{manager_name} addresses multiple starting lineup holes across their roster."
                                 ),
                                 "synergy_score": 91 - abs(eval_result["net_diff"]) / 50.0,
@@ -515,11 +523,11 @@ def generate_trade_suggestions(
         if is_dynasty and partner_cat == "win":
             sellable_players = [
                 a for a in user_profile["bench_assets"] + user_profile["veteran_assets"]
-                if a["market_value"] >= 1200.0
+                if a["market_value"] >= 1000.0
             ]
             partner_picks = [
                 pk for pk in partner["pick_assets"]
-                if pk["round"] <= 3 and pk["market_value"] >= 1100.0
+                if pk["round"] <= 3 and pk["market_value"] >= 900.0
             ]
             partner_picks.sort(key=lambda pk: (int(pk["season"]) if str(pk["season"]).isdigit() else 9999, pk["round"]))
 
@@ -537,9 +545,13 @@ def generate_trade_suggestions(
                     if not is_viable:
                         continue
 
+                    max_val = max(max(a.get("market_value", 0) for a in give), max(a.get("market_value", 0) for a in recv))
+                    tier = "Blockbuster" if max_val >= 4500.0 else ("Starter Upgrade" if max_val >= 2500.0 else "Depth & Capital")
+
                     prox_bonus = get_pick_proximity_bonus(give) + get_pick_proximity_bonus(recv)
                     proposals.append({
                         "archetype": "🌱 Capital Harvest (Depth for Draft Pick)",
+                        "tier": tier,
                         "partner_name": manager_name,
                         "partner_status": partner["status"],
                         "partner_category": partner_cat,
@@ -557,8 +569,8 @@ def generate_trade_suggestions(
         # -------------------------------------------------------------
         # Archetype 3: Positional Rebalancing (1-for-1 Swap)
         # -------------------------------------------------------------
-        pos_min = 1200.0 if is_dynasty else 800.0
-        pos_max = 3500.0 if is_dynasty else 6500.0
+        pos_min = 1000.0 if is_dynasty else 800.0
+        pos_max = 9500.0 if is_dynasty else 8500.0
         if user_profile["surpluses"]:
             for user_pos in user_profile["surpluses"]:
                 my_pos_assets = [
@@ -574,8 +586,8 @@ def generate_trade_suggestions(
                         if pos_min <= a["market_value"] <= pos_max
                     ]
 
-                    for my_p in my_pos_assets[:2]:
-                        for their_p in their_pos_assets[:2]:
+                    for my_p in my_pos_assets[:3]:
+                        for their_p in their_pos_assets[:3]:
                             give = [my_p]
                             recv = [their_p]
                             eval_result = evaluate_trade_fairness(give, recv)
@@ -588,8 +600,12 @@ def generate_trade_suggestions(
                             if not is_viable:
                                 continue
 
+                            max_val = max(max(a.get("market_value", 0) for a in give), max(a.get("market_value", 0) for a in recv))
+                            tier = "Blockbuster" if max_val >= 4500.0 else ("Starter Upgrade" if max_val >= 2500.0 else "Depth & Capital")
+
                             proposals.append({
                                 "archetype": "🔄 Positional Rebalancing (1-for-1 Swap)",
+                                "tier": tier,
                                 "partner_name": manager_name,
                                 "partner_status": partner["status"],
                                 "partner_category": partner_cat,
@@ -597,37 +613,97 @@ def generate_trade_suggestions(
                                 "receive_assets": recv,
                                 "eval_result": eval_result,
                                 "why": (
-                                    f"You exchange surplus depth at {user_pos} ({my_p['name']}) to acquire {other_pos} starter {their_p['name']}; "
+                                    f"You exchange surplus at {user_pos} ({my_p['name']}) to acquire {other_pos} starter {their_p['name']}; "
                                     f"{manager_name} rebalances their depth across positions."
                                 ),
                                 "synergy_score": 88 - abs(eval_result["net_diff"]) / 50.0,
                             })
                             break
 
-    # Deduplicate and ensure diversity in trade proposals
-    # (avoid recommending the exact same player in all 3 trades)
+        # -------------------------------------------------------------
+        # Archetype 4: Rebuilder Veteran Liquidation (Blockbuster for Premium Capital)
+        # -------------------------------------------------------------
+        if is_dynasty and user_cat == "rebuild" and partner_cat in ("win", "neutral"):
+            valuable_vets = [
+                a for a in user_profile.get("veteran_assets", [])
+                if a.get("market_value", 0) >= 3000.0
+            ]
+            partner_firsts = [
+                pk for pk in partner.get("pick_assets", [])
+                if pk.get("round") == 1
+            ]
+            partner_young_assets = [
+                a for a in partner.get("bench_assets", []) + partner.get("starter_assets", [])
+                if (a.get("age") or 30) <= 25 and 1500.0 <= a.get("market_value", 0) <= 6500.0
+            ]
+
+            for vet in valuable_vets:
+                # Option A: Vet for 1st Round Pick + Young Asset
+                for pk in partner_firsts:
+                    for ya in partner_young_assets:
+                        give = [vet]
+                        recv = [pk, ya]
+                        eval_result = evaluate_trade_fairness(give, recv)
+                        if not eval_result["is_balanced"]:
+                            continue
+
+                        prox_bonus = get_pick_proximity_bonus(recv)
+                        proposals.append({
+                            "archetype": "💎 Franchise Pivot (Veteran for 1st + Youth)",
+                            "tier": "Blockbuster",
+                            "partner_name": manager_name,
+                            "partner_status": partner["status"],
+                            "partner_category": partner_cat,
+                            "give_assets": give,
+                            "receive_assets": recv,
+                            "eval_result": eval_result,
+                            "why": (
+                                f"You trade established star {vet['name']} ({vet['market_value']:,.0f} pts) at peak value; "
+                                f"you receive foundation capital ({pk['name']}) plus rising talent {ya['name']} to accelerate your rebuild."
+                            ),
+                            "synergy_score": 97 + prox_bonus - abs(eval_result["net_diff"]) / 50.0,
+                        })
+                        break
+                    if any(p["give_assets"] == [vet] for p in proposals if p.get("tier") == "Blockbuster"):
+                        break
+
+    # Deduplicate and ensure balanced diversity across tiers (Blockbuster, Starter Upgrade, Depth)
     used_player_names = set()
     used_partners = set()
     diverse_proposals = []
 
-    sorted_proposals = sorted(proposals, key=lambda x: -x["synergy_score"])
+    # Partition candidate proposals by tier
+    blockbusters = [p for p in proposals if p.get("tier") == "Blockbuster"]
+    upgrades = [p for p in proposals if p.get("tier") == "Starter Upgrade"]
+    depth_swaps = [p for p in proposals if p.get("tier") == "Depth & Capital"]
 
-    # 1. First pass: distinct partners and distinct players offered
-    for p in sorted_proposals:
-        partner_name = p["partner_name"]
-        player_gives = {a["name"] for a in p["give_assets"] if a["type"] == "player"}
+    for group in (blockbusters, upgrades, depth_swaps):
+        group.sort(key=lambda x: -x["synergy_score"])
 
-        if partner_name not in used_partners and not (player_gives & used_player_names):
-            diverse_proposals.append(p)
-            used_partners.add(partner_name)
-            used_player_names.update(player_gives)
+    # Collect balanced selections: up to 3 blockbusters, 3 upgrades, 3 depth swaps
+    tier_targets = [
+        (blockbusters, 3),
+        (upgrades, 3),
+        (depth_swaps, 2),
+    ]
 
-        if len(diverse_proposals) >= max_suggestions:
-            break
+    for tier_pool, target_count in tier_targets:
+        count = 0
+        for p in tier_pool:
+            partner_name = p["partner_name"]
+            player_gives = {a["name"] for a in p["give_assets"] if a["type"] == "player"}
+            if partner_name not in used_partners and not (player_gives & used_player_names):
+                diverse_proposals.append(p)
+                used_partners.add(partner_name)
+                used_player_names.update(player_gives)
+                count += 1
+                if count >= target_count or len(diverse_proposals) >= max_suggestions:
+                    break
 
-    # 2. Second pass: fill remaining slots if any
+    # Backfill if we haven't reached max_suggestions
+    all_sorted = sorted(proposals, key=lambda x: -x["synergy_score"])
     if len(diverse_proposals) < max_suggestions:
-        for p in sorted_proposals:
+        for p in all_sorted:
             if p not in diverse_proposals:
                 diverse_proposals.append(p)
             if len(diverse_proposals) >= max_suggestions:
