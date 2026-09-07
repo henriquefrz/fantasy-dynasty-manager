@@ -312,13 +312,34 @@ st.markdown(
         -webkit-backdrop-filter: blur(12px) !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 14px !important;
-        padding: 8px 18px !important;
+        padding: 6px 18px !important;
         margin-bottom: 20px !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
     }
+    .st-key-topbar_nav_container div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+        min-height: 48px !important;
+    }
     .st-key-topbar_nav_container div[data-testid="column"] {
-        display: flex;
-        align-items: center;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        min-height: 48px !important;
+    }
+    .st-key-topbar_nav_container div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        gap: 0 !important;
+    }
+    .st-key-topbar_nav_container .element-container {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .st-key-topbar_nav_container div[data-testid="stHtml"] {
+        display: flex !important;
+        align-items: center !important;
+        margin: auto 0 !important;
     }
 
     /* Streamlit Native Metric Cards */
@@ -1836,10 +1857,9 @@ with st.container(key="topbar_nav_container"):
         if ICON_F_YARDS_B64:
             st.html(
                 f"""
-                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content;">
-                    <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle;" />
-                    <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap;">Fantasy Analytics</span>
-                    <span style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;">PRO</span>
+                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
+                    <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
+                    <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
                 </a>
                 """
             )
