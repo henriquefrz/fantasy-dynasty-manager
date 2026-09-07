@@ -87,7 +87,7 @@ except Exception:
             return ""
         pos_upper = str(position or "").upper()
         pid_str = str(player_id).strip()
-        if pos_upper == "PICK" or pid_str.startswith("pick_") or "round" in pid_str.lower() or "pick" in pid_str.lower():
+        if pos_upper == "PICK" or pid_str.startswith("FP_") or pid_str.startswith("pick_") or "round" in pid_str.lower() or "pick" in pid_str.lower():
             return ""
         if pos_upper in ("DEF", "DST") or not pid_str.isdigit():
             team_code = (team or pid_str).lower()
@@ -155,7 +155,8 @@ ALLOWED_USERS = ["henriquefrz", "LucasFrazao"]
 # -----------------------------------------------------------------------------
 LOGO_PATH = "assets/logo.jpg"
 LOGO_HORIZONTAL_PATH = "assets/logo_horizontal.png"
-PAGE_ICON = LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈"
+ICON_F_YARDS_PATH = "assets/icon_f_yards.png"
+PAGE_ICON = ICON_F_YARDS_PATH if os.path.exists(ICON_F_YARDS_PATH) else (LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈")
 
 LOGO_HORIZONTAL_B64 = ""
 if os.path.exists(LOGO_HORIZONTAL_PATH):
@@ -164,6 +165,14 @@ if os.path.exists(LOGO_HORIZONTAL_PATH):
             LOGO_HORIZONTAL_B64 = base64.b64encode(_f.read()).decode("utf-8")
     except Exception:
         LOGO_HORIZONTAL_B64 = ""
+
+ICON_F_YARDS_B64 = ""
+if os.path.exists(ICON_F_YARDS_PATH):
+    try:
+        with open(ICON_F_YARDS_PATH, "rb") as _f:
+            ICON_F_YARDS_B64 = base64.b64encode(_f.read()).decode("utf-8")
+    except Exception:
+        ICON_F_YARDS_B64 = ""
 
 st.set_page_config(
     page_title="Fantasy Analytics",
@@ -223,7 +232,7 @@ st.markdown(
     .badge-te { background-color: #f59e0b; }
     .badge-k  { background-color: #8b5cf6; }
     .badge-def{ background-color: #64748b; }
-    .badge-pick{ background-color: #10b981; }
+    .badge-pick{ background-color: #a855f7; }
 
     /* Top Bar Brand Home Button */
     .st-key-btn_brand_home button {
@@ -296,6 +305,22 @@ st.markdown(
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #111827 100%);
     }
 
+    /* Top Navigation Bar Container (Option 1: Linear & Vercel Glassmorphism) */
+    .st-key-topbar_nav_container {
+        background: rgba(15, 23, 42, 0.82) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 14px !important;
+        padding: 8px 18px !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+    }
+    .st-key-topbar_nav_container div[data-testid="column"] {
+        display: flex;
+        align-items: center;
+    }
+
     /* Streamlit Native Metric Cards */
     div[data-testid="stMetric"] {
         background: #111827;
@@ -303,6 +328,10 @@ st.markdown(
         border-radius: 10px;
         padding: 12px 16px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        min-height: 108px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
     }
     div[data-testid="stMetricValue"] {
         font-size: 1.45rem !important;
@@ -733,29 +762,62 @@ st.markdown(
             height: 36px !important;
         }
 
-        /* Mobile Matchup Arena Card */
-        .matchup-arena-card {
-            padding: 14px 12px !important;
+        /* Mobile Top Bar Glass Framing */
+        .st-key-topbar_nav_container {
+            padding: 10px 12px !important;
             margin-bottom: 14px !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(56, 189, 248, 0.22) !important;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        /* Mobile Matchup Arena Scoreboard Card */
+        .matchup-arena-card {
+            padding: 12px !important;
+            margin-bottom: 12px !important;
         }
         .matchup-arena-grid {
-            grid-template-columns: 1fr 1fr !important;
-            gap: 8px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
         }
         .arena-team-left, .arena-team-right {
-            text-align: center !important;
+            text-align: left !important;
+            width: 100% !important;
+            padding: 12px 14px !important;
+            background: rgba(15, 23, 42, 0.6) !important;
+            border-radius: 10px !important;
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
         }
-        .arena-proj-score {
-            font-size: 1.55rem !important;
+        .arena-team-left {
+            order: 1 !important;
         }
         .arena-vs-col {
-            grid-column: span 2 !important;
-            flex-direction: row !important;
+            order: 2 !important;
+            width: 100% !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 4px 0 !important;
+            margin: 0 !important;
+            border-top: none !important;
+            gap: 6px !important;
+        }
+        .arena-vs-col div[style*="width: 140px"] {
+            width: 100% !important;
+            max-width: 220px !important;
+            height: 6px !important;
+        }
+        .arena-team-right {
             order: 3 !important;
-            padding-top: 8px !important;
-            margin-top: 6px !important;
-            border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-            gap: 10px !important;
+            text-align: left !important;
+        }
+        .arena-team-right .arena-opp-prob-row {
+            justify-content: flex-start !important;
+        }
+        .arena-proj-score {
+            font-size: 1.6rem !important;
+            font-weight: 900 !important;
         }
 
         /* Mobile Start/Sit Card */
@@ -763,7 +825,7 @@ st.markdown(
             flex-direction: column !important;
             align-items: stretch !important;
             gap: 10px !important;
-            padding: 12px 12px !important;
+            padding: 12px !important;
         }
         .start-sit-middle {
             display: flex !important;
@@ -771,21 +833,26 @@ st.markdown(
             align-items: center !important;
             padding-bottom: 8px !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-            order: -1 !important;
+            order: 1 !important;
         }
-        .start-sit-player-right {
+        .start-sit-player-start {
+            order: 2 !important;
+        }
+        .start-sit-player-sit {
+            order: 3 !important;
             flex-direction: row !important;
             justify-content: flex-start !important;
         }
-        .start-sit-player-right-info {
+        .start-sit-player-sit .start-sit-sit-info {
             text-align: left !important;
-            order: 2 !important;
         }
-        .start-sit-player-right-avatar {
-            order: 1 !important;
-        }
-        .start-sit-player-right-badge {
-            order: 0 !important;
+
+        /* Mobile Injury Alert Card */
+        .injury-alert-card {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            padding: 10px 12px !important;
         }
     }
     </style>
@@ -924,10 +991,9 @@ def render_market_table_html(market_rows):
     """
     for idx, r in enumerate(market_rows, start=1):
         pos = r.get("Pos", "UTIL")
-        badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
-        avatar = r.get("Avatar", "")
         pname = r.get("Player", "Unknown")
         team = r.get("NFL Team", "FA")
+        pid = str(r.get("pid", ""))
         rank_str = r.get("Rank", f"#{idx}")
         overall_ecr = r.get("Overall ECR", "—")
         pos_ecr = r.get("Pos ECR", "—")
@@ -936,12 +1002,27 @@ def render_market_table_html(market_rows):
         fc = r.get("FantasyCalc", "—")
         dp = r.get("DynastyProcess", "—")
 
-        if pos == "PICK" or "round" in pname.lower() or "pick" in pname.lower():
+        is_pick = (
+            pos == "PICK"
+            or pid.startswith("FP_")
+            or pid.startswith("pick_")
+            or "round" in pname.lower()
+            or "pick" in pname.lower()
+            or any(k in pname.lower() for k in [" 1st", " 2nd", " 3rd", " 4th"])
+        )
+
+        if is_pick:
             avatar_img = "<div class='player-avatar-44' style='background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(126, 34, 206, 0.45) 100%); border: 1px solid rgba(168, 85, 247, 0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d8b4fe; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;'><span>PICK</span></div>"
-        elif avatar:
-            avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+            badge_cls = "badge-pick"
+            pos = "PICK"
+            team = "DRAFT"
         else:
-            avatar_img = "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+            badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
+            avatar = r.get("Avatar", "")
+            if avatar:
+                avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+            else:
+                avatar_img = "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
 
         html += f"""
             <tr>
@@ -1361,7 +1442,7 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
                 <div style='font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
                 <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{opp_name}</div>
                 <div class='arena-proj-score' style='color: #f8fafc;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
-                <div style='display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 5px;'>
+                <div class='arena-opp-prob-row' style='display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 5px;'>
                     <span style='background: rgba(148, 163, 184, 0.12); border: 1px solid rgba(148, 163, 184, 0.25); color: #cbd5e1; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{opp_win_prob:.0f}% WIN CHANCE</span>
                 </div>
                 <div style='font-size: 0.76rem; color: #64748b; margin-top: 6px;'>Week {active_week} Matchup</div>
@@ -1383,8 +1464,14 @@ def render_start_sit_card_html(swap):
 
     card_html = f"""
     <div class='start-sit-card'>
+        <!-- Net Gain & Slot Pill -->
+        <div class='start-sit-middle'>
+            <div style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 800;'>+{gain:.1f} PTS GAIN</div>
+            <div style='font-size: 0.7rem; color: #64748b; margin-top: 3px; font-weight: 600;'>Slot: {slot}</div>
+        </div>
+
         <!-- START Player -->
-        <div style='display: flex; align-items: center; gap: 10px;'>
+        <div class='start-sit-player-start' style='display: flex; align-items: center; gap: 10px;'>
             <span style='background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>START</span>
             <img src='{st_avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
             <div>
@@ -1393,20 +1480,14 @@ def render_start_sit_card_html(swap):
             </div>
         </div>
 
-        <!-- Net Gain & Slot Pill -->
-        <div class='start-sit-middle'>
-            <div style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 800;'>+{gain:.1f} PTS GAIN</div>
-            <div style='font-size: 0.7rem; color: #64748b; margin-top: 3px; font-weight: 600;'>Slot: {slot}</div>
-        </div>
-
         <!-- SIT Player -->
-        <div class='start-sit-player-right' style='display: flex; align-items: center; gap: 10px;'>
-            <div class='start-sit-player-right-info' style='text-align: right;'>
+        <div class='start-sit-player-sit' style='display: flex; align-items: center; gap: 10px;'>
+            <span style='background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>SIT</span>
+            <img src='{sit_avatar}' class='player-avatar-44' style='opacity: 0.75;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+            <div class='start-sit-sit-info'>
                 <div style='font-size: 0.92rem; font-weight: 800; color: #cbd5e1;'>{sit_p.get("full_name")}</div>
                 <div style='font-size: 0.74rem; color: #64748b;'>{sit_p.get("position")} • {sit_p.get("team") or "FA"} • {swap["sit_proj"]:.1f} pts</div>
             </div>
-            <img src='{sit_avatar}' class='player-avatar-44 start-sit-player-right-avatar' style='opacity: 0.75;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
-            <span class='start-sit-player-right-badge' style='background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>SIT</span>
         </div>
     </div>
     """
@@ -1744,104 +1825,115 @@ if selected_mode not in mode_keys:
     selected_mode = "equal"
 
 # -----------------------------------------------------------------------------
-# Top Navigation Bar (Upper Bar)
+# Top Navigation Bar (Option 1: Linear & Vercel Glassmorphism)
 # -----------------------------------------------------------------------------
-top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
-    [2.6, 3.6, 1.6, 2.2], vertical_alignment="center"
-)
+with st.container(key="topbar_nav_container"):
+    top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
+        [2.8, 3.4, 1.6, 2.2], vertical_alignment="center"
+    )
 
-with top_col_brand:
-    if LOGO_HORIZONTAL_B64:
-        st.html(
-            f"""
-            <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
-                <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
-            </a>
-            """
-        )
-    else:
-        st.html(
-            """
-            <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
-                <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
-                <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
-            </a>
-            """
-        )
-
-with top_col_nav:
-    cur_lid = st.session_state.get("selected_league_id")
-    target_label = PORTAL_LABEL
-    if cur_lid is not None:
-        target_lg = next((l for l in sorted_leagues if str(l.get("league_id")) == str(cur_lid)), None)
-        if target_lg:
-            target_label = target_lg["name"]
-
-    cur_idx = league_options.index(target_label) if target_label in league_options else 0
-
-    def on_top_workspace_changed():
-        val = st.session_state.get("top_workspace_selector")
-        if val == PORTAL_LABEL:
-            set_active_workspace(None)
+    with top_col_brand:
+        if ICON_F_YARDS_B64:
+            st.html(
+                f"""
+                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content;">
+                    <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle;" />
+                    <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap;">Fantasy Analytics</span>
+                    <span style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;">PRO</span>
+                </a>
+                """
+            )
+        elif LOGO_HORIZONTAL_B64:
+            st.html(
+                f"""
+                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
+                    <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
+                </a>
+                """
+            )
         else:
-            chosen = next((l for l in sorted_leagues if l["name"] == val), None)
-            if chosen:
-                set_active_workspace(chosen["league_id"])
+            st.html(
+                """
+                <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
+                    <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
+                    <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
+                </a>
+                """
+            )
 
-    st.selectbox(
-        "Active Workspace",
-        league_options,
-        index=cur_idx,
-        key="top_workspace_selector",
-        on_change=on_top_workspace_changed,
-        label_visibility="collapsed"
-    )
+    with top_col_nav:
+        cur_lid = st.session_state.get("selected_league_id")
+        target_label = PORTAL_LABEL
+        if cur_lid is not None:
+            target_lg = next((l for l in sorted_leagues if str(l.get("league_id")) == str(cur_lid)), None)
+            if target_lg:
+                target_label = target_lg["name"]
 
-with top_col_cfg:
-    with st.popover("Settings", use_container_width=True):
-        st.markdown("#### Valuation Consensus Model")
-        cur_m_idx = mode_keys.index(selected_mode) if selected_mode in mode_keys else 0
-        selected_mode_label = st.selectbox(
-            "Consensus Engine:",
-            mode_labels,
-            index=cur_m_idx,
-            help="Determines how players and draft picks are evaluated across all tabs."
+        cur_idx = league_options.index(target_label) if target_label in league_options else 0
+
+        def on_top_workspace_changed():
+            val = st.session_state.get("top_workspace_selector")
+            if val == PORTAL_LABEL:
+                set_active_workspace(None)
+            else:
+                chosen = next((l for l in sorted_leagues if l["name"] == val), None)
+                if chosen:
+                    set_active_workspace(chosen["league_id"])
+
+        st.selectbox(
+            "Active Workspace",
+            league_options,
+            index=cur_idx,
+            key="top_workspace_selector",
+            on_change=on_top_workspace_changed,
+            label_visibility="collapsed"
         )
-        new_mode = mode_keys[mode_labels.index(selected_mode_label)]
-        if new_mode != st.session_state.get("selected_mode"):
-            st.session_state["selected_mode"] = new_mode
-            st.rerun()
 
-        st.markdown("---")
-        st.markdown("#### Market Data Freshness")
-        fresh = market_db.get("freshness", {})
-        ktc_stat = (fresh.get("ktc") or fresh.get("keeptradecut") or {}).get("status", "Live Current")
-        fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
-        dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
-        fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
-        st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
-        st.markdown(f"**FantasyCalc:** `{fc_stat}`")
-        st.markdown(f"**DynastyProcess:** `{dp_stat}`")
-        st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
-        st.markdown("---")
-        if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
+    with top_col_cfg:
+        with st.popover("Settings", use_container_width=True):
+            st.markdown("#### Valuation Consensus Model")
+            cur_m_idx = mode_keys.index(selected_mode) if selected_mode in mode_keys else 0
+            selected_mode_label = st.selectbox(
+                "Consensus Engine:",
+                mode_labels,
+                index=cur_m_idx,
+                help="Determines how players and draft picks are evaluated across all tabs."
+            )
+            new_mode = mode_keys[mode_labels.index(selected_mode_label)]
+            if new_mode != st.session_state.get("selected_mode"):
+                st.session_state["selected_mode"] = new_mode
+                st.rerun()
 
-with top_col_user:
-    user_idx = ALLOWED_USERS.index(active_user_handle) if active_user_handle in ALLOWED_USERS else 0
-    selected_u = st.selectbox(
-        "Sleeper Account",
-        ALLOWED_USERS,
-        index=user_idx,
-        format_func=lambda u: f"@{u}",
-        key="top_account_selector",
-        label_visibility="collapsed"
-    )
-    if selected_u != st.session_state.get("active_user_handle"):
-        st.session_state["active_user_handle"] = selected_u
-        st.session_state["selected_league_id"] = None
-        st.rerun()
+            st.markdown("---")
+            st.markdown("#### Market Data Freshness")
+            fresh = market_db.get("freshness", {})
+            ktc_stat = (fresh.get("ktc") or fresh.get("keeptradecut") or {}).get("status", "Live Current")
+            fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
+            dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
+            fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
+            st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
+            st.markdown(f"**FantasyCalc:** `{fc_stat}`")
+            st.markdown(f"**DynastyProcess:** `{dp_stat}`")
+            st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
+            st.markdown("---")
+            if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+
+    with top_col_user:
+        user_idx = ALLOWED_USERS.index(active_user_handle) if active_user_handle in ALLOWED_USERS else 0
+        selected_u = st.selectbox(
+            "Sleeper Account",
+            ALLOWED_USERS,
+            index=user_idx,
+            format_func=lambda u: f"@{u}",
+            key="top_account_selector",
+            label_visibility="collapsed"
+        )
+        if selected_u != st.session_state.get("active_user_handle"):
+            st.session_state["active_user_handle"] = selected_u
+            st.session_state["selected_league_id"] = None
+            st.rerun()
 
 st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
 
@@ -2193,7 +2285,11 @@ else:
         st.metric("Team Record", f"{wins} - {losses}" + (f"-{ties}" if ties > 0 else ""), "Current Season")
     with col_m2:
         clean_status = team_status.split("(")[0].strip() if team_status else "Active"
-        st.metric("Franchise Trajectory", clean_status, help=team_status)
+        trajectory_delta = (
+            "Rebuild Phase" if any(w in clean_status for w in ["Rebuild", "Struggle", "Tank"])
+            else ("Contender Phase" if "Contend" in clean_status else "Competitive Core")
+        )
+        st.metric("Franchise Trajectory", clean_status, trajectory_delta, delta_color="normal", help=team_status)
     with col_m3:
         if is_dynasty and user_profile:
             dyn_rank_str = f"#{dynasty_pos} of {dynasty_total}" if dynasty_pos else "Pre-Draft"
@@ -2708,7 +2804,7 @@ else:
 
                 st.markdown(
                     f"""
-                    <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
+                    <div class='injury-alert-card' style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
                         <div style='display: flex; align-items: center; gap: 10px;'>
                             <span style='background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; font-weight: 900;'>{status.upper()}</span>
                             <img src='{s_avatar}' class='player-avatar-44' style='width: 36px; height: 36px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
@@ -3570,20 +3666,27 @@ else:
 
         c_mkt1, c_mkt2 = st.columns([1, 2])
         with c_mkt1:
-            pos_mkt = st.selectbox("Position Filter:", ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"], key="mkt_pos_filter")
+            pos_mkt = st.selectbox("Position Filter:", ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"], key="mkt_pos_filter")
         with c_mkt2:
-            search_mkt = st.text_input("Search Player / Team:", "", key="mkt_search_filter")
+            search_mkt = st.text_input("Search Player / Team / Pick:", "", key="mkt_search_filter")
 
         market_rows = []
         for pid, p_data in primary_lookup.items():
-            if str(pid).startswith("pick_") or str(pid).isdigit() is False and pos_mkt not in ("DEF", "ALL"):
-                if str(pid).startswith("pick_"):
-                    continue
-
             p_obj = players.get(str(pid), {})
             pname = p_obj.get("full_name") or p_data.get("player_name") or str(pid)
-            pos = p_obj.get("position") or p_data.get("position") or "UTIL"
-            team = p_obj.get("team") or "FA"
+            raw_pos = p_obj.get("position") or p_data.get("position") or "UTIL"
+
+            is_pick_asset = (
+                raw_pos == "PICK"
+                or str(pid).startswith("FP_")
+                or str(pid).startswith("pick_")
+                or "round" in pname.lower()
+                or "pick" in pname.lower()
+                or any(k in pname.lower() for k in [" 1st", " 2nd", " 3rd", " 4th"])
+            )
+
+            pos = "PICK" if is_pick_asset else raw_pos
+            team = "DRAFT" if is_pick_asset else (p_obj.get("team") or "FA")
             val = p_data.get("market_value", 0.0)
             ecr = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
             o_ecr = p_data.get("rank_ecr_overall", 999.0)
@@ -3610,7 +3713,8 @@ else:
                 raw_p_ecr = 9999.0
 
             market_rows.append({
-                "Avatar": get_player_avatar_url(pid, pos, team),
+                "pid": str(pid),
+                "Avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
                 "Player": pname,
                 "Pos": pos,
                 "NFL Team": team,
@@ -3632,7 +3736,7 @@ else:
         market_rows.sort(key=lambda x: x["_val"], reverse=True)
 
         if market_rows:
-            c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+            c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
             with c_mksort1:
                 sort_mkt_col = st.selectbox(
                     "Sort Market Players By:",
@@ -3646,7 +3750,12 @@ else:
                     key="mkt_sort_order"
                 )
             with c_mksort3:
-                st.caption(f"Showing top {min(len(market_rows), 100)} of {len(market_rows)} matching assets.")
+                page_size_choice = st.selectbox(
+                    "Items Per Page:",
+                    [50, 100, 200, "All"],
+                    index=1,
+                    key="mkt_page_size"
+                )
 
             sorted_mkt = list(market_rows)
             is_desc = "Descending" in sort_mkt_order
@@ -3668,7 +3777,40 @@ else:
             for idx, r in enumerate(sorted_mkt, start=1):
                 r["Rank"] = f"#{idx}"
 
-            st.html(render_market_table_html(sorted_mkt[:100]))
+            total_items = len(sorted_mkt)
+            page_size = total_items if page_size_choice == "All" else int(page_size_choice)
+            total_pages = max(1, math.ceil(total_items / page_size))
+
+            # Validate current page state
+            cur_page = st.session_state.get("mkt_page", 1)
+            if cur_page > total_pages:
+                cur_page = 1
+                st.session_state["mkt_page"] = 1
+
+            start_idx = (cur_page - 1) * page_size
+            end_idx = min(start_idx + page_size, total_items)
+            page_rows = sorted_mkt[start_idx:end_idx]
+
+            # Pagination Controls Bar
+            c_p1, c_p2, c_p3 = st.columns([1, 2, 1], vertical_alignment="center")
+            with c_p1:
+                if st.button("← Previous", key="mkt_prev_btn", disabled=(cur_page <= 1), use_container_width=True):
+                    st.session_state["mkt_page"] = max(1, cur_page - 1)
+                    st.rerun()
+            with c_p2:
+                st.markdown(
+                    f"<div style='text-align: center; color: #94a3b8; font-size: 0.85rem; font-weight: 600;'>"
+                    f"Page <strong style='color: #f8fafc;'>{cur_page}</strong> of <strong style='color: #f8fafc;'>{total_pages}</strong> "
+                    f"<span style='color: #64748b;'>• Showing {start_idx + 1}–{end_idx} of {total_items} assets</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            with c_p3:
+                if st.button("Next →", key="mkt_next_btn", disabled=(cur_page >= total_pages), use_container_width=True):
+                    st.session_state["mkt_page"] = min(total_pages, cur_page + 1)
+                    st.rerun()
+
+            st.html(render_market_table_html(page_rows))
         else:
             st.info("No players matched the filter criteria.")
 
