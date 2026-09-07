@@ -211,7 +211,7 @@ def build_intelligent_waiver_suggestions(
                     "displaced_ranking": displaced_ranking,
                     "starter_gain": starter_gain,
                     "market_value_gain": fa_val - drop_val,
-                    "priority_tag": "⭐ STARTER STREAM" if category == "win" else "⭐ STARTER",
+                    "priority_tag": "STARTER STREAM" if category == "win" else "STARTER",
                 })
                 seen_add_ids.add(fa_id)
             else:
@@ -231,6 +231,17 @@ def build_intelligent_waiver_suggestions(
                     if not (is_dynasty and category != "win" and val_gain < 0):
                         add_alt = alt_lookup.get(fa_id, {}) if alt_lookup else {}
                         drop_alt = alt_lookup.get(drop_obj.get("player_id"), {}) if alt_lookup else {}
+                        viable_drops = [
+                            {
+                                "drop_player": cand_obj,
+                                "drop_ranking": cand_ranking,
+                                "drop_value": cand_ranking.get("market_value", 0.0),
+                                "drop_ecr": cand_ranking.get("rank_ecr", 999.0),
+                                "market_value_gain": fa_val - cand_ranking.get("market_value", 0.0),
+                            }
+                            for cand_obj, cand_ranking in droppable_skill_bench
+                            if cand_ranking.get("market_value", 0.0) < fa_val
+                        ]
                         starter_upgrades.append({
                             "add_player": fa_obj,
                             "add_ranking": fa_ranking,
@@ -238,6 +249,7 @@ def build_intelligent_waiver_suggestions(
                             "drop_player": drop_obj,
                             "drop_ranking": drop_ranking,
                             "drop_value": drop_val,
+                            "all_drop_candidates": viable_drops,
                             "displaced_player": displaced_p,
                             "displaced_ranking": displaced_ranking,
                             "starter_gain": starter_gain,
@@ -247,7 +259,7 @@ def build_intelligent_waiver_suggestions(
                             "drop_alt_rank": drop_alt.get("rank_ecr"),
                             "add_alt_value": add_alt.get("market_value"),
                             "drop_alt_value": drop_alt.get("market_value"),
-                            "priority_tag": "⭐ STARTER - WIN NOW" if category == "win" else "⭐ STARTER",
+                            "priority_tag": "STARTER - WIN NOW" if category == "win" else "STARTER",
                         })
                         seen_add_ids.add(fa_id)
 
@@ -271,6 +283,17 @@ def build_intelligent_waiver_suggestions(
                 if is_valid_gain:
                     add_alt = alt_lookup.get(fa_id, {}) if alt_lookup else {}
                     drop_alt = alt_lookup.get(drop_obj.get("player_id"), {}) if alt_lookup else {}
+                    viable_drops = [
+                        {
+                            "drop_player": cand_obj,
+                            "drop_ranking": cand_ranking,
+                            "drop_value": cand_ranking.get("market_value", 0.0),
+                            "drop_ecr": cand_ranking.get("rank_ecr", 999.0),
+                            "market_value_gain": fa_val - cand_ranking.get("market_value", 0.0),
+                        }
+                        for cand_obj, cand_ranking in droppable_skill_bench
+                        if cand_ranking.get("market_value", 0.0) < fa_val
+                    ]
                     cross_pos_upgrades.append({
                         "add_player": fa_obj,
                         "add_ranking": fa_ranking,
@@ -278,6 +301,7 @@ def build_intelligent_waiver_suggestions(
                         "drop_player": drop_obj,
                         "drop_ranking": drop_ranking,
                         "drop_value": drop_val,
+                        "all_drop_candidates": viable_drops,
                         "market_value_gain": val_gain,
                         "ecr_gain": ecr_gain,
                         "is_high_value_drop": drop_val >= 500.0,
@@ -285,7 +309,7 @@ def build_intelligent_waiver_suggestions(
                         "drop_alt_rank": drop_alt.get("rank_ecr"),
                         "add_alt_value": add_alt.get("market_value"),
                         "drop_alt_value": drop_alt.get("market_value"),
-                        "priority_tag": "🏆 WIN-NOW BENCH" if category == "win" else ("🌱 UPSIDE BENCH" if category == "rebuild" else "  bench upgrade"),
+                        "priority_tag": "WIN-NOW BENCH" if category == "win" else ("UPSIDE BENCH" if category == "rebuild" else "BENCH UPGRADE"),
                     })
                     seen_add_ids.add(fa_id)
 
@@ -307,7 +331,7 @@ def build_intelligent_waiver_suggestions(
                     "drop_ranking": worst_taxi_ranking,
                     "drop_value": worst_taxi_val,
                     "market_value_gain": taxi_val_gain,
-                    "priority_tag": "🚕 TAXI SWAP",
+                    "priority_tag": "TAXI SWAP",
                 })
 
         # D. Positional Options (Same Position Swap)

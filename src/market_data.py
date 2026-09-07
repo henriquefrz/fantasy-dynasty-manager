@@ -99,7 +99,7 @@ def get_ktc_data_raw(is_superflex=True):
         return []
 
 
-def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix):
+def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_superflex=False):
     fp_id_to_sleeper_id = {}
 
     for row in player_ids_raw:
@@ -109,29 +109,51 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix):
         if sleeper_id and sleeper_id != "NA" and fp_id and fp_id != "NA":
             fp_id_to_sleeper_id[fp_id] = sleeper_id
 
-    page_types = {f"{ranking_prefix}-{pos.lower()}" for pos in POSITIONS}
+    pos_page_types = {f"{ranking_prefix}-{pos.lower()}" for pos in POSITIONS}
+    overall_page_type = f"{ranking_prefix}-op" if is_superflex else f"{ranking_prefix}-overall"
 
     lookup = {}
+    overall_map = {}
 
     for row in fp_rankings_raw:
-        if row["page_type"] not in page_types:
-            continue
-
-        sleeper_id = fp_id_to_sleeper_id.get(row["id"])
-
+        ptype = row.get("page_type")
+        sleeper_id = fp_id_to_sleeper_id.get(row.get("id"))
         if not sleeper_id:
             continue
 
         try:
-            rank_ecr = float(row["ecr"])
+            ecr_val = float(row["ecr"])
         except (ValueError, TypeError):
             continue
 
-        lookup[sleeper_id] = {
-            "rank_ecr": rank_ecr,
-            "player_name": row["player"],
-            "position": row["pos"],
-        }
+        if ptype == overall_page_type:
+            overall_map[sleeper_id] = ecr_val
+        elif ptype in pos_page_types:
+            lookup[sleeper_id] = {
+                "rank_ecr": ecr_val,
+                "rank_ecr_pos": ecr_val,
+                "player_name": row["player"],
+                "position": row["pos"],
+            }
+
+    # Attach overall ECR to each player in lookup
+    for s_id, o_ecr in overall_map.items():
+        if s_id in lookup:
+            lookup[s_id]["rank_ecr_overall"] = o_ecr
+        else:
+            lookup[s_id] = {
+                "rank_ecr": 999.0,
+                "rank_ecr_pos": 999.0,
+                "rank_ecr_overall": o_ecr,
+                "player_name": "",
+                "position": "",
+            }
+
+    for item in lookup.values():
+        if "rank_ecr_overall" not in item:
+            item["rank_ecr_overall"] = 999.0
+        if "rank_ecr_pos" not in item:
+            item["rank_ecr_pos"] = item.get("rank_ecr", 999.0)
 
     return lookup
 
@@ -159,6 +181,8 @@ def _build_dst_lookup(fp_rankings_raw, ranking_prefix):
 
         lookup[team] = {
             "rank_ecr": rank_ecr,
+            "rank_ecr_pos": rank_ecr,
+            "rank_ecr_overall": 999.0,
             "player_name": row["player"],
             "position": row["pos"],
         }
@@ -166,8 +190,8 @@ def _build_dst_lookup(fp_rankings_raw, ranking_prefix):
     return lookup
 
 
-def build_positional_lookup(fp_rankings_raw, player_ids_raw, ranking_type):
-    lookup = _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_type)
+def build_positional_lookup(fp_rankings_raw, player_ids_raw, ranking_type, is_superflex=False):
+    lookup = _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_type, is_superflex=is_superflex)
     dst_lookup = _build_dst_lookup(fp_rankings_raw, ranking_type)
 
     lookup.update(dst_lookup)
@@ -363,13 +387,13 @@ def get_market_data_freshness(fp_raw=None, dp_raw=None):
             "source": "DynastyProcess ECR Model",
             "type": "Curated expert rankings & values",
             "date": dp_date or "2026-09-04",
-            "status": "Updated",
+            "status": f"Updated ({dp_date or '2026-09-04'})",
         },
         "fantasypros": {
             "source": "FantasyPros ECR",
             "type": "Consensus redraft & dynasty ECR",
             "date": fp_date or "2026-09-04",
-            "status": "Updated",
+            "status": f"Updated ({fp_date or '2026-09-04'})",
         },
     }
 
@@ -392,6 +416,36 @@ def enrich_lookup_with_consensus_values(
     ktc_values = _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex) if ktc_raw else {}
     dp_values = _extract_dp_player_values(values_players_raw, player_ids_raw, is_superflex) if values_players_raw else {}
 
+    # Extract DynastyProcess ECR overall and positional ranks as secondary fallback
+    fp_id_to_sleeper = {
+        str(r["fantasypros_id"]): str(r["sleeper_id"])
+        for r in (player_ids_raw or [])
+        if r.get("fantasypros_id") and r.get("sleeper_id")
+    }
+    val_ecr_col = "ecr_2qb" if is_superflex else "ecr_1qb"
+    dp_ecr_overall = {}
+    dp_ecr_pos = {}
+    dp_player_names = {}
+    dp_positions = {}
+    if values_players_raw:
+        for row in values_players_raw:
+            fp_id = str(row.get("fp_id") or "")
+            s_id = fp_id_to_sleeper.get(fp_id)
+            if not s_id:
+                continue
+            try:
+                dp_ecr_overall[s_id] = float(row.get(val_ecr_col, 999.0))
+            except (ValueError, TypeError):
+                pass
+            try:
+                dp_ecr_pos[s_id] = float(row.get("ecr_pos", 999.0))
+            except (ValueError, TypeError):
+                pass
+            if row.get("player"):
+                dp_player_names[s_id] = row.get("player")
+            if row.get("pos"):
+                dp_positions[s_id] = row.get("pos")
+
     all_player_ids = set(lookup.keys()) | set(fc_values.keys()) | set(ktc_values.keys()) | set(dp_values.keys())
 
     for pid in all_player_ids:
@@ -399,8 +453,8 @@ def enrich_lookup_with_consensus_values(
         ktc_val = ktc_values.get(pid)
         dp_val = dp_values.get(pid)
         p_data = lookup.get(pid, {})
-        rank_ecr = p_data.get("rank_ecr", 999.0)
-        pos = p_data.get("position", "")
+        rank_ecr = p_data.get("rank_ecr", dp_ecr_pos.get(pid, 999.0))
+        pos = p_data.get("position", "") or dp_positions.get(pid, "")
 
         composite = compute_composite_value(fc_val, ktc_val, dp_val, mode=mode, rank_ecr=rank_ecr, position=pos)
 
@@ -409,11 +463,21 @@ def enrich_lookup_with_consensus_values(
             lookup[pid]["fc_val"] = fc_val
             lookup[pid]["ktc_val"] = ktc_val
             lookup[pid]["dp_val"] = dp_val
+            if lookup[pid].get("rank_ecr_overall", 999.0) >= 999.0 and pid in dp_ecr_overall:
+                lookup[pid]["rank_ecr_overall"] = dp_ecr_overall[pid]
+            if lookup[pid].get("rank_ecr_pos", 999.0) >= 999.0 and pid in dp_ecr_pos:
+                lookup[pid]["rank_ecr_pos"] = dp_ecr_pos[pid]
+            if not lookup[pid].get("player_name") and pid in dp_player_names:
+                lookup[pid]["player_name"] = dp_player_names[pid]
+            if not lookup[pid].get("position") and pid in dp_positions:
+                lookup[pid]["position"] = dp_positions[pid]
         else:
             lookup[pid] = {
-                "rank_ecr": 999.0,
-                "player_name": "",
-                "position": "",
+                "rank_ecr": dp_ecr_pos.get(pid, 999.0),
+                "rank_ecr_pos": dp_ecr_pos.get(pid, 999.0),
+                "rank_ecr_overall": dp_ecr_overall.get(pid, 999.0),
+                "player_name": dp_player_names.get(pid, ""),
+                "position": dp_positions.get(pid, ""),
                 "market_value": composite,
                 "fc_val": fc_val,
                 "ktc_val": ktc_val,
@@ -423,6 +487,10 @@ def enrich_lookup_with_consensus_values(
     for p in lookup.values():
         if "market_value" not in p:
             p["market_value"] = 0.0
+        if "rank_ecr_overall" not in p:
+            p["rank_ecr_overall"] = 999.0
+        if "rank_ecr_pos" not in p:
+            p["rank_ecr_pos"] = p.get("rank_ecr", 999.0)
 
     return lookup
 
