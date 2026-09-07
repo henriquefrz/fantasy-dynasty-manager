@@ -171,15 +171,31 @@ except ImportError:
     generate_trade_suggestions = getattr(_te, "generate_trade_suggestions")
     build_positional_room_leaderboard = getattr(_te, "build_positional_room_leaderboard")
 
-from src.team_strength import (
-    rank_teams_in_league,
-    get_strength_tier,
-    get_current_strength_tier,
-    classify_dynasty_team,
-    classify_redraft_team,
-    percentile_score,
-    score_to_tier,
-)
+try:
+    from src.team_strength import (
+        rank_teams_in_league,
+        get_strength_tier,
+        get_current_strength_tier,
+        classify_dynasty_team,
+        classify_redraft_team,
+        percentile_score,
+        score_to_tier,
+        calculate_dynamic_record_weight,
+        get_rebuild_ceiling_meta,
+    )
+except ImportError:
+    import src.team_strength as _ts
+    importlib.reload(_ts)
+    rank_teams_in_league = getattr(_ts, "rank_teams_in_league")
+    get_strength_tier = getattr(_ts, "get_strength_tier")
+    get_current_strength_tier = getattr(_ts, "get_current_strength_tier")
+    classify_dynasty_team = getattr(_ts, "classify_dynasty_team")
+    classify_redraft_team = getattr(_ts, "classify_redraft_team")
+    percentile_score = getattr(_ts, "percentile_score")
+    score_to_tier = getattr(_ts, "score_to_tier")
+    calculate_dynamic_record_weight = getattr(_ts, "calculate_dynamic_record_weight")
+    get_rebuild_ceiling_meta = getattr(_ts, "get_rebuild_ceiling_meta")
+
 from src.draft_picks import (
     build_picks_ownership,
     get_picks_for_roster,
@@ -193,6 +209,7 @@ try:
         compute_dynasty_power_rankings,
         run_historical_simulation_snapshot,
         compute_weekly_evolution_history,
+        compute_elimination_and_clinch_status,
     )
 except ImportError:
     import src.playoff_simulator as _ps
@@ -202,6 +219,7 @@ except ImportError:
     compute_dynasty_power_rankings = getattr(_ps, "compute_dynasty_power_rankings")
     run_historical_simulation_snapshot = getattr(_ps, "run_historical_simulation_snapshot")
     compute_weekly_evolution_history = getattr(_ps, "compute_weekly_evolution_history")
+    compute_elimination_and_clinch_status = getattr(_ps, "compute_elimination_and_clinch_status")
 from src.trade_finder import (
     resolve_asset_from_query,
     find_targeted_buy_trades,
@@ -1531,7 +1549,7 @@ def render_picks_table_html(pick_rows, show_equity=False):
 def render_power_simulation_table_html(sim_rows, user_roster_id):
     """
     Renders Season Standings & Playoff Simulation table with subtle cyan highlighting
-    for the user's franchise row, eliminating text clutter.
+    for the user's franchise row and real-time Playoff Status badges.
     """
     html = """
     <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
@@ -1539,15 +1557,16 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
     <table class='roster-table roster-table-power'>
         <thead>
             <tr>
-                <th style='width: 70px; text-align: center;'>Rank</th>
-                <th style='width: 25%; text-align: left;'>Manager / Team</th>
-                <th style='width: 13%; text-align: center;'>Projected W-L</th>
-                <th style='width: 11%; text-align: center;'>Starters PPG</th>
-                <th style='width: 11%; text-align: center;'>Bench PPG</th>
-                <th style='width: 11%; text-align: center;'>Playoff Odds</th>
+                <th style='width: 60px; text-align: center;'>Rank</th>
+                <th style='width: 22%; text-align: left;'>Manager / Team</th>
+                <th style='width: 14%; text-align: center;'>Playoff Status</th>
+                <th style='width: 12%; text-align: center;'>Projected W-L</th>
+                <th style='width: 10%; text-align: center;'>Starters PPG</th>
+                <th style='width: 10%; text-align: center;'>Bench PPG</th>
+                <th style='width: 10%; text-align: center;'>Playoff Odds</th>
                 <th style='width: 10%; text-align: center;'>1st-Round Bye</th>
                 <th style='width: 10%; text-align: center;'>Champ Odds</th>
-                <th style='width: 11%; text-align: center;'>Power Score</th>
+                <th style='width: 10%; text-align: center;'>Power Score</th>
             </tr>
         </thead>
         <tbody>
@@ -1558,10 +1577,40 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
         starters_val = r.get("Starters PPG") or r.get("Median PPG", "—")
         bench_val = r.get("Bench PPG", "—")
+
+        # Format Playoff Status badge
+        status_label = r.get("Status", "In The Hunt")
+        badge_icon = r.get("badge_icon", "🎯")
+        status_code = r.get("status_code", "HUNT")
+
+        if status_code == "CLINCHED":
+            badge_bg = "rgba(16, 185, 129, 0.15)"
+            badge_border = "rgba(52, 211, 153, 0.35)"
+            badge_text = "#34d399"
+        elif status_code == "ELIMINATED":
+            badge_bg = "rgba(244, 63, 94, 0.15)"
+            badge_border = "rgba(251, 113, 133, 0.35)"
+            badge_text = "#fb7185"
+        elif status_code == "DANGER":
+            badge_bg = "rgba(245, 158, 11, 0.15)"
+            badge_border = "rgba(251, 191, 36, 0.35)"
+            badge_text = "#fbbf24"
+        elif status_code == "CONTENDER":
+            badge_bg = "rgba(6, 182, 212, 0.15)"
+            badge_border = "rgba(56, 189, 248, 0.35)"
+            badge_text = "#38bdf8"
+        else:
+            badge_bg = "rgba(59, 130, 246, 0.15)"
+            badge_border = "rgba(96, 165, 250, 0.35)"
+            badge_text = "#60a5fa"
+
+        status_pill = f"<span class='rank-pill' style='background: {badge_bg}; color: {badge_text}; border: 1px solid {badge_border}; font-weight: 700; white-space: nowrap;'>{badge_icon} {status_label}</span>"
+
         html += f"""
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
+            <td style='text-align: center;'>{status_pill}</td>
             <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
             <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{starters_val}</td>
             <td style='text-align: center; color: #94a3b8;'>{bench_val}</td>
@@ -1899,7 +1948,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v15_calibrated_redraft_depth"):
+def fetch_market_database(_cache_version="v16_dynamic_record_rebuild_ceiling"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2612,6 +2661,35 @@ else:
         label = f"@{dname}" + (f" ({tname})" if tname else "")
         user_map[uid] = label
 
+    # Live Season Simulation & Playoff Elimination Detection (Unified across Tabs)
+    playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
+    season_length = max(1, playoff_start - 1)
+    team_expectations = {}
+    for r in rosters:
+        rid = r["roster_id"]
+        team_expectations[rid] = compute_team_lineup_expectation(
+            roster=r,
+            roster_players=all_rosters_players.get(rid, []),
+            weekly_projections=weekly_projections,
+            scoring_settings=scoring,
+            roster_positions=roster_pos,
+        )
+
+    live_sim_results = run_monte_carlo_simulation(
+        league=selected_league,
+        rosters=rosters,
+        schedule=schedule,
+        team_expectations=team_expectations,
+        current_week=active_week,
+        playoff_week_start=playoff_start,
+        num_simulations=1000,
+    )
+
+    user_rid = user_roster["roster_id"]
+    user_sim = live_sim_results.get(user_rid, {})
+    user_playoff_pct = user_sim.get("playoff_pct")
+    user_is_elim = user_sim.get("is_eliminated", False)
+
     # Team Ranks & Profiles
     if is_dynasty:
         dynasty_ranked = rank_teams_in_league(all_rosters_players, primary_lookup, roster_pos, is_dynasty=True)
@@ -2619,7 +2697,12 @@ else:
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
         if redraft_total and redraft_pos:
-            current_tier, games_played = get_current_strength_tier(user_roster, rosters, redraft_pos, redraft_total)
+            current_tier, games_played = get_current_strength_tier(
+                user_roster, rosters, redraft_pos, redraft_total,
+                season_length=season_length,
+                playoff_pct=user_playoff_pct,
+                is_eliminated=user_is_elim,
+            )
         else:
             current_tier, games_played = "medium", 0
         team_status, team_cat = classify_dynasty_team(current_tier, dynasty_tier)
@@ -2634,13 +2717,25 @@ else:
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
         if redraft_total and redraft_pos:
-            current_tier, games_played = get_current_strength_tier(user_roster, rosters, redraft_pos, redraft_total)
+            current_tier, games_played = get_current_strength_tier(
+                user_roster, rosters, redraft_pos, redraft_total,
+                season_length=season_length,
+                playoff_pct=user_playoff_pct,
+                is_eliminated=user_is_elim,
+            )
         else:
             current_tier, games_played = "medium", 0
         team_status = classify_redraft_team(current_tier)
         team_cat = "win" if current_tier == "high" else ("rebuild" if current_tier == "low" else "neutral")
         picks_ownership = {}
         team_tiers = {}
+
+    user_rebuild_meta = get_rebuild_ceiling_meta(
+        user_roster,
+        games_played=games_played,
+        playoff_pct=user_playoff_pct,
+        is_eliminated=user_is_elim,
+    )
 
     all_team_profiles = []
     user_profile = None
@@ -2651,16 +2746,29 @@ else:
             continue
         owner_id = r.get("owner_id")
         manager_label = user_map.get(owner_id, f"Team {rid}")
+        r_sim = live_sim_results.get(rid, {})
+        r_playoff_pct = r_sim.get("playoff_pct")
+        r_is_elim = r_sim.get("is_eliminated", False)
 
         if is_dynasty:
             d_tier, _, _ = get_strength_tier(rid, dynasty_ranked)
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            c_tier, _ = get_current_strength_tier(r, rosters, r_pos, r_tot)
+            c_tier, _ = get_current_strength_tier(
+                r, rosters, r_pos, r_tot,
+                season_length=season_length,
+                playoff_pct=r_playoff_pct,
+                is_eliminated=r_is_elim,
+            )
             t_status, t_cat = classify_dynasty_team(c_tier, d_tier)
             owned_picks = get_picks_for_roster(picks_ownership, rid)
         else:
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            c_tier, _ = get_current_strength_tier(r, rosters, r_pos, r_tot)
+            c_tier, _ = get_current_strength_tier(
+                r, rosters, r_pos, r_tot,
+                season_length=season_length,
+                playoff_pct=r_playoff_pct,
+                is_eliminated=r_is_elim,
+            )
             t_status = classify_redraft_team(c_tier)
             t_cat = "win" if c_tier == "high" else ("rebuild" if c_tier == "low" else "neutral")
             owned_picks = []
@@ -2687,6 +2795,9 @@ else:
         prof["starters"] = prof["starter_assets"]
         prof["bench"] = prof["bench_assets"]
         prof["picks"] = prof["pick_assets"]
+        prof["playoff_pct"] = r_playoff_pct if r_playoff_pct is not None else 0.0
+        prof["is_eliminated"] = r_is_elim
+        prof["clinch_status"] = r_sim.get("status_code", "HUNT")
 
         all_team_profiles.append(prof)
         if rid == user_roster["roster_id"]:
@@ -2770,21 +2881,11 @@ else:
                 scoring_rank = s_i
                 break
 
-        # Projected finish and probabilities
+        # Projected finish and probabilities (Synced with 1,000-run Monte Carlo simulation)
         fpg = (fpts / total_games) if total_games > 0 else (user_profile.get("projected_weekly_score", 0.0) if user_profile else 0.0)
-        total_teams = max(len(rosters), 1)
-        if redraft_pos:
-            raw_playoff = max(5.0, min(98.0, (1.0 - (redraft_pos - 1) / total_teams) * 100.0))
-            if total_games > 0:
-                win_weight = min(0.85, 0.2 + 0.05 * total_games)
-                playoff_prob = round(raw_playoff * (1.0 - win_weight) + win_pct * win_weight, 1)
-            else:
-                playoff_prob = round(raw_playoff, 1)
-        else:
-            playoff_prob = 50.0
-
-        finalist_prob = round(max(2.0, min(95.0, playoff_prob * 0.68)), 1)
-        champion_prob = round(max(1.0, min(85.0, finalist_prob * 0.45)), 1)
+        playoff_prob = round(user_sim.get("playoff_pct", 50.0), 1)
+        finalist_prob = round(max(0.5, min(99.0, playoff_prob * 0.68)), 1)
+        champion_prob = round(user_sim.get("champ_pct", round(max(0.2, min(95.0, finalist_prob * 0.45)), 1)), 1)
 
         clean_status = team_status.split("(")[0].strip() if team_status else "Active"
         glow_badge_class = f"status-glow-{team_cat}"
@@ -2810,6 +2911,13 @@ else:
             """,
             unsafe_allow_html=True,
         )
+
+        if user_rebuild_meta.get("is_locked_rebuild"):
+            st.info(
+                f"🔒 **Mathematical Rebuild Ceiling Active:** {user_rebuild_meta.get('reason')}. "
+                f"Franchise trajectory is locked to Rebuild (`{clean_status}`). "
+                f"Trade Center is configured to monetize veterans for draft capital and high-upside youth."
+            )
 
         # 2. Executive Dashboard Row (Key Stats & Playoff Probability)
         col_dash_left, col_dash_right = st.columns([1.2, 1.0])
@@ -3652,17 +3760,20 @@ else:
                 else:
                     st.caption(f"⏪ **Historical Snapshot (Week {selected_snap_week}):** Standings reconstructed through Week {selected_snap_week - 1}; simulated forward.")
 
-            with st.spinner(f"Simulating remaining season ({chosen_snap}, 1,000 iterations)..."):
-                sim_results = run_historical_simulation_snapshot(
-                    league=selected_league,
-                    rosters=rosters,
-                    schedule=schedule,
-                    team_expectations=team_expectations,
-                    snapshot_week=selected_snap_week,
-                    current_week=active_week,
-                    playoff_week_start=playoff_start,
-                    num_simulations=1000,
-                )
+            if selected_snap_week == max_sim_week:
+                sim_results = live_sim_results
+            else:
+                with st.spinner(f"Simulating remaining season ({chosen_snap}, 1,000 iterations)..."):
+                    sim_results = run_historical_simulation_snapshot(
+                        league=selected_league,
+                        rosters=rosters,
+                        schedule=schedule,
+                        team_expectations=team_expectations,
+                        snapshot_week=selected_snap_week,
+                        current_week=active_week,
+                        playoff_week_start=playoff_start,
+                        num_simulations=1000,
+                    )
 
             sample_res = next(iter(sim_results.values())) if sim_results else {}
             p_count = sample_res.get("playoff_teams_count", 6)
@@ -3677,6 +3788,10 @@ else:
                     "roster_id": rid,
                     "Rank": f"#{rank_idx}",
                     "Manager / Team": mgr,
+                    "Status": t.get("status_label", "In The Hunt"),
+                    "status_code": t.get("status_code", "HUNT"),
+                    "badge_icon": t.get("badge_icon", "🎯"),
+                    "badge_color": t.get("badge_color", "#3b82f6"),
                     "Projected W-L": f"{t['avg_wins']:.1f} - {t['avg_losses']:.1f}",
                     "Starters PPG": f"{t['expected_pts']:.1f}",
                     "Bench PPG": f"{t.get('bench_depth_pts', 0.0):.1f}",
@@ -3686,7 +3801,8 @@ else:
                     "Season Power Score": f"{t['power_score']:.1f}",
                 })
 
-            st.caption("Season Power Score Formula: 40% Starters PPG + 35% Projected Wins + 15% Playoff Odds + 10% Bench Depth PPG.")
+            formula_caption = sample_res.get("power_formula", "Season Power Score Formula: 40% Starters PPG + 35% Projected Wins + 15% Playoff Odds + 10% Bench Depth PPG.")
+            st.caption(f"📊 {formula_caption}")
             st.html(render_power_simulation_table_html(table_data, user_roster["roster_id"]))
 
             # Week-by-Week Evolution History View

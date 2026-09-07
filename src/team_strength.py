@@ -214,7 +214,49 @@ def rank_teams_by_record(rosters):
     return sorted(rosters, key=record_key)
 
 
-def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_total, season_length=14, playoff_pct=None):
+def calculate_dynamic_record_weight(games_played: int, season_length: int = 14) -> float:
+    """
+    Dynamically scales the weight of actual regular-season W-L record vs. paper roster value.
+    - Pre-season (0 games): 0% record (100% paper roster)
+    - Early season (Weeks 1-3): 15% - 25% record (small sample variance protection)
+    - Mid season (Weeks 4-8): 35% - 65% record (balanced sample)
+    - Late season (Weeks 9-14+): 75% - 90% record (standings reality dominates)
+    """
+    if games_played <= 0:
+        return 0.0
+    elif games_played == 1:
+        return 0.15
+    elif games_played == 2:
+        return 0.20
+    elif games_played == 3:
+        return 0.25
+    elif games_played == 4:
+        return 0.35
+    elif games_played == 5:
+        return 0.45
+    elif games_played == 6:
+        return 0.55
+    elif games_played == 7:
+        return 0.65
+    elif games_played == 8:
+        return 0.72
+    elif games_played == 9:
+        return 0.80
+    elif games_played == 10:
+        return 0.85
+    else:
+        return 0.90
+
+
+def get_current_strength_tier(
+    user_roster,
+    rosters,
+    redraft_position,
+    redraft_total,
+    season_length=14,
+    playoff_pct=None,
+    is_eliminated=False,
+):
     if not redraft_total or not redraft_position:
         return "medium", 0
 
@@ -235,25 +277,62 @@ def get_current_strength_tier(user_roster, rosters, redraft_position, redraft_to
         blended_score = redraft_score
     else:
         # Dynamic record scaling: small sample early, standings reality late
-        if games_played <= 3:
-            record_weight = 0.20
-        elif games_played <= 8:
-            record_weight = 0.50
-        else:
-            record_weight = 0.85
-
+        record_weight = calculate_dynamic_record_weight(games_played, season_length)
         blended_score = record_weight * record_score + (1 - record_weight) * redraft_score
 
     tier = score_to_tier(blended_score)
 
-    # Hard elimination guard: eliminated or 0-N/1-N teams past mid-season cannot be high tier
+    # Hard mathematical rebuild ceiling:
+    # 1. Mathematically eliminated teams are locked into rebuild
+    # 2. Teams with <= 5.0% playoff odds after at least 4 games played are locked into rebuild
+    # 3. Fallback: Teams with <= 1 win after at least 7 games played
     wins = user_roster.get("settings", {}).get("wins", 0)
-    if playoff_pct is not None and playoff_pct <= 5.0 and games_played >= 6:
+    if is_eliminated:
+        tier = "low"
+    elif playoff_pct is not None and playoff_pct <= 5.0 and games_played >= 4:
         tier = "low"
     elif games_played >= 7 and wins <= 1:
         tier = "low"
 
     return tier, games_played
+
+
+def get_rebuild_ceiling_meta(
+    user_roster,
+    games_played: int,
+    playoff_pct=None,
+    is_eliminated=False,
+):
+    """
+    Returns diagnostic metadata about whether the Mathematical Rebuild Ceiling was enforced.
+    """
+    wins = user_roster.get("settings", {}).get("wins", 0)
+    losses = user_roster.get("settings", {}).get("losses", 0)
+
+    if is_eliminated:
+        return {
+            "is_locked_rebuild": True,
+            "reason": f"Mathematically Eliminated from Playoffs ({wins}-{losses})",
+            "clinch_status": "ELIMINATED",
+        }
+    if playoff_pct is not None and playoff_pct <= 5.0 and games_played >= 4:
+        return {
+            "is_locked_rebuild": True,
+            "reason": f"Playoff Odds Dropped to {playoff_pct:.1f}% (Rebuild Ceiling Enforced)",
+            "clinch_status": "ELIMINATED",
+        }
+    if games_played >= 7 and wins <= 1:
+        return {
+            "is_locked_rebuild": True,
+            "reason": f"Standings Deficit: {wins}-{losses} after Week {games_played}",
+            "clinch_status": "ELIMINATED",
+        }
+
+    return {
+        "is_locked_rebuild": False,
+        "reason": "",
+        "clinch_status": "HUNT" if (playoff_pct is not None and playoff_pct >= 15.0) else "DANGER",
+    }
 
 
 def classify_dynasty_team(current_tier, dynasty_tier):

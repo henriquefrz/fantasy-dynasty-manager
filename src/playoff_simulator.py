@@ -67,6 +67,159 @@ def simulate_single_matchup(mu1: float, sigma1: float, mu2: float, sigma2: float
     return round(s1, 2), round(s2, 2)
 
 
+def compute_elimination_and_clinch_status(
+    rosters: List[Dict[str, Any]],
+    schedule: Dict[int, List[Tuple[int, int]]],
+    playoff_teams_count: int = 6,
+    playoff_week_start: int = 15,
+    current_week: int = 1,
+    sim_results: Optional[Dict[int, Dict[str, Any]]] = None,
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Evaluates mathematical elimination and clinching status for every roster in the league.
+    Combines direct standings & remaining schedule analysis with Monte Carlo simulation outcomes.
+
+    Status codes:
+    - CLINCHED: Guaranteed top-P finish or >= 99.5% simulated playoff probability (🏆)
+    - CONTENDER: Playoff Odds >= 70% (⭐)
+    - HUNT: 15% < Playoff Odds < 70% (🎯)
+    - DANGER: 5% < Playoff Odds <= 15% (⚠️)
+    - ELIMINATED: Mathematically eliminated or Playoff Odds <= 5% (❌)
+    """
+    roster_ids = [r["roster_id"] for r in rosters]
+    end_regular_season = playoff_week_start - 1
+
+    # Extract current records from rosters or simulation initial records
+    records = {}
+    for r in rosters:
+        rid = r["roster_id"]
+        settings = r.get("settings", {})
+        w = settings.get("wins", 0)
+        l = settings.get("losses", 0)
+        t = settings.get("ties", 0)
+        pf = settings.get("fpts", 0) + (settings.get("fpts_decimal", 0) / 100.0)
+
+        # If sim_results has initial records for historical snapshots:
+        if sim_results and rid in sim_results:
+            w = sim_results[rid].get("initial_wins", w)
+            l = sim_results[rid].get("initial_losses", l)
+            t = sim_results[rid].get("initial_ties", t)
+            pf = sim_results[rid].get("initial_pf", pf)
+
+        records[rid] = {"wins": w, "losses": l, "ties": t, "pf": pf}
+
+    # Count remaining regular season games for each team
+    remaining_games = {rid: 0 for rid in roster_ids}
+    if current_week <= end_regular_season:
+        for w in range(current_week, playoff_week_start):
+            matchups = schedule.get(w, [])
+            if matchups:
+                for r1, r2 in matchups:
+                    if r1 in remaining_games:
+                        remaining_games[r1] += 1
+                    if r2 in remaining_games:
+                        remaining_games[r2] += 1
+            else:
+                # Round-robin fallback: each team has 1 game per week
+                for rid in roster_ids:
+                    remaining_games[rid] += 1
+
+    status_by_team = {}
+    for rid in roster_ids:
+        cur_w = records[rid]["wins"]
+        cur_l = records[rid]["losses"]
+        cur_pf = records[rid]["pf"]
+        rem_g = remaining_games[rid]
+        max_possible_wins = cur_w + rem_g
+        min_possible_wins = cur_w
+
+        # Check mathematical elimination:
+        # Count how many other teams already have strictly more wins than team's max possible wins
+        strictly_ahead_teams = sum(
+            1 for other_rid, o_rec in records.items()
+            if other_rid != rid and (
+                o_rec["wins"] > max_possible_wins
+                or (o_rec["wins"] == max_possible_wins and rem_g == 0 and o_rec["pf"] > cur_pf)
+            )
+        )
+        is_math_eliminated = (strictly_ahead_teams >= playoff_teams_count)
+
+        # Check mathematical clinch:
+        # Count how many other teams can possibly reach or exceed team's min possible wins
+        teams_that_can_catch = sum(
+            1 for other_rid, o_rec in records.items()
+            if other_rid != rid and (
+                o_rec["wins"] + remaining_games[other_rid] > min_possible_wins
+                or (o_rec["wins"] + remaining_games[other_rid] == min_possible_wins and o_rec["pf"] >= cur_pf)
+            )
+        )
+        is_math_clinched = (teams_that_can_catch < playoff_teams_count) and (current_week > 1)
+
+        # Monte Carlo probability cross-check
+        sim_p_pct = sim_results.get(rid, {}).get("playoff_pct", None) if sim_results else None
+
+        if is_math_eliminated or (sim_p_pct is not None and sim_p_pct == 0.0 and current_week >= 4):
+            code = "ELIMINATED"
+            label = "Eliminated"
+            badge_icon = "❌"
+            badge_color = "#f43f5e"
+            is_elim = True
+            is_clinch = False
+        elif is_math_clinched or (sim_p_pct is not None and sim_p_pct >= 99.5 and current_week >= 8):
+            code = "CLINCHED"
+            label = "Clinched Playoff"
+            badge_icon = "🏆"
+            badge_color = "#10b981"
+            is_elim = False
+            is_clinch = True
+        elif sim_p_pct is not None and sim_p_pct <= 5.0 and (cur_w + cur_l) >= 4:
+            code = "ELIMINATED"
+            label = "Rebuild Locked (<=5%)"
+            badge_icon = "🔒"
+            badge_color = "#fb7185"
+            is_elim = True
+            is_clinch = False
+        elif sim_p_pct is not None and sim_p_pct <= 15.0:
+            code = "DANGER"
+            label = "Danger Zone"
+            badge_icon = "⚠️"
+            badge_color = "#f59e0b"
+            is_elim = False
+            is_clinch = False
+        elif sim_p_pct is not None and sim_p_pct >= 70.0:
+            code = "CONTENDER"
+            label = "Playoff Track"
+            badge_icon = "⭐"
+            badge_color = "#06b6d4"
+            is_elim = False
+            is_clinch = False
+        else:
+            code = "HUNT"
+            label = "In The Hunt"
+            badge_icon = "🎯"
+            badge_color = "#3b82f6"
+            is_elim = False
+            is_clinch = False
+
+        status_by_team[rid] = {
+            "roster_id": rid,
+            "is_eliminated": is_elim,
+            "is_math_eliminated": is_math_eliminated,
+            "is_clinched": is_clinch,
+            "is_math_clinched": is_math_clinched,
+            "status_code": code,
+            "status_label": label,
+            "badge_icon": badge_icon,
+            "badge_color": badge_color,
+            "max_possible_wins": max_possible_wins,
+            "min_possible_wins": min_possible_wins,
+            "remaining_games": rem_g,
+            "playoff_pct": sim_p_pct if sim_p_pct is not None else 0.0,
+        }
+
+    return status_by_team
+
+
 def run_monte_carlo_simulation(
     league: Dict[str, Any],
     rosters: List[Dict[str, Any]],
@@ -271,8 +424,35 @@ def run_monte_carlo_simulation(
             "sim_week": current_week,
         }
 
-    # Compute Power Ranking Composite Score (0 - 100 scale)
-    # 40% Starting Lineup Expectation + 35% Win Rate + 15% Playoff Odds + 10% Bench Depth
+    # Dynamic Power Ranking Composite Weights based on Season Phase:
+    # Early (Weeks 1-3): 45% Starting Expectation + 25% Projected Wins + 15% Playoff Odds + 15% Bench Depth
+    # Mid (Weeks 4-8): 30% Starting Expectation + 35% Projected Wins + 25% Playoff Odds + 10% Bench Depth
+    # Late (Weeks 9+): 15% Starting Expectation + 40% Projected Wins + 40% Playoff Odds + 5% Bench Depth
+    if current_week <= 3:
+        w_lineup = 0.45
+        w_wins = 0.25
+        w_odds = 0.15
+        w_bench = 0.15
+        phase_label = "Early Season"
+    elif current_week <= 8:
+        w_lineup = 0.30
+        w_wins = 0.35
+        w_odds = 0.25
+        w_bench = 0.10
+        phase_label = "Mid Season"
+    else:
+        w_lineup = 0.15
+        w_wins = 0.40
+        w_odds = 0.40
+        w_bench = 0.05
+        phase_label = "Late Season / Crunch Time"
+
+    formula_str = (
+        f"{phase_label} Formula (Week {current_week}): "
+        f"{int(w_lineup*100)}% Starters PPG + {int(w_wins*100)}% Proj Wins + "
+        f"{int(w_odds*100)}% Playoff Odds + {int(w_bench*100)}% Bench Depth"
+    )
+
     max_pts = max(t["expected_pts"] for t in team_results.values()) if team_results else 100.0
     max_wins = max(t["avg_wins"] for t in team_results.values()) if team_results else 10.0
     max_bench = max(t["bench_depth_pts"] for t in team_results.values()) if team_results else 30.0
@@ -283,8 +463,31 @@ def run_monte_carlo_simulation(
         bench_norm = (stats["bench_depth_pts"] / max_bench) * 100.0 if max_bench > 0 else 50.0
         playoff_norm = stats["playoff_pct"]
 
-        power_score = (0.40 * pts_norm) + (0.35 * win_norm) + (0.15 * playoff_norm) + (0.10 * bench_norm)
+        power_score = (w_lineup * pts_norm) + (w_wins * win_norm) + (w_odds * playoff_norm) + (w_bench * bench_norm)
         stats["power_score"] = round(power_score, 1)
+        stats["power_formula"] = formula_str
+
+    # Compute elimination & clinch status metadata
+    clinch_data = compute_elimination_and_clinch_status(
+        rosters=rosters,
+        schedule=fallback_schedule,
+        playoff_teams_count=playoff_teams_count,
+        playoff_week_start=playoff_week_start,
+        current_week=current_week,
+        sim_results=team_results,
+    )
+    for rid, stats in team_results.items():
+        c_info = clinch_data.get(rid, {})
+        stats["is_eliminated"] = c_info.get("is_eliminated", False)
+        stats["is_math_eliminated"] = c_info.get("is_math_eliminated", False)
+        stats["is_clinched"] = c_info.get("is_clinched", False)
+        stats["is_math_clinched"] = c_info.get("is_math_clinched", False)
+        stats["status_code"] = c_info.get("status_code", "HUNT")
+        stats["status_label"] = c_info.get("status_label", "In The Hunt")
+        stats["badge_icon"] = c_info.get("badge_icon", "🎯")
+        stats["badge_color"] = c_info.get("badge_color", "#3b82f6")
+        stats["remaining_games"] = c_info.get("remaining_games", 0)
+        stats["max_possible_wins"] = c_info.get("max_possible_wins", stats["initial_wins"])
 
     return team_results
 
@@ -376,11 +579,14 @@ def format_power_rankings_table(
     playoff_teams_count = sample_item.get("playoff_teams_count", 6)
 
     lines = []
+    sample_formula = sample_item.get("power_formula", "")
     lines.append(f"  ⚡ 2026 Season Power Rankings & 1,000-Run Playoff Odds ({playoff_teams_count}-Team Playoff):")
-    lines.append("  " + "-" * 88)
-    header = f"  {'Rank':<5} {'Manager / Team':<28} {'Proj W-L':<11} {'Exp Pts/Wk':<12} {'Playoff %':<11} {'Champ %':<9} {'Season Score'}"
+    if sample_formula:
+        lines.append(f"  📊 {sample_formula}")
+    lines.append("  " + "-" * 102)
+    header = f"  {'Rank':<5} {'Manager / Team':<26} {'Playoff Status':<16} {'Proj W-L':<11} {'Exp Pts/Wk':<12} {'Playoff %':<11} {'Champ %':<9} {'Season Score'}"
     lines.append(header)
-    lines.append("  " + "-" * 88)
+    lines.append("  " + "-" * 102)
 
     for rank, t in enumerate(ranked, 1):
         rid = t["roster_id"]
@@ -388,23 +594,24 @@ def format_power_rankings_table(
         mgr_name = user_map.get(oid, f"Team {rid}")
         is_user = (rid == user_roster_id)
 
-        if len(mgr_name) > 26:
-            mgr_display = mgr_name[:23] + "..."
+        if len(mgr_name) > 24:
+            mgr_display = mgr_name[:21] + "..."
         else:
             mgr_display = mgr_name
 
         marker = "👉 " if is_user else "   "
         prefix = f"{marker}{rank:<2}"
+        status_disp = f"{t.get('badge_icon', '')} {t.get('status_label', '')}"[:15]
         w_l_str = f"{t['avg_wins']:.1f} - {t['avg_losses']:.1f}"
         pts_str = f"{t['expected_pts']:.1f} pts"
         po_str = f"{t['playoff_pct']:.1f}%"
         champ_str = f"{t['champ_pct']:.1f}%"
         score_str = f"{t['power_score']:.1f}"
 
-        row = f"  {prefix} {mgr_display:<28} {w_l_str:<11} {pts_str:<12} {po_str:<11} {champ_str:<9} {score_str}"
+        row = f"  {prefix} {mgr_display:<26} {status_disp:<16} {w_l_str:<11} {pts_str:<12} {po_str:<11} {champ_str:<9} {score_str}"
         lines.append(row)
 
-    lines.append("  " + "-" * 88)
+    lines.append("  " + "-" * 102)
     return "\n".join(lines)
 
 
