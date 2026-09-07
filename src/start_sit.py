@@ -38,12 +38,31 @@ def calculate_weekly_projected_points(
     te_bonus = float(scoring_settings.get("bonus_rec_te", 0.0) or scoring_settings.get("te_bonus", 0.0))
     pass_td_val = float(scoring_settings.get("pass_td", 4.0))
 
+    # Check if this player is an IDP player or has IDP stats
+    is_idp = pos in ("DB", "LB", "DL", "IDP", "IDP_FLEX", "SS", "FS", "CB", "DE", "DT") or any(k.startswith("idp_") for k in raw_proj.keys())
+    if is_idp:
+        idp_pts = 0.0
+        has_idp_stats = False
+        for k, v in raw_proj.items():
+            if k in scoring_settings:
+                try:
+                    mult = float(scoring_settings[k])
+                    val = float(v)
+                    idp_pts += val * mult
+                    has_idp_stats = True
+                except (ValueError, TypeError):
+                    pass
+        if has_idp_stats:
+            return round(max(0.0, idp_pts), 2)
+        pts_idp = raw_proj.get("pts_idp") or raw_proj.get("pts_std") or raw_proj.get("pts_ppr") or 0.0
+        return round(float(pts_idp), 2)
+
     # Defensive or Kicker scoring
     if pos in ("DEF", "K") or player_id in ("MIN", "SF", "BAL", "DAL", "PHI", "BUF", "KC", "NYJ"):
         pts = raw_proj.get("pts_std") or raw_proj.get("pts_ppr") or 0.0
         return round(float(pts), 2)
 
-    # Detailed stat calculation when available
+    # Detailed offensive stat calculation when available
     stats = raw_proj
     has_stat_breakdown = any(k in stats for k in ("pass_yd", "rush_yd", "rec_yd", "pass_td"))
 

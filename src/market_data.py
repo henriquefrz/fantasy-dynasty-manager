@@ -114,6 +114,8 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_sup
 
     lookup = {}
     overall_map = {}
+    overall_counter = 0
+    pos_counters = {}
 
     for row in fp_rankings_raw:
         ptype = row.get("page_type")
@@ -127,11 +129,16 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_sup
             continue
 
         if ptype == overall_page_type:
-            overall_map[sleeper_id] = ecr_val
+            overall_counter += 1
+            overall_map[sleeper_id] = float(overall_counter)
         elif ptype in pos_page_types:
+            pos_key = row.get("pos") or ptype
+            pos_counters[pos_key] = pos_counters.get(pos_key, 0) + 1
+            ordinal_pos = float(pos_counters[pos_key])
             lookup[sleeper_id] = {
-                "rank_ecr": ecr_val,
-                "rank_ecr_pos": ecr_val,
+                "rank_ecr": ordinal_pos,
+                "rank_ecr_pos": ordinal_pos,
+                "raw_ecr": ecr_val,
                 "player_name": row["player"],
                 "position": row["pos"],
             }

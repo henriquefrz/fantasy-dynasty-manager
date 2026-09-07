@@ -816,6 +816,172 @@ def render_market_table_html(market_rows):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_portfolio_table_html(portfolio_rows):
+    """
+    Renders Multi-League Portfolio table with 44px round avatars,
+    spacious rows (~56px), exposure badge/progress, dual ECR badges, and leagues owned.
+    """
+    if not portfolio_rows:
+        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players in portfolio.</p>"
+
+    html = """
+    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
+    <table class='roster-table'>
+        <thead>
+            <tr>
+                <th style='width: 28%; text-align: left;'>Player</th>
+                <th style='width: 60px; text-align: center;'>Age</th>
+                <th style='width: 10%; text-align: center;'>Shares</th>
+                <th style='width: 11%; text-align: center;'>Exposure</th>
+                <th style='width: 11%; text-align: center;'>Overall ECR</th>
+                <th style='width: 11%; text-align: center;'>Pos ECR</th>
+                <th style='width: 14%; text-align: center;'>Consensus Value</th>
+                <th style='width: 25%; text-align: left;'>Leagues Owned</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for r in portfolio_rows:
+        pos = r.get("Pos", "UTIL")
+        badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
+        avatar = r.get("Avatar", "")
+        pname = r.get("Player", "Unknown")
+        team = r.get("NFL Team", "FA")
+        age = r.get("Age", "—")
+        shares = r.get("Shares", "—")
+        exp = r.get("Exposure", "0%")
+        overall_ecr = r.get("Overall ECR", "—")
+        pos_ecr = r.get("Pos ECR", "—")
+        val = r.get("Consensus Value", "0 pts")
+        if isinstance(val, (int, float)):
+            val = f"{val:,.0f} pts"
+        leagues_str = r.get("Leagues Owned", "")
+
+        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+
+        html += f"""
+            <tr>
+                <td style='text-align: left;'>
+                    <div class='player-cell'>
+                        {avatar_img}
+                        <div class='player-info'>
+                            <span class='player-name'>{pname}</span>
+                            <div class='player-meta'>
+                                <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
+                                <span>{team}</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td style='color: #94a3b8; text-align: center;'>{age}</td>
+                <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{shares}</span></td>
+                <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{exp}</span></td>
+                <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
+                <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
+                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
+                <td style='text-align: left; font-size: 0.78rem; color: #94a3b8; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='{leagues_str}'>{leagues_str}</td>
+            </tr>
+        """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
+def render_power_simulation_table_html(sim_rows, user_roster_id):
+    """
+    Renders Season Standings & Playoff Simulation table with subtle cyan highlighting
+    for the user's franchise row, eliminating text clutter.
+    """
+    html = """
+    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
+    <table class='roster-table'>
+        <thead>
+            <tr>
+                <th style='width: 70px; text-align: center;'>Rank</th>
+                <th style='width: 28%; text-align: left;'>Manager / Team</th>
+                <th style='width: 14%; text-align: center;'>Projected W-L</th>
+                <th style='width: 12%; text-align: center;'>Median PPG</th>
+                <th style='width: 12%; text-align: center;'>Playoff Odds</th>
+                <th style='width: 11%; text-align: center;'>1st-Round Bye</th>
+                <th style='width: 11%; text-align: center;'>Champ Odds</th>
+                <th style='width: 12%; text-align: center;'>Power Score</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for r in sim_rows:
+        is_me = (r.get("roster_id") == user_roster_id)
+        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
+        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        html += f"""
+        <tr style='{row_style}'>
+            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
+            <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
+            <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
+            <td style='text-align: center; color: #38bdf8;'>{r['Median PPG']}</td>
+            <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
+            <td style='text-align: center;'><span class='rank-pill'>{r['1st-Round Bye']}</span></td>
+            <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{r['Champ Odds']}</span></td>
+            <td class='val-pill' style='text-align: center;'>{r['Season Power Score']}</td>
+        </tr>
+        """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
+def render_dynasty_power_table_html(dyn_rows, user_roster_id):
+    """
+    Renders Dynasty Asset Power Rankings table with subtle cyan highlighting
+    for the user's franchise row, eliminating text clutter.
+    """
+    html = """
+    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
+    <table class='roster-table'>
+        <thead>
+            <tr>
+                <th style='width: 70px; text-align: center;'>Rank</th>
+                <th style='width: 28%; text-align: left;'>Manager / Team</th>
+                <th style='width: 14%; text-align: center;'>Dynasty Score</th>
+                <th style='width: 14%; text-align: center;'>Starters (50%)</th>
+                <th style='width: 14%; text-align: center;'>Bench (30%)</th>
+                <th style='width: 14%; text-align: center;'>Picks (20%)</th>
+                <th style='width: 16%; text-align: center;'>Tier</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for r in dyn_rows:
+        is_me = (r.get("roster_id") == user_roster_id)
+        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
+        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        tier = r.get("Competitive Tier", "Active")
+        tier_cls = "status-contender" if "Contender" in tier else ("status-rebuild" if "Rebuild" in tier else "status-bubble")
+        html += f"""
+        <tr style='{row_style}'>
+            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
+            <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
+            <td class='val-pill' style='text-align: center; color: #38bdf8;'>{r['Dynasty Score']}</td>
+            <td style='text-align: center;'>{r['Starters Val (50%)']}</td>
+            <td style='text-align: center; color: #94a3b8;'>{r['Bench Val (30%)']}</td>
+            <td style='text-align: center; color: #c084fc;'>{r['Picks Capital (20%)']}</td>
+            <td style='text-align: center;'><span class='status-capsule {tier_cls}'>{tier}</span></td>
+        </tr>
+        """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
 def render_starter_card_grid_html(starters_rows):
     """
     Renders modern dashboard starter cards inspired by cyberpunk sports UI.
@@ -1194,6 +1360,13 @@ if qp_lid:
     match_lg = next((l for l in leagues if str(l.get("league_id")) == str(qp_lid)), None)
     if match_lg:
         st.session_state["selected_league_id"] = match_lg["league_id"]
+        st.session_state["top_workspace_selector"] = match_lg["name"]
+    else:
+        st.session_state["selected_league_id"] = None
+        st.session_state["top_workspace_selector"] = PORTAL_LABEL
+else:
+    st.session_state["selected_league_id"] = None
+    st.session_state["top_workspace_selector"] = PORTAL_LABEL
 
 def set_active_workspace(lid):
     st.session_state["selected_league_id"] = lid
@@ -1221,9 +1394,14 @@ top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
 )
 
 with top_col_brand:
-    if st.button("🏈  Fantasy Analytics", key="btn_brand_home", help="Click to return to All Leagues", use_container_width=True):
-        set_active_workspace(None)
-        st.rerun()
+    st.html(
+        """
+        <a href="./" target="_self" style="text-decoration: none; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
+            <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
+        </a>
+        """
+    )
 
 with top_col_nav:
     cur_lid = st.session_state.get("selected_league_id")
@@ -1405,7 +1583,7 @@ if st.session_state.get("selected_league_id") is None:
         card_html = f"""
         <div class='card-container card-highlight'>
             <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
-                <h4 style='margin-bottom: 4px;'>{lname}</h4>
+                <a href='?league={lid}' target='_self' style='text-decoration: none; color: inherit;'><h4 style='margin-bottom: 4px; color: #f8fafc;'>{lname}</h4></a>
                 {badge_html}
             </div>
             <div style='color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px;'>{format_str}</div>
@@ -1414,34 +1592,20 @@ if st.session_state.get("selected_league_id") is None:
                 <div><span style='color: #94a3b8;'>Points:</span> <b>{fpts:,.1f}</b></div>
                 {rank_grid_html}
             </div>
+            <a href='?league={lid}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.86rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 6px rgba(0,0,0,0.25);'>
+                Open Workspace →
+            </a>
         </div>
         """
 
         with col:
             st.html("\n".join(line.lstrip() for line in card_html.splitlines()))
-            if st.button(f"Open Workspace →", key=f"btn_enter_{lid}", use_container_width=True):
-                set_active_workspace(lid)
-                st.rerun()
 
     # Quick Top Exposure Table on Front Page (Clean 44px Avatars)
     st.markdown("---")
     st.markdown("### Core Portfolio Exposure (Cross-League Foundations)")
     if exp_rows:
-        front_exp = []
-        for r in exp_rows[:10]:
-            front_exp.append({
-                "Slot": f"{r['Shares']}",
-                "Player": r["Player"],
-                "Pos": r["Pos"],
-                "NFL Team": r["NFL Team"],
-                "Avatar": r["Avatar"],
-                "Age": r.get("Age", "—"),
-                "Overall ECR": r.get("Overall ECR", "—"),
-                "Pos ECR": r.get("Pos ECR", "—"),
-                "Consensus Value": f"{r['Consensus Value']:,.0f} pts",
-                "Equity Share": r.get("Exposure", "0%"),
-            })
-        st.html(render_player_table_html(front_exp, show_equity=True))
+        st.html(render_portfolio_table_html(exp_rows[:10]))
 
 
 # =============================================================================
@@ -2407,11 +2571,10 @@ else:
             for rank_idx, t in enumerate(ranked_sim, 1):
                 rid = t["roster_id"]
                 mgr = user_map.get(next((r["owner_id"] for r in rosters if r["roster_id"] == rid), ""), f"Team {rid}")
-                is_me = (rid == user_roster["roster_id"])
-                mgr_display = f"{mgr} ★ (Your Franchise)" if is_me else mgr
                 table_data.append({
+                    "roster_id": rid,
                     "Rank": f"#{rank_idx}",
-                    "Manager / Team": mgr_display,
+                    "Manager / Team": mgr,
                     "Projected W-L": f"{t['avg_wins']:.1f} - {t['avg_losses']:.1f}",
                     "Median PPG": f"{t['expected_pts']:.1f}",
                     "Playoff Odds": f"{t['playoff_pct']:.1f}%",
@@ -2420,8 +2583,7 @@ else:
                     "Season Power Score": f"{t['power_score']:.1f}",
                 })
 
-            df_sim = pd.DataFrame(table_data)
-            st.dataframe(df_sim, hide_index=True, use_container_width=True)
+            st.html(render_power_simulation_table_html(table_data, user_roster["roster_id"]))
 
         def render_dynasty_power_view():
             st.caption("Dynasty Power Formula: 50% Starters Value + 30% Bench Depth + 20% Future Draft Capital (Industry Standard).")
@@ -2431,11 +2593,10 @@ else:
             dyn_data = []
             for rank_idx, t in enumerate(ranked_dyn, 1):
                 rid = t["roster_id"]
-                is_me = (rid == user_roster["roster_id"])
-                mgr_display = f"{t['manager_name']} ★ (Your Franchise)" if is_me else t["manager_name"]
                 dyn_data.append({
+                    "roster_id": rid,
                     "Rank": f"#{rank_idx}",
-                    "Manager / Team": mgr_display,
+                    "Manager / Team": t["manager_name"],
                     "Dynasty Score": f"{t['dynasty_score']:.1f} / 100",
                     "Starters Val (50%)": f"{t['starters_val']:,.0f} pts",
                     "Bench Val (30%)": f"{t['bench_val']:,.0f} pts",
@@ -2443,8 +2604,7 @@ else:
                     "Competitive Tier": t["status"].split("(")[0].strip() if t.get("status") else "Active",
                 })
 
-            df_dyn = pd.DataFrame(dyn_data)
-            st.dataframe(df_dyn, hide_index=True, use_container_width=True)
+            st.html(render_dynasty_power_table_html(dyn_data, user_roster["roster_id"]))
 
             with st.expander("View Complete Team Roster & Pick Breakdown", expanded=False):
                 inspect_mgr = st.selectbox("Select Team to Inspect:", [t["manager_name"] for t in ranked_dyn])
@@ -2579,11 +2739,23 @@ else:
                     if a.get("type") == "pick" or not pid or str(pid).startswith("pick_"):
                         icon_html = "<div style='width: 38px; height: 38px; border-radius: 50%; background: #1e1b4b; border: 1.5px solid #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;'>🎯</div>"
                         pos_badge = "<span class='badge-pos badge-pick' style='font-size: 0.65rem; padding: 1px 5px;'>PICK</span>"
+                        dyn_ros_html = "<span style='color: #c084fc; font-weight: 600;'>Future Draft Capital</span>"
                     else:
                         avatar_url = get_player_avatar_url(pid, pos, team)
                         icon_html = f"<img src='{avatar_url}' style='width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #475569; flex-shrink: 0;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
                         badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
                         pos_badge = f"<span class='badge-pos {badge_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{pos}</span>"
+
+                        p_data = primary_lookup.get(pid, {})
+                        r_data = redraft_lookup.get(pid, {})
+                        d_o = p_data.get("rank_ecr_overall", 999.0)
+                        d_p = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
+                        r_o = r_data.get("rank_ecr_overall", 999.0)
+                        r_p = r_data.get("rank_ecr_pos", r_data.get("rank_ecr", 999.0))
+
+                        d_str = f"Dyn: #{int(d_o)} ({pos}{int(d_p)})" if (d_p and d_p < 900) else "Dyn: —"
+                        ros_str = f"ROS: #{int(r_o)} ({pos}{int(r_p)})" if (r_p and r_p < 900) else "ROS: —"
+                        dyn_ros_html = f"<span style='color: #38bdf8; font-weight: 600;'>{d_str}</span> <span style='color: #64748b;'>•</span> <span style='color: #fbbf24; font-weight: 600;'>{ros_str}</span>"
 
                     chips_html += f"""
                     <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
@@ -2594,6 +2766,9 @@ else:
                                 <div style='font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; align-items: center;'>
                                     {pos_badge}
                                     <span>{team}</span>
+                                </div>
+                                <div style='font-size: 0.68rem; margin-top: 2px;'>
+                                    {dyn_ros_html}
                                 </div>
                             </div>
                         </div>
@@ -2894,13 +3069,27 @@ else:
             filtered_exp = [r for r in filtered_exp if search_port.lower() in r["Player"].lower()]
 
         if filtered_exp:
-            df_exp = pd.DataFrame(filtered_exp)
-            df_exp["Consensus Value"] = df_exp["Consensus Value"].apply(lambda v: f"{v:,.0f} pts")
-            st.dataframe(
-                df_exp[["Avatar", "Player", "Pos", "NFL Team", "Age", "Shares", "Exposure", "Overall ECR", "Pos ECR", "Consensus Value", "Leagues Owned"]],
-                column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
-                hide_index=True,
-                use_container_width=True,
-            )
+            c_pview1, c_pview2 = st.columns([1, 1])
+            with c_pview1:
+                port_view = st.radio(
+                    "Display Format:",
+                    ["Standard Table (44px Avatars)", "Interactive Dataframe"],
+                    horizontal=True,
+                    key="port_view_mode",
+                )
+            with c_pview2:
+                st.caption(f"Showing {len(filtered_exp)} portfolio players matching filters.")
+
+            if port_view == "Standard Table (44px Avatars)":
+                st.html(render_portfolio_table_html(filtered_exp[:100]))
+            else:
+                df_exp = pd.DataFrame(filtered_exp)
+                df_exp["Consensus Value"] = df_exp["Consensus Value"].apply(lambda v: f"{v:,.0f} pts" if isinstance(v, (int, float)) else v)
+                st.dataframe(
+                    df_exp[["Avatar", "Player", "Pos", "NFL Team", "Age", "Shares", "Exposure", "Overall ECR", "Pos ECR", "Consensus Value", "Leagues Owned"]],
+                    column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
+                    hide_index=True,
+                    use_container_width=True,
+                )
         else:
             st.info("No players matching the portfolio filter criteria.")
