@@ -1076,6 +1076,190 @@ def render_market_table_html(market_rows):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_player_comparison_table_html(comparison_assets):
+    """
+    Renders an executive side-by-side comparison table for 2 or 3 players/picks.
+    """
+    if not comparison_assets or len(comparison_assets) < 2:
+        return ""
+
+    num_p = len(comparison_assets)
+    col_w = "25%" if num_p == 3 else "32%"
+
+    headers = "<th style='width: 25%; text-align: left;'>Comparison Metric</th>"
+    for p in comparison_assets:
+        headers += f"<th style='width: {col_w}; text-align: center; color: #f8fafc;'>{p['name']}</th>"
+    headers += "<th style='width: 25%; text-align: center;'>Advantage / Leader</th>"
+
+    # 1. Consensus Value Row
+    val_cells = ""
+    max_val = max(p.get("val", 0.0) for p in comparison_assets)
+    val_leader = next(p for p in comparison_assets if p.get("val", 0.0) == max_val)
+    val_runner_up = sorted(comparison_assets, key=lambda x: x.get("val", 0.0), reverse=True)[1]
+    v_diff = max_val - val_runner_up.get("val", 0.0)
+    v_pct = (v_diff / val_runner_up.get("val", 1.0) * 100) if val_runner_up.get("val", 0) > 0 else 0.0
+    val_adv = f"<span style='color: #34d399; font-weight: 700;'>{val_leader['name']} (+{v_diff:,.0f} pts / +{v_pct:.1f}%)</span>" if v_diff > 0 else "<span style='color: #94a3b8;'>Tied</span>"
+
+    for p in comparison_assets:
+        v = p.get("val", 0.0)
+        is_top = (v == max_val and v_diff > 0)
+        color = "#34d399" if is_top else "#cbd5e1"
+        weight = "800" if is_top else "600"
+        val_cells += f"<td style='text-align: center; font-weight: {weight}; color: {color};'>{v:,.0f} pts</td>"
+
+    # 2. Overall Rank Row
+    ovr_cells = ""
+    valid_ovrs = [(p, p.get("o_ecr", 999.0)) for p in comparison_assets if p.get("o_ecr") and p.get("o_ecr") < 900]
+    if valid_ovrs:
+        best_ovr_p, best_ovr_val = min(valid_ovrs, key=lambda x: x[1])
+        ovr_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{best_ovr_p['name']} (#{int(best_ovr_val)})</span>"
+    else:
+        best_ovr_val = None
+        ovr_adv = "—"
+
+    for p in comparison_assets:
+        o = p.get("o_ecr")
+        o_str = f"#{int(o)}" if (o and o < 900) else "—"
+        is_best = (o == best_ovr_val and o is not None and o < 900)
+        color = "#38bdf8" if is_best else "#94a3b8"
+        ovr_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{o_str}</td>"
+
+    # 3. Positional Rank Row
+    pos_cells = ""
+    for p in comparison_assets:
+        p_ecr = p.get("p_ecr")
+        pos_str = f"{p['pos']}{int(p_ecr)}" if (p_ecr and p_ecr < 900) else "—"
+        pos_cells += f"<td style='text-align: center; font-weight: 700; color: #cbd5e1;'>{pos_str}</td>"
+    pos_adv = "<span style='color: #94a3b8;'>Per Position Tier</span>"
+
+    # 4. KeepTradeCut Row
+    ktc_cells = ""
+    ktc_vals = [(p, float(p.get("ktc_val") or 0.0)) for p in comparison_assets if p.get("ktc_val") is not None]
+    if ktc_vals and max(x[1] for x in ktc_vals) > 0:
+        ktc_leader, ktc_max = max(ktc_vals, key=lambda x: x[1])
+        ktc_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{ktc_leader['name']} ({ktc_max:,.0f})</span>"
+    else:
+        ktc_max = None
+        ktc_adv = "—"
+
+    for p in comparison_assets:
+        kv = p.get("ktc_val")
+        kv_str = f"{float(kv):,.0f}" if kv is not None else "—"
+        is_ktc_lead = (kv is not None and float(kv) == ktc_max and ktc_max > 0)
+        color = "#38bdf8" if is_ktc_lead else "#94a3b8"
+        ktc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{kv_str}</td>"
+
+    # 5. FantasyCalc Row
+    fc_cells = ""
+    fc_vals = [(p, float(p.get("fc_val") or 0.0)) for p in comparison_assets if p.get("fc_val") is not None]
+    if fc_vals and max(x[1] for x in fc_vals) > 0:
+        fc_leader, fc_max = max(fc_vals, key=lambda x: x[1])
+        fc_adv = f"<span style='color: #34d399; font-weight: 700;'>{fc_leader['name']} ({fc_max:,.0f})</span>"
+    else:
+        fc_max = None
+        fc_adv = "—"
+
+    for p in comparison_assets:
+        fv = p.get("fc_val")
+        fv_str = f"{float(fv):,.0f}" if fv is not None else "—"
+        is_fc_lead = (fv is not None and float(fv) == fc_max and fc_max > 0)
+        color = "#34d399" if is_fc_lead else "#94a3b8"
+        fc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fv_str}</td>"
+
+    # 6. DynastyProcess Row
+    dp_cells = ""
+    dp_vals = [(p, float(p.get("dp_val") or 0.0)) for p in comparison_assets if p.get("dp_val") is not None]
+    if dp_vals and max(x[1] for x in dp_vals) > 0:
+        dp_leader, dp_max = max(dp_vals, key=lambda x: x[1])
+        dp_adv = f"<span style='color: #c084fc; font-weight: 700;'>{dp_leader['name']} ({dp_max:,.0f})</span>"
+    else:
+        dp_max = None
+        dp_adv = "—"
+
+    for p in comparison_assets:
+        dv = p.get("dp_val")
+        dv_str = f"{float(dv):,.0f}" if dv is not None else "—"
+        is_dp_lead = (dv is not None and float(dv) == dp_max and dp_max > 0)
+        color = "#c084fc" if is_dp_lead else "#94a3b8"
+        dp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{dv_str}</td>"
+
+    # 7. Age & Horizon Row
+    age_cells = ""
+    valid_ages = []
+    for p in comparison_assets:
+        try:
+            a_num = float(p.get("age"))
+            valid_ages.append((p, a_num))
+        except (ValueError, TypeError):
+            pass
+
+    if len(valid_ages) >= 2:
+        youngest_p, min_age = min(valid_ages, key=lambda x: x[1])
+        oldest_p, max_age = max(valid_ages, key=lambda x: x[1])
+        age_adv = f"<span style='color: #34d399; font-weight: 700;'>{youngest_p['name']} ({min_age:.1f} yrs • -{max_age - min_age:.1f}y)</span>" if max_age > min_age else "<span style='color: #94a3b8;'>Equal Age</span>"
+    else:
+        min_age = None
+        age_adv = "—"
+
+    for p in comparison_assets:
+        age_disp = f"Age {p.get('age')}" if p.get("age") and str(p.get("age")) != "—" else "—"
+        try:
+            is_youngest = (float(p.get("age")) == min_age and min_age is not None and len(valid_ages) >= 2 and max_age > min_age)
+        except (ValueError, TypeError):
+            is_youngest = False
+        color = "#34d399" if is_youngest else "#94a3b8"
+        age_cells += f"<td style='text-align: center; font-weight: 600; color: {color};'>{age_disp}</td>"
+
+    html = f"""
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full comparison</div>
+    <div class='table-responsive-wrapper' style='margin-top: 16px;'>
+    <table class='roster-table roster-table-market'>
+        <thead>
+            <tr>{headers}</tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Market Value</td>
+                {val_cells}
+                <td style='text-align: center;'>{val_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Overall Rank</td>
+                {ovr_cells}
+                <td style='text-align: center;'>{ovr_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Positional Rank</td>
+                {pos_cells}
+                <td style='text-align: center;'>{pos_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>KeepTradeCut (KTC)</td>
+                {ktc_cells}
+                <td style='text-align: center;'>{ktc_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc (FC Trades)</td>
+                {fc_cells}
+                <td style='text-align: center;'>{fc_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>DynastyProcess (DP Model)</td>
+                {dp_cells}
+                <td style='text-align: center;'>{dp_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
+                {age_cells}
+                <td style='text-align: center;'>{age_adv}</td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
 def render_portfolio_table_html(portfolio_rows):
     """
     Renders Multi-League Portfolio table with 44px round avatars,
@@ -3684,13 +3868,16 @@ else:
         st.subheader("Market Rankings & Player Database")
         st.caption("Explore comprehensive valuations and rankings for all players comparing KeepTradeCut, FantasyCalc, DynastyProcess, and Positional ECR.")
 
-        c_mkt1, c_mkt2 = st.columns([1, 2])
-        with c_mkt1:
-            pos_mkt = st.selectbox("Position Filter:", ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"], key="mkt_pos_filter")
-        with c_mkt2:
-            search_mkt = st.text_input("Search Player / Team / Pick:", "", key="mkt_search_filter")
+        market_subview = st.radio(
+            "Market Section:",
+            ["📊 Market Player Database", "⚖️ Player Head-to-Head Comparison"],
+            horizontal=True,
+            key="market_subview_toggle",
+            label_visibility="collapsed",
+        )
 
-        market_rows = []
+        # Build unified market assets collection
+        all_market_assets = []
         for pid, p_data in primary_lookup.items():
             p_obj = players.get(str(pid), {})
             pname = p_obj.get("full_name") or p_data.get("player_name") or str(pid)
@@ -3707,17 +3894,13 @@ else:
 
             pos = "PICK" if is_pick_asset else raw_pos
             team = "DRAFT" if is_pick_asset else (p_obj.get("team") or "FA")
+            age = p_obj.get("age", "—")
             val = p_data.get("market_value", 0.0)
             ecr = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
             o_ecr = p_data.get("rank_ecr_overall", 999.0)
             ktc_v = p_data.get("ktc_val")
             fc_v = p_data.get("fc_val")
             dp_v = p_data.get("dp_val")
-
-            if pos_mkt != "ALL" and pos != pos_mkt:
-                continue
-            if search_mkt and (search_mkt.lower() not in pname.lower() and search_mkt.lower() not in team.lower()):
-                continue
 
             pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
             overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
@@ -3732,18 +3915,32 @@ else:
             except (ValueError, TypeError):
                 raw_p_ecr = 9999.0
 
-            market_rows.append({
+            all_market_assets.append({
                 "pid": str(pid),
                 "Avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
+                "avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
                 "Player": pname,
+                "name": pname,
                 "Pos": pos,
+                "pos": pos,
                 "NFL Team": team,
+                "team": team,
+                "age": age,
                 "Consensus Value": f"{val:,.0f} pts",
                 "Overall ECR": overall_ecr_str,
                 "Pos ECR": pos_ecr_str,
+                "val": val,
+                "o_ecr": raw_o_ecr,
+                "p_ecr": raw_p_ecr,
+                "o_ecr_str": overall_ecr_str,
+                "pos_ecr_str": pos_ecr_str,
                 "KeepTradeCut": f"{ktc_v:,.0f}" if ktc_v is not None else "—",
                 "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
                 "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
+                "ktc_val": ktc_v,
+                "fc_val": fc_v,
+                "dp_val": dp_v,
+                "is_pick": is_pick_asset,
                 "_val": val,
                 "_overall_ecr": raw_o_ecr,
                 "_pos_ecr": raw_p_ecr,
@@ -3751,88 +3948,301 @@ else:
                 "_fc": float(fc_v) if (fc_v is not None and str(fc_v).replace(".", "", 1).isdigit()) else 0.0,
                 "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
                 "_name": pname.lower(),
+                "label": f"{pname} ({pos} - {team}) • #{int(o_ecr) if (o_ecr and o_ecr < 900) else '—'} • {val:,.0f} pts",
             })
 
-        market_rows.sort(key=lambda x: x["_val"], reverse=True)
+        all_market_assets.sort(key=lambda x: x["_val"], reverse=True)
 
-        if market_rows:
-            c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
-            with c_mksort1:
-                sort_mkt_col = st.selectbox(
-                    "Sort Market Players By:",
-                    ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
-                    key="mkt_sort_col"
-                )
-            with c_mksort2:
-                sort_mkt_order = st.selectbox(
-                    "Order:",
-                    ["Descending (High / Best)", "Ascending (Low)"],
-                    key="mkt_sort_order"
-                )
-            with c_mksort3:
-                page_size_choice = st.selectbox(
-                    "Items Per Page:",
-                    [50, 100, 200, "All"],
-                    index=1,
-                    key="mkt_page_size"
-                )
+        if "Database" in market_subview:
+            c_mkt1, c_mkt2 = st.columns([1, 2])
+            with c_mkt1:
+                pos_mkt = st.selectbox("Position Filter:", ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"], key="mkt_pos_filter")
+            with c_mkt2:
+                search_mkt = st.text_input("Search Player / Team / Pick:", "", key="mkt_search_filter")
 
-            sorted_mkt = list(market_rows)
-            is_desc = "Descending" in sort_mkt_order
-            if sort_mkt_col == "Consensus Value":
-                sorted_mkt.sort(key=lambda x: x["_val"], reverse=is_desc)
-            elif sort_mkt_col in ("Overall Rank", "Overall ECR"):
-                sorted_mkt.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
-            elif sort_mkt_col in ("Pos Rank", "Pos ECR"):
-                sorted_mkt.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
-            elif sort_mkt_col == "KeepTradeCut":
-                sorted_mkt.sort(key=lambda x: x["_ktc"], reverse=is_desc)
-            elif sort_mkt_col == "FantasyCalc":
-                sorted_mkt.sort(key=lambda x: x["_fc"], reverse=is_desc)
-            elif sort_mkt_col == "DynastyProcess":
-                sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
-            elif sort_mkt_col == "Player Name":
-                sorted_mkt.sort(key=lambda x: x["_name"], reverse=not is_desc)
+            filtered_rows = []
+            for r in all_market_assets:
+                if pos_mkt != "ALL" and r["pos"] != pos_mkt:
+                    continue
+                if search_mkt and (search_mkt.lower() not in r["name"].lower() and search_mkt.lower() not in r["team"].lower()):
+                    continue
+                filtered_rows.append(r)
 
-            for idx, r in enumerate(sorted_mkt, start=1):
-                r["Rank"] = f"#{idx}"
+            if filtered_rows:
+                c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
+                with c_mksort1:
+                    sort_mkt_col = st.selectbox(
+                        "Sort Market Players By:",
+                        ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
+                        key="mkt_sort_col"
+                    )
+                with c_mksort2:
+                    sort_mkt_order = st.selectbox(
+                        "Order:",
+                        ["Descending (High / Best)", "Ascending (Low)"],
+                        key="mkt_sort_order"
+                    )
+                with c_mksort3:
+                    page_size_choice = st.selectbox(
+                        "Items Per Page:",
+                        [50, 100, 200, "All"],
+                        index=1,
+                        key="mkt_page_size"
+                    )
 
-            total_items = len(sorted_mkt)
-            page_size = total_items if page_size_choice == "All" else int(page_size_choice)
-            total_pages = max(1, math.ceil(total_items / page_size))
+                sorted_mkt = list(filtered_rows)
+                is_desc = "Descending" in sort_mkt_order
+                if sort_mkt_col == "Consensus Value":
+                    sorted_mkt.sort(key=lambda x: x["_val"], reverse=is_desc)
+                elif sort_mkt_col in ("Overall Rank", "Overall ECR"):
+                    sorted_mkt.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
+                elif sort_mkt_col in ("Pos Rank", "Pos ECR"):
+                    sorted_mkt.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
+                elif sort_mkt_col == "KeepTradeCut":
+                    sorted_mkt.sort(key=lambda x: x["_ktc"], reverse=is_desc)
+                elif sort_mkt_col == "FantasyCalc":
+                    sorted_mkt.sort(key=lambda x: x["_fc"], reverse=is_desc)
+                elif sort_mkt_col == "DynastyProcess":
+                    sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
+                elif sort_mkt_col == "Player Name":
+                    sorted_mkt.sort(key=lambda x: x["_name"], reverse=not is_desc)
 
-            # Validate current page state
-            cur_page = st.session_state.get("mkt_page", 1)
-            if cur_page > total_pages:
-                cur_page = 1
-                st.session_state["mkt_page"] = 1
+                for idx, r in enumerate(sorted_mkt, start=1):
+                    r["Rank"] = f"#{idx}"
 
-            start_idx = (cur_page - 1) * page_size
-            end_idx = min(start_idx + page_size, total_items)
-            page_rows = sorted_mkt[start_idx:end_idx]
+                total_items = len(sorted_mkt)
+                page_size = total_items if page_size_choice == "All" else int(page_size_choice)
+                total_pages = max(1, math.ceil(total_items / page_size))
 
-            # Pagination Controls Bar
-            c_p1, c_p2, c_p3 = st.columns([1, 2, 1], vertical_alignment="center")
-            with c_p1:
-                if st.button("← Previous", key="mkt_prev_btn", disabled=(cur_page <= 1), use_container_width=True):
-                    st.session_state["mkt_page"] = max(1, cur_page - 1)
-                    st.rerun()
-            with c_p2:
-                st.markdown(
-                    f"<div style='text-align: center; color: #94a3b8; font-size: 0.85rem; font-weight: 600;'>"
-                    f"Page <strong style='color: #f8fafc;'>{cur_page}</strong> of <strong style='color: #f8fafc;'>{total_pages}</strong> "
-                    f"<span style='color: #64748b;'>• Showing {start_idx + 1}–{end_idx} of {total_items} assets</span>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-            with c_p3:
-                if st.button("Next →", key="mkt_next_btn", disabled=(cur_page >= total_pages), use_container_width=True):
-                    st.session_state["mkt_page"] = min(total_pages, cur_page + 1)
-                    st.rerun()
+                # Validate current page state
+                cur_page = st.session_state.get("mkt_page", 1)
+                if cur_page > total_pages:
+                    cur_page = 1
+                    st.session_state["mkt_page"] = 1
 
-            st.html(render_market_table_html(page_rows))
+                start_idx = (cur_page - 1) * page_size
+                end_idx = min(start_idx + page_size, total_items)
+                page_rows = sorted_mkt[start_idx:end_idx]
+
+                # Pagination Controls Bar
+                c_p1, c_p2, c_p3 = st.columns([1, 2, 1], vertical_alignment="center")
+                with c_p1:
+                    if st.button("← Previous", key="mkt_prev_btn", disabled=(cur_page <= 1), use_container_width=True):
+                        st.session_state["mkt_page"] = max(1, cur_page - 1)
+                        st.rerun()
+                with c_p2:
+                    st.markdown(
+                        f"<div style='text-align: center; color: #94a3b8; font-size: 0.85rem; font-weight: 600;'>"
+                        f"Page <strong style='color: #f8fafc;'>{cur_page}</strong> of <strong style='color: #f8fafc;'>{total_pages}</strong> "
+                        f"<span style='color: #64748b;'>• Showing {start_idx + 1}–{end_idx} of {total_items} assets</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with c_p3:
+                    if st.button("Next →", key="mkt_next_btn", disabled=(cur_page >= total_pages), use_container_width=True):
+                        st.session_state["mkt_page"] = min(total_pages, cur_page + 1)
+                        st.rerun()
+
+                st.html(render_market_table_html(page_rows))
+            else:
+                st.info("No players matched the filter criteria.")
+
         else:
-            st.info("No players matched the filter criteria.")
+            # =================================================================
+            # SUBVIEW: PLAYER HEAD-TO-HEAD COMPARISON (2-3 PLAYERS)
+            # =================================================================
+            st.markdown(
+                "<div style='margin: 8px 0 16px 0; color: #94a3b8; font-size: 0.88rem;'>"
+                "Compare 2 or 3 players or rookie draft picks side-by-side across consensus market values, "
+                "constituent platform models (KeepTradeCut, FantasyCalc, DynastyProcess), and expert ECR rankings."
+                "</div>",
+                unsafe_allow_html=True
+            )
+
+            PRESET_MATCHUPS = {
+                "— Select Quick Preset —": [],
+                "Gibbs vs Bijan": ["Jahmyr Gibbs", "Bijan Robinson"],
+                "Lamar Jackson vs Drake Maye": ["Lamar Jackson", "Drake Maye"],
+                "Chase vs JJ vs CeeDee": ["Ja'Marr Chase", "Justin Jefferson", "CeeDee Lamb"],
+                "Malik Nabers vs Marvin Harrison Jr.": ["Malik Nabers", "Marvin Harrison"],
+                "Jayden Daniels vs Caleb Williams": ["Jayden Daniels", "Caleb Williams"],
+            }
+
+            c_cmp1, c_cmp2 = st.columns([1.2, 2.8], vertical_alignment="bottom")
+            with c_cmp1:
+                preset_choice = st.selectbox(
+                    "Quick Matchups:",
+                    list(PRESET_MATCHUPS.keys()),
+                    key="cmp_preset_select"
+                )
+
+            # Resolve preset labels if chosen
+            preset_labels = []
+            if preset_choice != "— Select Quick Preset —":
+                target_names = PRESET_MATCHUPS[preset_choice]
+                for tname in target_names:
+                    match = next((a["label"] for a in all_market_assets if tname.lower() in a["name"].lower()), None)
+                    if match and match not in preset_labels:
+                        preset_labels.append(match)
+
+            default_cmp_labels = preset_labels if preset_labels else [a["label"] for a in all_market_assets[:2]]
+
+            with c_cmp2:
+                selected_cmp_labels = st.multiselect(
+                    "Select 2 or 3 Players or Picks to Compare:",
+                    options=[a["label"] for a in all_market_assets],
+                    default=default_cmp_labels[:3],
+                    max_selections=3,
+                    key="cmp_players_multiselect" if not preset_labels else f"cmp_players_{preset_choice.replace(' ', '_')}",
+                    help="Search by player name or draft pick. Select 2 or 3 assets to compare side-by-side."
+                )
+
+            if len(selected_cmp_labels) < 2:
+                st.info("👆 Please select at least 2 players or draft picks above to display the comparison.")
+            else:
+                selected_assets = [next(a for a in all_market_assets if a["label"] == lbl) for lbl in selected_cmp_labels]
+                selected_assets.sort(key=lambda a: a.get("val", 0.0), reverse=True)
+
+                p1 = selected_assets[0]
+                p2 = selected_assets[1]
+                p3 = selected_assets[2] if len(selected_assets) > 2 else None
+
+                v_diff = p1["val"] - p2["val"]
+                v_pct = (v_diff / p2["val"] * 100) if p2["val"] > 0 else 0.0
+
+                # Age delta string
+                age_delta_str = ""
+                try:
+                    a1 = float(p1["age"])
+                    a2 = float(p2["age"])
+                    if a1 < a2:
+                        age_delta_str = f"• <b>{p1['name']}</b> is {a2 - a1:.1f} yrs younger"
+                    elif a2 < a1:
+                        age_delta_str = f"• <b>{p2['name']}</b> is {a1 - a2:.1f} yrs younger"
+                except (ValueError, TypeError):
+                    pass
+
+                # Source sentiment bullets
+                sentiment_bullets = []
+                if p1.get("ktc_val") and p2.get("ktc_val"):
+                    k_diff = float(p1["ktc_val"]) - float(p2["ktc_val"])
+                    if k_diff > 0:
+                        sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p1['name']}</b> (+{k_diff:,.0f} pts).")
+                    elif k_diff < 0:
+                        sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p2['name']}</b> (+{abs(k_diff):,.0f} pts).")
+
+                if p1.get("fc_val") and p2.get("fc_val"):
+                    f_diff = float(p1["fc_val"]) - float(p2["fc_val"])
+                    if f_diff > 0:
+                        sentiment_bullets.append(f"<span style='color: #34d399;'>FantasyCalc</span> real Sleeper trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
+                    elif f_diff < 0:
+                        sentiment_bullets.append(f"<span style='color: #34d399;'>FantasyCalc</span> real Sleeper trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
+
+                if p1.get("dp_val") and p2.get("dp_val"):
+                    d_diff = float(p1["dp_val"]) - float(p2["dp_val"])
+                    if d_diff > 0:
+                        sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p1['name']}</b> (+{d_diff:,.0f} pts).")
+                    elif d_diff < 0:
+                        sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p2['name']}</b> (+{abs(d_diff):,.0f} pts).")
+
+                # Executive Advantage Banner
+                verdict_html = f"""
+                <div style='background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 16px 20px; margin: 16px 0 20px 0;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;'>
+                        <span style='font-size: 0.76rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>Consensus Value Leader</span>
+                        <span style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 0.8rem; font-weight: 800; border-radius: 9999px; padding: 3px 10px;'>
+                            +{v_diff:,.0f} PTS (+{v_pct:.1f}%) ADVANTAGE
+                        </span>
+                    </div>
+                    <div style='font-size: 1.35rem; font-weight: 800; color: #ffffff;'>
+                        {p1['name']} <span style='font-size: 0.92rem; font-weight: 600; color: #94a3b8;'>leads {p2['name']} {age_delta_str}</span>
+                    </div>
+                    {'<div style=\"margin-top: 10px; font-size: 0.84rem; color: #cbd5e1; line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;\">' + '<br/>'.join('• ' + s for s in sentiment_bullets) + '</div>' if sentiment_bullets else ''}
+                </div>
+                """
+                st.html(verdict_html)
+
+                # Side-by-Side Cards in Columns
+                cmp_cols = st.columns(len(selected_assets))
+                total_val_sum = sum(a.get("val", 0.0) for a in selected_assets) or 1.0
+
+                rank_badges = [
+                    ("#1 IN COMPARISON", "rgba(16, 185, 129, 0.15)", "#34d399", "rgba(16, 185, 129, 0.3)"),
+                    ("#2 IN COMPARISON", "rgba(56, 189, 248, 0.15)", "#38bdf8", "rgba(56, 189, 248, 0.3)"),
+                    ("#3 IN COMPARISON", "rgba(168, 85, 247, 0.15)", "#c084fc", "rgba(168, 85, 247, 0.3)"),
+                ]
+
+                for col, asset, b_info in zip(cmp_cols, selected_assets, rank_badges):
+                    with col:
+                        b_text, b_bg, b_color, border_c = b_info
+                        a_share = (asset["val"] / total_val_sum * 100)
+                        pos_cls = f"badge-{asset['pos'].lower()}" if f"badge-{asset['pos'].lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
+
+                        if asset["is_pick"]:
+                            avatar_html = "<span class='pick-badge' style='width: 46px; height: 46px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;'>PICK</span>"
+                        else:
+                            avatar_html = f"<img src='{asset['avatar']}' class='player-avatar-44' style='width: 46px; height: 46px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+
+                        ktc_s = f"{float(asset['ktc_val']):,.0f} pts" if asset.get("ktc_val") is not None else "—"
+                        fc_s = f"{float(asset['fc_val']):,.0f} pts" if asset.get("fc_val") is not None else "—"
+                        dp_s = f"{float(asset['dp_val']):,.0f} pts" if asset.get("dp_val") is not None else "—"
+
+                        card_html = f"""
+                        <div class='card-container' style='height: 100%; border: 1px solid {border_c}; background: rgba(15, 23, 42, 0.75); border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
+                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;'>
+                                <span class='status-capsule' style='background: {b_bg}; color: {b_color}; font-weight: 800; font-size: 0.74rem;'>{b_text}</span>
+                                <span style='color: #94a3b8; font-size: 0.76rem; font-weight: 700;'>{a_share:.1f}% Share</span>
+                            </div>
+
+                            <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 14px;'>
+                                {avatar_html}
+                                <div>
+                                    <div style='font-size: 1.12rem; font-weight: 800; color: #ffffff; line-height: 1.2;'>{asset['name']}</div>
+                                    <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.78rem; color: #94a3b8;'>
+                                        <span class='badge-pos {pos_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{asset['pos']}</span>
+                                        <span>{asset['team']}</span>
+                                        <span>• Age {asset['age']}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style='background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;'>
+                                <div style='font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;'>Consensus Market Value</div>
+                                <div style='display: flex; align-items: baseline; gap: 6px; margin-top: 2px;'>
+                                    <span style='font-size: 1.55rem; font-weight: 800; color: #f8fafc;'>{asset['val']:,.0f}</span>
+                                    <span style='color: #38bdf8; font-size: 0.8rem; font-weight: 700;'>PTS</span>
+                                </div>
+                                <div style='display: flex; gap: 6px; margin-top: 6px;'>
+                                    <span class='rank-pill'>Overall {asset['o_ecr_str']}</span>
+                                    <span class='rank-pill rank-pill-highlight'>{asset['pos_ecr_str']}</span>
+                                </div>
+                            </div>
+
+                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
+                            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
+                                <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #38bdf8; font-weight: 700;'>KeepTradeCut</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{ktc_s}</div>
+                                </div>
+                                <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                </div>
+                                <div style='background: rgba(168, 85, 247, 0.04); border: 1px solid rgba(168, 85, 247, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #c084fc; font-weight: 700;'>DynastyProcess</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{dp_s}</div>
+                                </div>
+                                <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Consensus ECR</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{asset['pos_ecr_str']}</div>
+                                </div>
+                            </div>
+                        </div>
+                        """
+                        st.html(card_html)
+
+                # Render Detailed Table
+                st.html(render_player_comparison_table_html(selected_assets))
 
 
     # =========================================================================

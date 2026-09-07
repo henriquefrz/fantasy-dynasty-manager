@@ -576,18 +576,46 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
     """
     Enriches redraft lookup with authentic single-season market values
     from FantasyCalc (reflecting win-now impact without dynasty age penalties).
-    Interpolates for depth players using FantasyPros Redraft ECR.
+    Blends FantasyPros Redraft ECR and FantasyCalc rank data to assign mathematically
+    consistent consensus overall and positional ranks.
+    Interpolates for depth players using an overall-rank curve without inverted rank artifacts.
     """
-    fc_values = _extract_fc_player_values(fc_redraft_raw) if fc_redraft_raw else {}
+    fc_player_map = {}
+    fc_curve = []
 
-    # Build redraft ECR to value curve from matched players
-    curve = []
-    for sleeper_id, val in fc_values.items():
-        if sleeper_id in lookup:
-            ecr = lookup[sleeper_id].get("rank_ecr")
-            if ecr and ecr < 999:
-                curve.append((ecr, val))
-    curve.sort(key=lambda x: x[0])
+    for item in (fc_redraft_raw or []):
+        p_info = item.get("player") or {}
+        sid = str(p_info.get("sleeperId") or "")
+        v_raw = item.get("value")
+        o_raw = item.get("overallRank")
+        p_raw = item.get("positionRank")
+
+        try:
+            val = float(v_raw) if v_raw is not None else 0.0
+        except (ValueError, TypeError):
+            val = 0.0
+
+        try:
+            o_rank = float(o_raw) if (o_raw is not None and float(o_raw) > 0) else None
+        except (ValueError, TypeError):
+            o_rank = None
+
+        try:
+            p_rank = float(p_raw) if (p_raw is not None and float(p_raw) > 0) else None
+        except (ValueError, TypeError):
+            p_rank = None
+
+        if o_rank is not None and val > 0:
+            fc_curve.append((o_rank, val))
+
+        if sid and sid != "None":
+            fc_player_map[sid] = {
+                "val": val,
+                "overall_rank": o_rank,
+                "pos_rank": p_rank,
+            }
+
+    fc_curve.sort(key=lambda x: x[0])
 
     for sleeper_id, p_data in lookup.items():
         pos = str(p_data.get("position", "")).upper()
@@ -595,19 +623,59 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
             kv = compute_kicker_dst_value(p_data.get("rank_ecr"))
             p_data["market_value"] = kv
             p_data["fc_val"] = kv
-        elif sleeper_id in fc_values:
-            p_data["market_value"] = fc_values[sleeper_id]
-            p_data["fc_val"] = fc_values[sleeper_id]
-        elif curve:
-            ecr = p_data.get("rank_ecr")
-            if ecr and ecr < 999:
-                p_data["market_value"] = _interpolate_value_from_ecr(curve, ecr)
+            continue
+
+        fp_o = float(p_data.get("rank_ecr_overall") or 999.0)
+        fp_p = float(p_data.get("rank_ecr_pos") or p_data.get("rank_ecr") or 999.0)
+        p_data["fp_ecr_overall"] = fp_o
+        p_data["fp_ecr_pos"] = fp_p
+
+        fc_info = fc_player_map.get(sleeper_id)
+        if fc_info:
+            fc_o = fc_info["overall_rank"]
+            fc_p = fc_info["pos_rank"]
+            raw_fc_v = fc_info["val"]
+            p_data["fc_val"] = raw_fc_v
+
+            # Consensus overall rank (50% FP ECR / 50% FC Rank when both exist)
+            if fp_o < 500 and fc_o is not None and fc_o < 500:
+                blended_o = round(fp_o * 0.5 + fc_o * 0.5, 1)
+            elif fp_o < 500:
+                blended_o = fp_o
+            elif fc_o is not None:
+                blended_o = fc_o
+            else:
+                blended_o = 999.0
+
+            # Consensus positional rank
+            if fp_p < 200 and fc_p is not None and fc_p < 200:
+                blended_p = round(fp_p * 0.5 + fc_p * 0.5, 1)
+            elif fp_p < 200:
+                blended_p = fp_p
+            elif fc_p is not None:
+                blended_p = fc_p
+            else:
+                blended_p = 999.0
+
+            curve_v = _interpolate_value_from_ecr(fc_curve, blended_o) if (fc_curve and blended_o <= 199) else 0.0
+            # Smooth illiquid trade drop-offs so bench players are calibrated to their rank tier
+            p_data["market_value"] = round(max(raw_fc_v, curve_v * 0.85 if curve_v > 40 else curve_v), 1)
+        else:
+            blended_o = fp_o
+            blended_p = fp_p
+            p_data["fc_val"] = None
+
+            if blended_o <= 199 and fc_curve:
+                p_data["market_value"] = round(_interpolate_value_from_ecr(fc_curve, blended_o), 1)
+            elif blended_o < 250:
+                p_data["market_value"] = max(0.0, round(2.0 - (blended_o - 199) * 0.04, 1))
             else:
                 p_data["market_value"] = 0.0
-        else:
-            p_data["market_value"] = 0.0
 
-    recompute_consensus_ranks(lookup)
+        p_data["rank_ecr_overall"] = blended_o
+        p_data["rank_ecr_pos"] = blended_p
+        p_data["rank_ecr"] = blended_p
+
     return lookup
 
 
