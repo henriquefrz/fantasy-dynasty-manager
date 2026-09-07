@@ -389,6 +389,9 @@ st.markdown(
         border-radius: 10px !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         background: #111827 !important;
+        overflow: hidden !important;
+    }
+
     /* Matchup Arena & Start/Sit Responsive Components */
     .matchup-arena-card {
         background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%);
@@ -1384,7 +1387,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v8_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v9_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -1935,6 +1938,13 @@ if st.session_state.get("selected_league_id") is None:
         </div>
         """
 
+        history = get_league_history(lid, lname, user["user_id"])
+        inaug_txt = f"Inaugural: {history.get('inaugural_season', '—')}"
+        heritage_txt = "Migrated" if history.get("is_migrated") else "Native Sleeper"
+        user_titles = history.get("user_titles", 0)
+        title_badge = f"<span style='background: rgba(234, 179, 8, 0.18); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.45); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 800;'>🏆 {user_titles} Title{'s' if user_titles > 1 else ''}</span>" if user_titles > 0 else ""
+        heritage_badge = f"<span style='background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 600;'>{heritage_txt}</span>"
+
         card_html = f"""
         <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
             <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
@@ -1942,9 +1952,14 @@ if st.session_state.get("selected_league_id") is None:
                     <a href='?league={lid}' target='_self' style='text-decoration: none; color: inherit;'>
                         <h4 style='margin: 0; color: #f8fafc; font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
                     </a>
-                    <div style='display: flex; align-items: center; margin-top: 4px;'>
+                    <div style='display: flex; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 4px;'>
                         <span style='color: #94a3b8; font-size: 0.78rem; font-weight: 500;'>{type_str}</span>
                         {tep_badge}
+                    </div>
+                    <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.73rem; color: #64748b; flex-wrap: wrap;'>
+                        <span>{inaug_txt} • {history.get('total_seasons', 1)} Seasons</span>
+                        {heritage_badge}
+                        {title_badge}
                     </div>
                 </div>
                 {badge_html}
@@ -2308,6 +2323,64 @@ else:
                 """,
                 unsafe_allow_html=True,
             )
+
+        # 3. League Longevity & Franchise Trophy Case
+        st.markdown("---")
+        st.markdown("### 🏆 League Longevity & Franchise Trophy Case")
+        history = get_league_history(selected_league["league_id"], selected_league.get("name", ""), user["user_id"])
+
+        col_lh1, col_lh2, col_lh3 = st.columns(3)
+        with col_lh1:
+            st.metric("League Era", f"{history['total_seasons']} Seasons Active", f"Inaugural: {history['inaugural_season']}")
+        with col_lh2:
+            titles_cnt = history["user_titles"]
+            if titles_cnt > 0:
+                seasons_txt = ", ".join(str(s) for s in history["title_seasons"])
+                st.metric("Championship Rings", f"🏆 {titles_cnt} Title{'s' if titles_cnt > 1 else ''}", f"Won: {seasons_txt}")
+            else:
+                st.metric("Championship Rings", "0 Titles", "Chasing 1st Ring", delta_color="off")
+        with col_lh3:
+            if history["is_migrated"]:
+                st.metric("Platform Heritage", "Migrated League", history.get("notes", ""))
+            else:
+                st.metric("Platform History", "Native Sleeper", f"{history['total_seasons']} yrs on Sleeper")
+
+        if history.get("title_seasons"):
+            st.success(f"🥇 **Championship Legacy:** You were crowned league champion in: **{', '.join(str(s) for s in history['title_seasons'])}**!")
+
+        if history.get("champions"):
+            with st.expander("📜 View Complete League Roll of Honor & Past Champions", expanded=False):
+                champ_html = """
+                <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+                <div class='table-responsive-wrapper'>
+                <table class='roster-table' style='width: 100%;'>
+                    <thead>
+                        <tr>
+                            <th style='width: 20%; text-align: center;'>Season</th>
+                            <th style='width: 45%; text-align: left;'>Champion</th>
+                            <th style='width: 20%; text-align: center;'>Record</th>
+                            <th style='width: 15%; text-align: center;'>Franchise</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                for ch in history["champions"]:
+                    is_u = ch.get("is_user") or "Henrique" in ch.get("champion", "") or "Pombos" in ch.get("champion", "")
+                    champ_name = ch.get("champion", "—")
+                    seas = ch.get("season", "—")
+                    rec = ch.get("record", "—")
+                    fr_badge = "<span style='background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 800;'>YOU 🏆</span>" if is_u else "<span style='color: #64748b; font-size: 0.72rem;'>Rival</span>"
+                    row_bg = "style='background: rgba(234, 179, 8, 0.08);'" if is_u else ""
+                    champ_html += f"""
+                        <tr {row_bg}>
+                            <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{seas}</span></td>
+                            <td style='text-align: left; font-weight: 700; color: {'#facc15' if is_u else '#e2e8f0'};'>{champ_name}</td>
+                            <td style='text-align: center; color: #94a3b8;'>{rec}</td>
+                            <td style='text-align: center;'>{fr_badge}</td>
+                        </tr>
+                    """
+                champ_html += "</tbody></table></div>"
+                st.html(champ_html)
 
         # Full Roster Breakdown & Equity Distribution
         st.markdown("---")
@@ -2894,6 +2967,11 @@ else:
                 ktc_str = f"{float(ktc_v):,.0f}" if ktc_v is not None else "—"
             except (ValueError, TypeError):
                 ktc_str = "—"
+
+            try:
+                dp_str = f"{float(dp_v):,.0f}" if dp_v is not None else "—"
+            except (ValueError, TypeError):
+                dp_str = "—"
 
             try:
                 raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
