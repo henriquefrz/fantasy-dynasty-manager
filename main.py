@@ -148,6 +148,10 @@ ktc_1qb = get_ktc_data_raw(is_superflex=False)
 fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
 fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
 fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
+nfl_state = get_nfl_state() or {}
+active_season = nfl_state.get("season", season)
+active_week = max(1, nfl_state.get("week", 1))
+projections_raw = get_weekly_projections(active_season, active_week)
 
 # Build baseline positional lookups enriched with 3-Pillar Consensus points (0-10,000 scale)
 dynasty_lookup_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty")
@@ -157,7 +161,7 @@ dynasty_lookup_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty")
 enrich_lookup_with_consensus_values(dynasty_lookup_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
 redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "redraft")
-enrich_lookup_with_redraft_values(redraft_lookup, fc_redraft_raw=fc_redraft)
+enrich_lookup_with_redraft_values(redraft_lookup, fc_redraft_raw=fc_redraft, projections_raw=projections_raw)
 
 print(f"Players with Dynasty consensus data loaded: {len(dynasty_lookup_sf)}")
 print(f"Players with Redraft data loaded: {len(redraft_lookup)}")
