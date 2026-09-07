@@ -332,19 +332,31 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Executive Dark Roster Table with 44px Avatars */
-    .roster-table {
-        width: 100% !important;
-        border-collapse: collapse;
-        table-layout: fixed !important;
-        background: #111827;
+    /* Executive Dark Roster Table with Responsive Touch Scrolling */
+    .table-responsive-wrapper {
+        width: 100%;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
         border-radius: 10px;
-        overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.08);
-        font-size: 0.88rem;
-        margin-top: 8px;
+        background: #111827;
+        margin-top: 6px;
         margin-bottom: 16px;
     }
+    .roster-table {
+        width: 100% !important;
+        min-width: 680px;
+        border-collapse: collapse;
+        background: #111827;
+        font-size: 0.88rem;
+        margin: 0;
+    }
+    .roster-table-market { min-width: 860px !important; }
+    .roster-table-portfolio { min-width: 860px !important; }
+    .roster-table-power { min-width: 780px !important; }
+    .roster-table-roster { min-width: 700px !important; }
+    .roster-table-opponent { min-width: 480px !important; }
+
     .roster-table th {
         background: #1a2234;
         color: #94a3b8;
@@ -355,18 +367,29 @@ st.markdown(
         padding: 12px 14px;
         text-align: left;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        white-space: nowrap !important;
     }
     .roster-table td {
         padding: 12px 14px;
         vertical-align: middle;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         color: #e2e8f0;
+        white-space: nowrap !important;
     }
     .roster-table tr:last-child td {
         border-bottom: none;
     }
     .roster-table tr:hover td {
         background: rgba(255, 255, 255, 0.02);
+    }
+    .mobile-scroll-hint {
+        display: none;
+    }
+    div[data-testid="stDataFrame"] {
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        background: #111827 !important;
+        overflow: hidden !important;
     }
     .player-cell {
         display: flex;
@@ -632,13 +655,21 @@ st.markdown(
             font-size: 0.8rem !important;
             padding: 6px 12px !important;
         }
+        .mobile-scroll-hint {
+            display: block !important;
+            font-size: 0.70rem;
+            color: #64748b;
+            margin-bottom: 4px;
+            text-align: right;
+            font-weight: 600;
+        }
         .roster-table th, .roster-table td {
-            padding: 9px 10px !important;
-            font-size: 0.82rem !important;
+            padding: 8px 10px !important;
+            font-size: 0.80rem !important;
         }
         .player-avatar-44 {
-            width: 38px !important;
-            height: 38px !important;
+            width: 36px !important;
+            height: 36px !important;
         }
     }
     </style>
@@ -691,8 +722,9 @@ def render_player_table_html(player_rows, show_equity=True):
         """
 
     html = f"""
-    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
-    <table class='roster-table'>
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-roster'>
         <thead>
             <tr>
                 {header_cols}
@@ -757,8 +789,9 @@ def render_market_table_html(market_rows):
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
 
     html = """
-    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
-    <table class='roster-table'>
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-market'>
         <thead>
             <tr>
                 <th style='width: 75px; text-align: center;'>Rank</th>
@@ -834,8 +867,9 @@ def render_portfolio_table_html(portfolio_rows):
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players in portfolio.</p>"
 
     html = """
-    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
-    <table class='roster-table'>
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-portfolio'>
         <thead>
             <tr>
                 <th style='width: 28%; text-align: left;'>Player</th>
@@ -905,8 +939,9 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
     for the user's franchise row, eliminating text clutter.
     """
     html = """
-    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
-    <table class='roster-table'>
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
         <thead>
             <tr>
                 <th style='width: 70px; text-align: center;'>Rank</th>
@@ -951,8 +986,9 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
     for the user's franchise row, eliminating text clutter.
     """
     html = """
-    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
-    <table class='roster-table'>
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
         <thead>
             <tr>
                 <th style='width: 70px; text-align: center;'>Rank</th>
@@ -1057,8 +1093,9 @@ def render_opponent_lineup_html(opp_rows):
     if not opp_rows:
         return "<p style='color: #94a3b8; padding: 8px;'>No opponent lineup available.</p>"
     html = """
-    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1rem;'>
-    <table class='roster-table'>
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-opponent'>
         <thead>
             <tr>
                 <th style='width: 70px;'>Slot</th>
@@ -1181,7 +1218,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v6_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v7_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -1668,8 +1705,10 @@ if st.session_state.get("selected_league_id") is None:
         tep_b = settings.get("tep_bonus", 0.0)
 
         # Accurately compute quick status, category, record, and synchronized ranks
-        league_lookup = primary_lookup if is_dyn else market_db["redraft_lookup"]
-        league_picks = picks_lookup if is_dyn else {}
+        league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
+        league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else market_db["redraft_lookup"]
+        league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
+        league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
         t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
             lid, user["user_id"], is_dyn, roster_pos, league_lookup, market_db["redraft_lookup"], players,
             _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg
@@ -2717,20 +2756,38 @@ else:
             with c_faview1:
                 fa_view = st.radio(
                     "Display Format:",
-                    ["Standard Table (44px Avatars)", "Interactive Dataframe"],
+                    ["Standard Table", "Interactive Dataframe"],
                     horizontal=True,
                     key="fa_view_mode",
                 )
             with c_faview2:
                 st.caption(f"Showing top {min(len(fa_rows), 50)} of {len(fa_rows)} matching available free agents.")
 
-            if fa_view == "Standard Table (44px Avatars)":
+            if fa_view == "Standard Table":
                 st.html(render_market_table_html(fa_rows[:50]))
             else:
-                df_fa = pd.DataFrame(fa_rows[:50]).drop(columns=["_raw_val"])
+                df_rows = []
+                for r in fa_rows[:50]:
+                    r_copy = dict(r)
+                    if not str(r_copy.get("Avatar", "")).startswith("http"):
+                        r_copy["Avatar"] = "https://sleepercdn.com/images/v2/icons/player_default.webp"
+                    df_rows.append(r_copy)
+                df_fa = pd.DataFrame(df_rows).drop(columns=["_raw_val"])
                 st.dataframe(
                     df_fa[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
-                    column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
+                    column_config={
+                        "Rank": st.column_config.TextColumn("Rank", width="small"),
+                        "Avatar": st.column_config.ImageColumn("", width="small"),
+                        "Player": st.column_config.TextColumn("Player", width="medium"),
+                        "Pos": st.column_config.TextColumn("Pos", width="small"),
+                        "NFL Team": st.column_config.TextColumn("Team", width="small"),
+                        "Consensus Value": st.column_config.TextColumn("Consensus Value", width="medium"),
+                        "Overall ECR": st.column_config.TextColumn("Overall ECR", width="small"),
+                        "Pos ECR": st.column_config.TextColumn("Pos ECR", width="small"),
+                        "KeepTradeCut": st.column_config.TextColumn("KeepTradeCut", width="small"),
+                        "FantasyCalc": st.column_config.TextColumn("FantasyCalc", width="small"),
+                        "DynastyProcess": st.column_config.TextColumn("DynastyProcess", width="small"),
+                    },
                     hide_index=True,
                     use_container_width=True,
                 )
@@ -2919,6 +2976,22 @@ else:
     with tab_trades:
         st.subheader("Trade Center & Targeted Acquisition Engine")
 
+        def get_trade_prop_tier(prop):
+            t = prop.get("tier")
+            if t in ("Blockbuster", "Starter Upgrade", "Depth & Capital"):
+                return t
+            gives = prop.get("give_assets") or prop.get("sending") or []
+            recvs = prop.get("receive_assets") or prop.get("receiving") or []
+            give_val = sum(float(a.get("market_value", 0.0) or 0.0) for a in gives)
+            recv_val = sum(float(a.get("market_value", 0.0) or 0.0) for a in recvs)
+            max_val = max(give_val, recv_val)
+            if max_val >= 4500.0:
+                return "Blockbuster"
+            elif max_val >= 2500.0:
+                return "Starter Upgrade"
+            else:
+                return "Depth & Capital"
+
         def render_trade_proposal_card(idx: int, prop: dict, show_chat_message: bool = True):
             arch = prop.get("archetype") or prop.get("structure") or "Balanced Trade Proposal"
             partner = prop.get("partner_name") or prop.get("partner_profile", {}).get("manager_name") or "Trade Partner"
@@ -2989,7 +3062,7 @@ else:
             give_chips = render_asset_chips(gives)
             recv_chips = render_asset_chips(recvs)
 
-            tier = prop.get("tier") or ("Blockbuster" if max(give_raw, recv_raw) >= 4500 else ("Starter Upgrade" if max(give_raw, recv_raw) >= 2500 else "Depth & Capital"))
+            tier = get_trade_prop_tier(prop)
             if tier == "Blockbuster":
                 tier_badge = "<span class='status-capsule' style='background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);'>⭐ BLOCKBUSTER</span>"
             elif tier == "Starter Upgrade":
@@ -3164,6 +3237,9 @@ else:
             )
 
             if gen_trades:
+                for p in gen_trades:
+                    p["tier"] = get_trade_prop_tier(p)
+
                 c_tr1, c_tr2 = st.columns([1.5, 1])
                 with c_tr1:
                     tier_filter = st.radio(
@@ -3177,11 +3253,11 @@ else:
 
                 filtered_trades = gen_trades
                 if "Blockbuster" in tier_filter:
-                    filtered_trades = [p for p in gen_trades if p.get("tier") == "Blockbuster"]
+                    filtered_trades = [p for p in gen_trades if get_trade_prop_tier(p) == "Blockbuster"]
                 elif "Starter" in tier_filter:
-                    filtered_trades = [p for p in gen_trades if p.get("tier") == "Starter Upgrade"]
+                    filtered_trades = [p for p in gen_trades if get_trade_prop_tier(p) == "Starter Upgrade"]
                 elif "Depth" in tier_filter:
-                    filtered_trades = [p for p in gen_trades if p.get("tier") == "Depth & Capital"]
+                    filtered_trades = [p for p in gen_trades if get_trade_prop_tier(p) == "Depth & Capital"]
 
                 if filtered_trades:
                     st.success(f"Displaying {len(filtered_trades)} trade opportunities ({tier_filter}):")
@@ -3256,20 +3332,38 @@ else:
             with c_mkview1:
                 mkt_view = st.radio(
                     "Display Format:",
-                    ["Standard Table (44px Avatars)", "Interactive Dataframe"],
+                    ["Standard Table", "Interactive Dataframe"],
                     horizontal=True,
                     key="mkt_view_mode",
                 )
             with c_mkview2:
                 st.caption(f"Showing top {min(len(market_rows), 100)} of {len(market_rows)} matching assets.")
 
-            if mkt_view == "Standard Table (44px Avatars)":
+            if mkt_view == "Standard Table":
                 st.html(render_market_table_html(market_rows[:100]))
             else:
-                df_market = pd.DataFrame(market_rows[:150]).drop(columns=["_val"])
+                df_rows = []
+                for r in market_rows[:150]:
+                    r_copy = dict(r)
+                    if not str(r_copy.get("Avatar", "")).startswith("http"):
+                        r_copy["Avatar"] = "https://sleepercdn.com/images/v2/icons/player_default.webp"
+                    df_rows.append(r_copy)
+                df_market = pd.DataFrame(df_rows).drop(columns=["_val"])
                 st.dataframe(
                     df_market[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
-                    column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
+                    column_config={
+                        "Rank": st.column_config.TextColumn("Rank", width="small"),
+                        "Avatar": st.column_config.ImageColumn("", width="small"),
+                        "Player": st.column_config.TextColumn("Player", width="medium"),
+                        "Pos": st.column_config.TextColumn("Pos", width="small"),
+                        "NFL Team": st.column_config.TextColumn("Team", width="small"),
+                        "Consensus Value": st.column_config.TextColumn("Consensus Value", width="medium"),
+                        "Overall ECR": st.column_config.TextColumn("Overall ECR", width="small"),
+                        "Pos ECR": st.column_config.TextColumn("Pos ECR", width="small"),
+                        "KeepTradeCut": st.column_config.TextColumn("KeepTradeCut", width="small"),
+                        "FantasyCalc": st.column_config.TextColumn("FantasyCalc", width="small"),
+                        "DynastyProcess": st.column_config.TextColumn("DynastyProcess", width="small"),
+                    },
                     hide_index=True,
                     use_container_width=True,
                 )
@@ -3315,21 +3409,33 @@ else:
             with c_pview1:
                 port_view = st.radio(
                     "Display Format:",
-                    ["Standard Table (44px Avatars)", "Interactive Dataframe"],
+                    ["Standard Table", "Interactive Dataframe"],
                     horizontal=True,
                     key="port_view_mode",
                 )
             with c_pview2:
                 st.caption(f"Showing {len(filtered_exp)} portfolio players matching filters.")
 
-            if port_view == "Standard Table (44px Avatars)":
+            if port_view == "Standard Table":
                 st.html(render_portfolio_table_html(filtered_exp[:100]))
             else:
                 df_exp = pd.DataFrame(filtered_exp)
                 df_exp["Consensus Value"] = df_exp["Consensus Value"].apply(lambda v: f"{v:,.0f} pts" if isinstance(v, (int, float)) else v)
                 st.dataframe(
                     df_exp[["Avatar", "Player", "Pos", "NFL Team", "Age", "Shares", "Exposure", "Overall ECR", "Pos ECR", "Consensus Value", "Leagues Owned"]],
-                    column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
+                    column_config={
+                        "Avatar": st.column_config.ImageColumn("", width="small"),
+                        "Player": st.column_config.TextColumn("Player", width="medium"),
+                        "Pos": st.column_config.TextColumn("Pos", width="small"),
+                        "NFL Team": st.column_config.TextColumn("Team", width="small"),
+                        "Age": st.column_config.TextColumn("Age", width="small"),
+                        "Shares": st.column_config.TextColumn("Shares", width="small"),
+                        "Exposure": st.column_config.TextColumn("Exposure", width="small"),
+                        "Overall ECR": st.column_config.TextColumn("Overall ECR", width="small"),
+                        "Pos ECR": st.column_config.TextColumn("Pos ECR", width="small"),
+                        "Consensus Value": st.column_config.TextColumn("Consensus Value", width="medium"),
+                        "Leagues Owned": st.column_config.TextColumn("Leagues Owned", width="large"),
+                    },
                     hide_index=True,
                     use_container_width=True,
                 )
