@@ -193,13 +193,14 @@ st.markdown(
     /* Positional Micro-Badges */
     .badge-pos {
         display: inline-block;
-        padding: 2px 7px;
+        padding: 3px 8px;
         border-radius: 4px;
         font-weight: 700;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: #fff;
         margin-right: 4px;
         letter-spacing: 0.04em;
+        white-space: nowrap !important;
     }
     .badge-qb { background-color: #ef4444; }
     .badge-rb { background-color: #06b6d4; }
@@ -208,6 +209,26 @@ st.markdown(
     .badge-k  { background-color: #8b5cf6; }
     .badge-def{ background-color: #64748b; }
     .badge-pick{ background-color: #10b981; }
+
+    /* Top Bar Brand Home Button */
+    .st-key-btn_brand_home button {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-radius: 8px !important;
+        color: #f8fafc !important;
+        font-weight: 800 !important;
+        font-size: 1.05rem !important;
+        letter-spacing: -0.01em !important;
+        padding: 6px 14px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        transition: all 0.2s ease !important;
+    }
+    .st-key-btn_brand_home button:hover {
+        background: rgba(56, 189, 248, 0.2) !important;
+        border-color: rgba(56, 189, 248, 0.75) !important;
+        box-shadow: 0 0 14px rgba(56, 189, 248, 0.3) !important;
+        color: #ffffff !important;
+    }
 
     /* Typographic Status Capsules (Option 2 - Clean & Professional) */
     .status-capsule {
@@ -309,8 +330,9 @@ st.markdown(
 
     /* Executive Dark Roster Table with 44px Avatars */
     .roster-table {
-        width: 100%;
+        width: 100% !important;
         border-collapse: collapse;
+        table-layout: fixed !important;
         background: #111827;
         border-radius: 10px;
         overflow: hidden;
@@ -638,27 +660,38 @@ def format_starter_slots_summary(roster_positions):
 def render_player_table_html(player_rows, show_equity=True):
     """
     Renders an executive dark table with 44px round avatars,
-    spacious rows (~56-60px), slot tags, dual ECR badges (Overall + Positional),
-    and consensus market value.
+    spacious rows (~56-60px), non-wrapping slot tags, dual ECR badges,
+    symmetrical column balance, and consensus market value.
     """
     if not player_rows:
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
 
-    html = """
+    if show_equity:
+        header_cols = """
+            <th style='width: 95px; text-align: center;'>Slot</th>
+            <th style='width: 32%; text-align: left;'>Player</th>
+            <th style='width: 60px; text-align: center;'>Age</th>
+            <th style='width: 14%; text-align: center;'>Overall ECR</th>
+            <th style='width: 14%; text-align: center;'>Pos ECR</th>
+            <th style='width: 18%; text-align: center;'>Consensus Value</th>
+            <th style='width: 12%; text-align: center;'>Equity</th>
+        """
+    else:
+        header_cols = """
+            <th style='width: 95px; text-align: center;'>Slot</th>
+            <th style='width: 38%; text-align: left;'>Player</th>
+            <th style='width: 65px; text-align: center;'>Age</th>
+            <th style='width: 15%; text-align: center;'>Overall ECR</th>
+            <th style='width: 15%; text-align: center;'>Pos ECR</th>
+            <th style='width: 20%; text-align: center;'>Consensus Value</th>
+        """
+
+    html = f"""
     <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
     <table class='roster-table'>
         <thead>
             <tr>
-                <th style='width: 70px;'>Slot</th>
-                <th>Player</th>
-                <th style='width: 60px;'>Age</th>
-                <th>Overall ECR</th>
-                <th>Pos ECR</th>
-                <th>Consensus Value</th>
-    """
-    if show_equity:
-        html += "<th style='width: 85px;'>Equity</th>"
-    html += """
+                {header_cols}
             </tr>
         </thead>
         <tbody>
@@ -678,10 +711,12 @@ def render_player_table_html(player_rows, show_equity=True):
 
         avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
 
+        equity_td = f"<td style='color: #38bdf8; font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
+
         html += f"""
             <tr>
-                <td><span class='badge-pos {badge_cls}'>{slot}</span></td>
-                <td>
+                <td style='text-align: center;'><span class='badge-pos {badge_cls}' style='min-width: 65px; text-align: center; white-space: nowrap;'>{slot}</span></td>
+                <td style='text-align: left;'>
                     <div class='player-cell'>
                         {avatar_img}
                         <div class='player-info'>
@@ -694,14 +729,83 @@ def render_player_table_html(player_rows, show_equity=True):
                         </div>
                     </div>
                 </td>
-                <td style='color: #94a3b8;'>{age}</td>
-                <td><span class='rank-pill'>{overall_ecr}</span></td>
-                <td><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                <td class='val-pill'>{val}</td>
+                <td style='color: #94a3b8; text-align: center;'>{age}</td>
+                <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
+                <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
+                <td class='val-pill' style='text-align: center;'>{val}</td>
+                {equity_td}
+            </tr>
         """
-        if show_equity:
-            html += f"<td style='color: #38bdf8; font-weight: 600;'>{eq}</td>"
-        html += """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
+def render_market_table_html(market_rows):
+    """
+    Renders an executive table for Free Agents or Market Database with 44px avatars,
+    spacious rows (~56px), and consensus metrics.
+    """
+    if not market_rows:
+        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
+
+    html = """
+    <div style='overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.25rem;'>
+    <table class='roster-table'>
+        <thead>
+            <tr>
+                <th style='width: 75px; text-align: center;'>Rank</th>
+                <th style='width: 28%; text-align: left;'>Player</th>
+                <th style='width: 12%; text-align: center;'>Overall ECR</th>
+                <th style='width: 12%; text-align: center;'>Pos ECR</th>
+                <th style='width: 16%; text-align: center;'>Consensus Value</th>
+                <th style='width: 11%; text-align: center;'>KeepTradeCut</th>
+                <th style='width: 11%; text-align: center;'>FantasyCalc</th>
+                <th style='width: 10%; text-align: center;'>DynastyProcess</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for idx, r in enumerate(market_rows, start=1):
+        pos = r.get("Pos", "UTIL")
+        badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
+        avatar = r.get("Avatar", "")
+        pname = r.get("Player", "Unknown")
+        team = r.get("NFL Team", "FA")
+        rank_str = r.get("Rank", f"#{idx}")
+        overall_ecr = r.get("Overall ECR", "—")
+        pos_ecr = r.get("Pos ECR", "—")
+        val = r.get("Consensus Value", "0 pts")
+        ktc = r.get("KeepTradeCut", "—")
+        fc = r.get("FantasyCalc", "—")
+        dp = r.get("DynastyProcess", "—")
+
+        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+
+        html += f"""
+            <tr>
+                <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{rank_str}</td>
+                <td style='text-align: left;'>
+                    <div class='player-cell'>
+                        {avatar_img}
+                        <div class='player-info'>
+                            <span class='player-name'>{pname}</span>
+                            <div class='player-meta'>
+                                <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
+                                <span>{team}</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
+                <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
+                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
+                <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
+                <td style='text-align: center; color: #94a3b8;'>{fc}</td>
+                <td style='text-align: center; color: #94a3b8;'>{dp}</td>
             </tr>
         """
     html += """
@@ -1081,15 +1185,25 @@ def get_league_sort_key(lg):
     return 10
 
 sorted_leagues = sorted(leagues, key=get_league_sort_key)
-PORTAL_LABEL = "Portal: All Leagues Overview"
+PORTAL_LABEL = "All Leagues"
 league_options = [PORTAL_LABEL] + [l["name"] for l in sorted_leagues]
+
+# Synchronize with URL query parameters
+qp_lid = st.query_params.get("league")
+if qp_lid:
+    match_lg = next((l for l in leagues if str(l.get("league_id")) == str(qp_lid)), None)
+    if match_lg:
+        st.session_state["selected_league_id"] = match_lg["league_id"]
 
 def set_active_workspace(lid):
     st.session_state["selected_league_id"] = lid
     if lid is None:
+        if "league" in st.query_params:
+            del st.query_params["league"]
         st.session_state["top_workspace_selector"] = PORTAL_LABEL
     else:
-        target = next((l["name"] for l in sorted_leagues if l["league_id"] == lid), None)
+        st.query_params["league"] = str(lid)
+        target = next((l["name"] for l in sorted_leagues if str(l["league_id"]) == str(lid)), None)
         if target:
             st.session_state["top_workspace_selector"] = target
 
@@ -1103,50 +1217,37 @@ if selected_mode not in mode_keys:
 # Top Navigation Bar (Upper Bar)
 # -----------------------------------------------------------------------------
 top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
-    [2.8, 3.4, 1.6, 2.2], vertical_alignment="center"
+    [2.6, 3.6, 1.6, 2.2], vertical_alignment="center"
 )
 
 with top_col_brand:
-    c_brand_info, c_home_btn = st.columns([1.6, 1.0], vertical_alignment="center")
-    with c_brand_info:
-        st.markdown(
-            """
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 900; font-size: 1.15rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
-                <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    with c_home_btn:
-        if st.session_state.get("selected_league_id") is not None:
-            if st.button("Home", key="btn_top_bar_home", use_container_width=True):
-                set_active_workspace(None)
-                st.rerun()
+    if st.button("🏈  Fantasy Analytics", key="btn_brand_home", help="Click to return to All Leagues", use_container_width=True):
+        set_active_workspace(None)
+        st.rerun()
 
 with top_col_nav:
     cur_lid = st.session_state.get("selected_league_id")
     target_label = PORTAL_LABEL
     if cur_lid is not None:
-        target_lg = next((l for l in sorted_leagues if l.get("league_id") == cur_lid), None)
+        target_lg = next((l for l in sorted_leagues if str(l.get("league_id")) == str(cur_lid)), None)
         if target_lg:
             target_label = target_lg["name"]
 
-    if st.session_state.get("top_workspace_selector") != target_label:
-        st.session_state["top_workspace_selector"] = target_label
+    cur_idx = league_options.index(target_label) if target_label in league_options else 0
 
     def on_top_workspace_changed():
         val = st.session_state.get("top_workspace_selector")
         if val == PORTAL_LABEL:
-            st.session_state["selected_league_id"] = None
+            set_active_workspace(None)
         else:
             chosen = next((l for l in sorted_leagues if l["name"] == val), None)
             if chosen:
-                st.session_state["selected_league_id"] = chosen["league_id"]
+                set_active_workspace(chosen["league_id"])
 
     st.selectbox(
         "Active Workspace",
         league_options,
+        index=cur_idx,
         key="top_workspace_selector",
         on_change=on_top_workspace_changed,
         label_visibility="collapsed"
@@ -1293,12 +1394,12 @@ if st.session_state.get("selected_league_id") is None:
             r_str = f"#{r_pos}" if r_pos else "—"
             rank_grid_html = f"""
                 <div><span style='color: #94a3b8;'>Dynasty:</span> <b>{d_str}/{total_rosters}</b></div>
-                <div><span style='color: #94a3b8;'>Contender:</span> <b>{r_str}/{total_rosters}</b></div>
+                <div><span style='color: #94a3b8;'>Season:</span> <b>{r_str}/{total_rosters}</b></div>
             """
         else:
             r_str = f"#{r_pos}" if r_pos else "—"
             rank_grid_html = f"""
-                <div><span style='color: #94a3b8;'>Season Rank:</span> <b>{r_str}/{total_rosters}</b></div>
+                <div><span style='color: #94a3b8;'>Season:</span> <b>{r_str}/{total_rosters}</b></div>
             """
 
         card_html = f"""
@@ -1744,6 +1845,19 @@ else:
         taxi_data.sort(key=lambda x: x["_val"], reverse=True)
         ir_data.sort(key=lambda x: x["_val"], reverse=True)
 
+        col_rst_title, col_rst_toggle = st.columns([3, 1.8], vertical_alignment="center")
+        with col_rst_title:
+            st.caption("Complete franchise asset valuation with consensus market values, ECR, and equity shares.")
+        with col_rst_toggle:
+            universal_roster_view = st.radio(
+                "Roster View Mode",
+                ["Card Grid (Dashboard)", "Detailed Table"],
+                index=0,
+                horizontal=True,
+                key="universal_roster_view_mode",
+                label_visibility="collapsed"
+            )
+
         roster_sub_starters, roster_sub_bench, roster_sub_taxi, roster_sub_all = st.tabs([
             f"Starters ({len(starters_data)})",
             f"Bench ({len(bench_data)})",
@@ -1752,20 +1866,8 @@ else:
         ])
 
         with roster_sub_starters:
-            col_v_txt, col_v_toggle = st.columns([3, 1.8], vertical_alignment="center")
-            with col_v_txt:
-                st.caption("Starters evaluated with consensus market values and ECR rankings.")
-            with col_v_toggle:
-                starter_view_mode = st.radio(
-                    "Starter Presentation",
-                    ["Card Grid (Dashboard)", "Detailed Table"],
-                    index=0,
-                    horizontal=True,
-                    key="starter_lineup_view_radio",
-                    label_visibility="collapsed"
-                )
             if starters_data:
-                if starter_view_mode == "Card Grid (Dashboard)":
+                if universal_roster_view == "Card Grid (Dashboard)":
                     st.html(render_starter_card_grid_html(starters_data))
                 else:
                     st.html(render_player_table_html(starters_data, show_equity=True))
@@ -1774,24 +1876,37 @@ else:
 
         with roster_sub_bench:
             if bench_data:
-                st.html(render_player_table_html(bench_data, show_equity=True))
+                if universal_roster_view == "Card Grid (Dashboard)":
+                    st.html(render_starter_card_grid_html(bench_data))
+                else:
+                    st.html(render_player_table_html(bench_data, show_equity=True))
             else:
                 st.info("No bench players detected.")
 
         with roster_sub_taxi:
             if taxi_data:
                 st.markdown("#### Taxi Squad Assets")
-                st.html(render_player_table_html(taxi_data, show_equity=True))
+                if universal_roster_view == "Card Grid (Dashboard)":
+                    st.html(render_starter_card_grid_html(taxi_data))
+                else:
+                    st.html(render_player_table_html(taxi_data, show_equity=True))
             if ir_data:
                 st.markdown("#### Injured Reserve (IR)")
-                st.html(render_player_table_html(ir_data, show_equity=True))
+                if universal_roster_view == "Card Grid (Dashboard)":
+                    st.html(render_starter_card_grid_html(ir_data))
+                else:
+                    st.html(render_player_table_html(ir_data, show_equity=True))
             if not taxi_data and not ir_data:
                 st.info("No taxi squad or IR reserve players.")
 
         with roster_sub_all:
             all_roster_rows = starters_data + bench_data + taxi_data + ir_data
             all_roster_rows.sort(key=lambda x: x["_val"], reverse=True)
-            st.html(render_player_table_html(all_roster_rows, show_equity=True))
+            if all_roster_rows:
+                if universal_roster_view == "Card Grid (Dashboard)":
+                    st.html(render_starter_card_grid_html(all_roster_rows))
+                else:
+                    st.html(render_player_table_html(all_roster_rows, show_equity=True))
 
         # Draft Capital Table for Dynasty
         if is_dynasty and user_profile and user_profile.get("picks"):
@@ -1991,7 +2106,7 @@ else:
             team = add_p.get("team", "FA")
             age = add_p.get("age", "—")
             avatar = get_player_avatar_url(add_id, pos, team)
-            tag = s.get("priority_tag", "STARTER" if is_starter else "BENCH UPGRADE")
+            tag = s.get("priority_tag", "STARTER UPGRADE" if is_starter else "BENCH UPGRADE")
 
             dyn_val = s.get("add_value", 0.0) if eval_dynasty else (s.get("add_alt_value") or s.get("add_value", 0.0))
             ros_val = s.get("add_alt_value", 0.0) if eval_dynasty else s.get("add_value", 0.0)
@@ -2005,6 +2120,24 @@ else:
             dyn_p_str = f"{pos}{int(dyn_p_ecr)}" if (dyn_p_ecr and dyn_p_ecr < 900) else "—"
             ros_str = f"#{int(ros_rank)}" if (ros_rank and ros_rank < 900) else "—"
 
+            # Drop player metrics & avatar
+            drop_pos = drop_p.get("position", "UTIL")
+            drop_team = drop_p.get("team", "FA")
+            drop_age = drop_p.get("age", "—")
+            drop_avatar = get_player_avatar_url(drop_id, drop_pos, drop_team)
+
+            drop_rank = s.get("drop_ranking") or primary_lookup.get(drop_id, {})
+            drop_dyn_val = s.get("drop_value", 0.0) if eval_dynasty else (s.get("drop_alt_value") or s.get("drop_value", 0.0))
+            drop_ros_val = s.get("drop_alt_value", 0.0) if eval_dynasty else s.get("drop_value", 0.0)
+
+            drop_dyn_o = drop_rank.get("rank_ecr_overall", 999.0)
+            drop_dyn_p = drop_rank.get("rank_ecr_pos", drop_rank.get("rank_ecr", 999.0))
+            drop_ros_rank = s.get("drop_alt_rank") or alt_eval_lookup.get(drop_id, {}).get("rank_ecr_pos", 999.0)
+
+            drop_dyn_o_str = f"#{int(drop_dyn_o)}" if (drop_dyn_o and drop_dyn_o < 900) else "—"
+            drop_dyn_p_str = f"{drop_pos}{int(drop_dyn_p)}" if (drop_dyn_p and drop_dyn_p < 900) else "—"
+            drop_ros_str = f"#{int(drop_ros_rank)}" if (drop_ros_rank and drop_ros_rank < 900) else "—"
+
             gain = s.get("market_value_gain", 0.0)
             gain_sign = "+" if gain >= 0 else ""
             
@@ -2012,46 +2145,91 @@ else:
             disp_text = ""
             if is_starter and disp_p:
                 d_name = disp_p.get("full_name") or disp_p.get("player_id")
-                disp_text = f"<div style='margin-top: 6px; font-size: 0.82rem; color: #38bdf8;'>↳ Displaces <b>{d_name}</b> in starting lineup</div>"
+                disp_text = f"<div style='margin-top: 8px; font-size: 0.82rem; color: #38bdf8;'>↳ Displaces <b>{d_name}</b> in starting lineup</div>"
 
+            alt_drops_html = ""
             viable_drops = s.get("all_drop_candidates", [])
-            drops_html = ""
             if viable_drops and len(viable_drops) > 1:
-                drops_html += f"<div style='margin-top: 8px; font-size: 0.8rem; color: #94a3b8;'><b>Viable Bench Cut Candidates ({len(viable_drops)} players below FA value):</b><ul style='margin-top: 4px; margin-bottom: 0px; padding-left: 18px;'>"
+                chips = []
                 for cd in viable_drops[:4]:
                     c_obj = cd["drop_player"]
-                    c_name = c_obj.get("full_name") or c_obj.get("player_id")
-                    c_pos = c_obj.get("position", "")
+                    c_id = c_obj.get("player_id")
+                    c_name = c_obj.get("full_name") or c_id
+                    c_pos = c_obj.get("position", "UTIL")
+                    c_team = c_obj.get("team", "FA")
                     c_val = cd.get("drop_value", 0.0)
                     c_gain = cd.get("market_value_gain", 0.0)
-                    drops_html += f"<li><code>{c_name}</code> ({c_pos} • {c_val:,.0f} pts) ➔ Net Gain: <b>+{c_gain:,.0f} pts</b></li>"
-                drops_html += "</ul></div>"
+                    c_avatar = get_player_avatar_url(c_id, c_pos, c_team)
+                    c_pos_cls = f"badge-{c_pos.lower()}" if f"badge-{c_pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
+                    chips.append(
+                        f"<div style='display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem;'>"
+                        f"<img src='{c_avatar}' style='width: 24px; height: 24px; border-radius: 50%; object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+                        f"<span style='color: #f8fafc; font-weight: 600;'>{c_name}</span>"
+                        f"<span class='badge-pos {c_pos_cls}' style='font-size: 0.65rem; padding: 1px 4px;'>{c_pos}</span>"
+                        f"<span style='color: #94a3b8;'>({c_val:,.0f} pts)</span>"
+                        f"<span style='color: #34d399; font-weight: 700;'>+{c_gain:,.0f} pts</span>"
+                        f"</div>"
+                    )
+                alt_drops_html = f"""
+                <div style='margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06);'>
+                    <div style='font-size: 0.76rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>
+                        Alternative Cut Options ({len(viable_drops)} bench players below FA value):
+                    </div>
+                    <div style='display: flex; flex-wrap: wrap; gap: 8px;'>
+                        {''.join(chips)}
+                    </div>
+                </div>
+                """
 
             card_html = f"""
-            <div class='card-container card-success'>
-                <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
-                    <div style='display: flex; gap: 14px; align-items: center;'>
-                        <img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
-                        <div>
-                            <div style='display: flex; align-items: center; gap: 8px;'>
-                                <span style='font-size: 1.05rem; font-weight: 700; color: #ffffff;'>{add_name}</span>
-                                <span class='badge-pos badge-{pos.lower()}'>{pos}</span>
-                                <span style='color: #94a3b8; font-size: 0.82rem;'>{team} • Age {age}</span>
-                            </div>
-                            <div style='display: flex; gap: 10px; margin-top: 4px; font-size: 0.78rem;'>
-                                <span class='rank-pill'>Dynasty: {dyn_val:,.0f} pts ({dyn_o_str} Ovr • {dyn_p_str})</span>
-                                <span class='rank-pill rank-pill-highlight'>ROS: {ros_val:,.0f} pts (Rank {ros_str})</span>
+            <div class='card-container card-success' style='margin-bottom: 16px;'>
+                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;'>
+                    <span class='status-capsule status-contender'>{tag}</span>
+                    <span class='status-capsule status-rebuild' style='font-size: 0.82rem; font-weight: 800;'>{gain_sign}{gain:,.0f} PTS NET GAIN</span>
+                </div>
+                
+                <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;'>
+                    <!-- TARGET ADD PLAYER -->
+                    <div style='background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px;'>
+                        <div style='font-size: 0.72rem; font-weight: 800; color: #34d399; letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase;'>TARGET ADD</div>
+                        <div style='display: flex; gap: 12px; align-items: center;'>
+                            <img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                            <div>
+                                <div style='display: flex; align-items: center; gap: 6px;'>
+                                    <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{add_name}</span>
+                                    <span class='badge-pos badge-{pos.lower()}'>{pos}</span>
+                                    <span style='color: #94a3b8; font-size: 0.8rem;'>{team} • Age {age}</span>
+                                </div>
+                                <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
+                                    <span class='rank-pill'>Dynasty: {dyn_val:,.0f} pts ({dyn_o_str} Ovr • {dyn_p_str})</span>
+                                    <span class='rank-pill rank-pill-highlight'>ROS: {ros_val:,.0f} pts (Rank {ros_str})</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <span class='status-capsule status-contender'>{tag}</span>
+
+                    <!-- RECOMMENDED CUT PLAYER -->
+                    <div style='background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 12px;'>
+                        <div style='font-size: 0.72rem; font-weight: 800; color: #f87171; letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase;'>RECOMMENDED CUT</div>
+                        <div style='display: flex; gap: 12px; align-items: center;'>
+                            <img src='{drop_avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                            <div>
+                                <div style='display: flex; align-items: center; gap: 6px;'>
+                                    <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{drop_name}</span>
+                                    <span class='badge-pos badge-{drop_pos.lower()}'>{drop_pos}</span>
+                                    <span style='color: #94a3b8; font-size: 0.8rem;'>{drop_team} • Age {drop_age}</span>
+                                </div>
+                                <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
+                                    <span class='rank-pill'>Dynasty: {drop_dyn_val:,.0f} pts ({drop_dyn_o_str} Ovr • {drop_dyn_p_str})</span>
+                                    <span class='rank-pill rank-pill-highlight'>ROS: {drop_ros_val:,.0f} pts (Rank {drop_ros_str})</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div style='margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.88rem;'>
-                    <b>Recommended Cut:</b> <code>{drop_name}</code> ({drop_p.get('position', '')} • {s.get('drop_value', 0):,.0f} pts) 
-                    ➔ Net Value Gain: <b>{gain_sign}{gain:,.0f} pts</b>
-                    {disp_text}
-                    {drops_html}
-                </div>
+
+                {disp_text}
+                {alt_drops_html}
             </div>
             """
             return "\n".join(l.lstrip() for l in card_html.splitlines())
@@ -2158,16 +2336,34 @@ else:
             })
 
         fa_rows.sort(key=lambda x: x["_raw_val"], reverse=True)
-        df_fa = pd.DataFrame(fa_rows[:50]).drop(columns=["_raw_val"]) if fa_rows else pd.DataFrame()
-        if not df_fa.empty:
-            st.dataframe(
-                df_fa,
-                column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
-                hide_index=True,
-                use_container_width=True,
-            )
+        if fa_rows:
+            for idx, r in enumerate(fa_rows, start=1):
+                r["Rank"] = f"#{idx}"
+
+            c_faview1, c_faview2 = st.columns([1, 1])
+            with c_faview1:
+                fa_view = st.radio(
+                    "Display Format:",
+                    ["Standard Table (44px Avatars)", "Interactive Dataframe"],
+                    horizontal=True,
+                    key="fa_view_mode",
+                )
+            with c_faview2:
+                st.caption(f"Showing top {min(len(fa_rows), 50)} of {len(fa_rows)} matching available free agents.")
+
+            if fa_view == "Standard Table (44px Avatars)":
+                st.html(render_market_table_html(fa_rows[:50]))
+            else:
+                df_fa = pd.DataFrame(fa_rows[:50]).drop(columns=["_raw_val"])
+                st.dataframe(
+                    df_fa[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
+                    column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
+                    hide_index=True,
+                    use_container_width=True,
+                )
         else:
             st.info("No free agents match current filter criteria.")
+
 
 
     # =========================================================================
@@ -2212,10 +2408,10 @@ else:
                 rid = t["roster_id"]
                 mgr = user_map.get(next((r["owner_id"] for r in rosters if r["roster_id"] == rid), ""), f"Team {rid}")
                 is_me = (rid == user_roster["roster_id"])
-                prefix = "[YOU] " if is_me else ""
+                mgr_display = f"{mgr} ★ (Your Franchise)" if is_me else mgr
                 table_data.append({
-                    "Rank": f"{prefix}#{rank_idx}",
-                    "Manager / Team": mgr,
+                    "Rank": f"#{rank_idx}",
+                    "Manager / Team": mgr_display,
                     "Projected W-L": f"{t['avg_wins']:.1f} - {t['avg_losses']:.1f}",
                     "Median PPG": f"{t['expected_pts']:.1f}",
                     "Playoff Odds": f"{t['playoff_pct']:.1f}%",
@@ -2236,10 +2432,10 @@ else:
             for rank_idx, t in enumerate(ranked_dyn, 1):
                 rid = t["roster_id"]
                 is_me = (rid == user_roster["roster_id"])
-                prefix = "[YOU] " if is_me else ""
+                mgr_display = f"{t['manager_name']} ★ (Your Franchise)" if is_me else t["manager_name"]
                 dyn_data.append({
-                    "Rank": f"{prefix}#{rank_idx}",
-                    "Manager / Team": t["manager_name"],
+                    "Rank": f"#{rank_idx}",
+                    "Manager / Team": mgr_display,
                     "Dynasty Score": f"{t['dynasty_score']:.1f} / 100",
                     "Starters Val (50%)": f"{t['starters_val']:,.0f} pts",
                     "Bench Val (30%)": f"{t['bench_val']:,.0f} pts",
@@ -2250,23 +2446,90 @@ else:
             df_dyn = pd.DataFrame(dyn_data)
             st.dataframe(df_dyn, hide_index=True, use_container_width=True)
 
-            with st.expander("View Complete Team Roster & Pick Breakdown"):
+            with st.expander("View Complete Team Roster & Pick Breakdown", expanded=False):
                 inspect_mgr = st.selectbox("Select Team to Inspect:", [t["manager_name"] for t in ranked_dyn])
                 selected_prof = next(p for p in all_team_profiles if p["manager_name"] == inspect_mgr)
+                tot_val = selected_prof.get("total_value", 0.0)
 
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown(f"**Starting Assets ({selected_prof['starter_value']:,.0f} pts):**")
-                    for p in selected_prof["starters"]:
-                        st.markdown(f"- `{p['name']}` ({p.get('position', '')}) — **{p.get('market_value', 0):,.0f} pts**")
-                with col_b:
-                    st.markdown(f"**Top Bench Assets ({selected_prof['bench_value']:,.0f} pts):**")
-                    for p in selected_prof["bench"][:8]:
-                        st.markdown(f"- `{p['name']}` ({p.get('position', '')}) — **{p.get('market_value', 0):,.0f} pts**")
-                    if is_dynasty and selected_prof["picks"]:
-                        st.markdown(f"**Future Draft Capital ({selected_prof['picks_value']:,.0f} pts):**")
-                        for pick in selected_prof["picks"][:6]:
-                            st.markdown(f"- {pick['name']} — **{pick.get('market_value', 0):,.0f} pts**")
+                insp_sub_starters, insp_sub_bench, insp_sub_picks = st.tabs([
+                    f"Starters ({len(selected_prof['starters'])})",
+                    f"Bench ({len(selected_prof['bench'])})",
+                    f"Draft Capital ({len(selected_prof.get('picks', []))})",
+                ])
+
+                with insp_sub_starters:
+                    st.caption(f"Starting Lineup Valuation: **{selected_prof.get('starter_value', 0):,.0f} pts**")
+                    st_rows = []
+                    for idx, a in enumerate(selected_prof["starters"]):
+                        pid = a.get("player_id")
+                        pos = a.get("position") or "UTIL"
+                        team = a.get("team") or "FA"
+                        m_val = float(a.get("market_value") or 0.0)
+                        p_data = primary_lookup.get(pid, {})
+                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
+                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
+                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
+                        st_rows.append({
+                            "Slot": roster_pos[idx] if idx < len(roster_pos) else "FLEX",
+                            "Player": a.get("name", "Unknown"),
+                            "Pos": pos,
+                            "NFL Team": team,
+                            "Age": a.get("age") or "—",
+                            "Avatar": get_player_avatar_url(pid, pos, team),
+                            "Overall ECR": overall_ecr_str,
+                            "Pos ECR": pos_ecr_str,
+                            "Consensus Value": f"{m_val:,.0f} pts",
+                            "Equity Share": eq_str,
+                        })
+                    st.html(render_player_table_html(st_rows, show_equity=True))
+
+                with insp_sub_bench:
+                    st.caption(f"Full Bench Depth Valuation: **{selected_prof.get('bench_value', 0):,.0f} pts**")
+                    bn_rows = []
+                    for a in selected_prof["bench"]:
+                        pid = a.get("player_id")
+                        pos = a.get("position") or "UTIL"
+                        team = a.get("team") or "FA"
+                        m_val = float(a.get("market_value") or 0.0)
+                        p_data = primary_lookup.get(pid, {})
+                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
+                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
+                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
+                        bn_rows.append({
+                            "Slot": "BN",
+                            "Player": a.get("name", "Unknown"),
+                            "Pos": pos,
+                            "NFL Team": team,
+                            "Age": a.get("age") or "—",
+                            "Avatar": get_player_avatar_url(pid, pos, team),
+                            "Overall ECR": overall_ecr_str,
+                            "Pos ECR": pos_ecr_str,
+                            "Consensus Value": f"{m_val:,.0f} pts",
+                            "Equity Share": eq_str,
+                        })
+                    st.html(render_player_table_html(bn_rows, show_equity=True))
+
+                with insp_sub_picks:
+                    if is_dynasty and selected_prof.get("picks"):
+                        st.caption(f"Draft Capital Portfolio Valuation: **{selected_prof.get('picks_value', 0):,.0f} pts**")
+                        pk_rows = []
+                        for pk in selected_prof["picks"]:
+                            pk_val = float(pk.get("market_value") or 0.0)
+                            pk_eq = f"{(pk_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
+                            pk_rows.append({
+                                "Draft Pick Asset": pk.get("name", "Draft Pick"),
+                                "Season": str(pk.get("season", "—")),
+                                "Round": f"Round {pk.get('round', '—')}",
+                                "Consensus Value": f"{pk_val:,.0f} pts",
+                                "Equity Share": pk_eq,
+                            })
+                        st.dataframe(pd.DataFrame(pk_rows), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("No draft pick assets in this league format.")
 
         if is_dynasty:
             sub_mc, sub_dyn = st.tabs([
@@ -2302,19 +2565,92 @@ else:
             net_diff = eval_res.get("net_diff", recv_raw - give_raw)
             diff_sign = "+" if net_diff >= 0 else ""
             status_label = str(eval_res.get("status", "Balanced")).upper()
+            diff_color = "#10b981" if net_diff >= 0 else "#f43f5e"
 
-            give_html = ", ".join(f"<code>{a.get('name', 'Asset')}</code> ({a.get('market_value', 0):,.0f} pts)" for a in gives)
-            recv_html = ", ".join(f"<code>{a.get('name', 'Asset')}</code> ({a.get('market_value', 0):,.0f} pts)" for a in recvs)
+            def render_asset_chips(assets):
+                chips_html = ""
+                for a in assets:
+                    name = a.get("name", "Asset")
+                    val = float(a.get("market_value") or 0.0)
+                    pos = a.get("position") or "PICK"
+                    team = a.get("team") or ""
+                    pid = a.get("player_id")
 
-            st.html(
-                f"<div class='card-container card-highlight'>"
-                f"<h4>Proposal #{idx}: {arch} with {partner}</h4>"
-                f"<b>You Send:</b> {give_html} (Raw: {give_raw:,.0f} pts | Stud Adj: {eff_give:,.0f} pts)<br/>"
-                f"<b>You Receive:</b> {recv_html} (Raw: {recv_raw:,.0f} pts | Model 3: {eff_recv:,.0f} pts)<br/>"
-                f"<b>Net Differential:</b> <b>{diff_sign}{net_diff:,.0f} pts</b> ({status_label})<br/>"
-                f"<b>Rationale:</b> {why}"
-                f"</div>"
-            )
+                    if a.get("type") == "pick" or not pid or str(pid).startswith("pick_"):
+                        icon_html = "<div style='width: 38px; height: 38px; border-radius: 50%; background: #1e1b4b; border: 1.5px solid #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;'>🎯</div>"
+                        pos_badge = "<span class='badge-pos badge-pick' style='font-size: 0.65rem; padding: 1px 5px;'>PICK</span>"
+                    else:
+                        avatar_url = get_player_avatar_url(pid, pos, team)
+                        icon_html = f"<img src='{avatar_url}' style='width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #475569; flex-shrink: 0;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+                        badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
+                        pos_badge = f"<span class='badge-pos {badge_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{pos}</span>"
+
+                    chips_html += f"""
+                    <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
+                        <div style='display: flex; align-items: center; gap: 10px; min-width: 0;'>
+                            {icon_html}
+                            <div style='min-width: 0;'>
+                                <div style='font-weight: 700; color: #f8fafc; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{name}</div>
+                                <div style='font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; align-items: center;'>
+                                    {pos_badge}
+                                    <span>{team}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style='font-weight: 800; font-size: 0.9rem; color: #38bdf8; text-align: right; white-space: nowrap;'>{val:,.0f} pts</div>
+                    </div>
+                    """
+                return chips_html
+
+            give_chips = render_asset_chips(gives)
+            recv_chips = render_asset_chips(recvs)
+
+            card_html = f"""
+            <div class='card-container card-highlight' style='padding: 16px; margin-bottom: 16px;'>
+                <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;'>
+                    <div>
+                        <span style='font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #38bdf8;'>Proposal #{idx}</span>
+                        <h4 style='margin: 0; font-size: 1.05rem; font-weight: 800; color: #f8fafc;'>{arch}</h4>
+                    </div>
+                    <div style='display: flex; align-items: center; gap: 10px;'>
+                        <span style='font-size: 0.82rem; color: #94a3b8;'>Partner: <strong style='color: #e2e8f0;'>{partner}</strong></span>
+                        <span class='status-capsule' style='background: rgba(16, 185, 129, 0.12); color: {diff_color}; border: 1px solid {diff_color}55;'>{status_label}</span>
+                    </div>
+                </div>
+
+                <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px;'>
+                    <div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; padding: 12px;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
+                            <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #fb7185; letter-spacing: 0.04em;'>YOU SEND</span>
+                            <span style='font-size: 0.78rem; font-weight: 700; color: #94a3b8;'>Total: <span style='color: #f8fafc;'>{give_raw:,.0f} pts</span></span>
+                        </div>
+                        {give_chips}
+                    </div>
+
+                    <div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
+                            <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #34d399; letter-spacing: 0.04em;'>YOU RECEIVE</span>
+                            <span style='font-size: 0.78rem; font-weight: 700; color: #94a3b8;'>Total: <span style='color: #f8fafc;'>{recv_raw:,.0f} pts</span></span>
+                        </div>
+                        {recv_chips}
+                    </div>
+                </div>
+
+                <div style='display: flex; justify-content: space-between; align-items: center; background: #0f172a; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;'>
+                    <div style='font-size: 0.82rem; color: #cbd5e1;'>
+                        <strong style='color: #94a3b8;'>Net Value Impact:</strong> <span style='font-weight: 800; color: {diff_color};'>{diff_sign}{net_diff:,.0f} pts</span>
+                    </div>
+                    <div style='font-size: 0.78rem; color: #94a3b8;'>
+                        Stud Adj (Send: {eff_give:,.0f} pts | Recv: {eff_recv:,.0f} pts)
+                    </div>
+                </div>
+
+                <p style='margin: 0; font-size: 0.82rem; color: #94a3b8; line-height: 1.4;'>
+                    <strong style='color: #cbd5e1;'>Strategic Rationale:</strong> {why}
+                </p>
+            </div>
+            """
+            st.html(card_html)
             if show_chat_message:
                 send_names = " + ".join(a.get("name", "Asset") for a in gives)
                 recv_names = " + ".join(a.get("name", "Asset") for a in recvs)
@@ -2499,14 +2835,27 @@ else:
             for idx, r in enumerate(market_rows, start=1):
                 r["Rank"] = f"#{idx}"
 
-            df_market = pd.DataFrame(market_rows[:150]).drop(columns=["_val"])
-            st.dataframe(
-                df_market[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
-                column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
-                hide_index=True,
-                use_container_width=True,
-            )
-            st.caption(f"Showing top {min(len(market_rows), 150)} of {len(market_rows)} matching assets.")
+            c_mkview1, c_mkview2 = st.columns([1, 1])
+            with c_mkview1:
+                mkt_view = st.radio(
+                    "Display Format:",
+                    ["Standard Table (44px Avatars)", "Interactive Dataframe"],
+                    horizontal=True,
+                    key="mkt_view_mode",
+                )
+            with c_mkview2:
+                st.caption(f"Showing top {min(len(market_rows), 100)} of {len(market_rows)} matching assets.")
+
+            if mkt_view == "Standard Table (44px Avatars)":
+                st.html(render_market_table_html(market_rows[:100]))
+            else:
+                df_market = pd.DataFrame(market_rows[:150]).drop(columns=["_val"])
+                st.dataframe(
+                    df_market[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
+                    column_config={"Avatar": st.column_config.ImageColumn("", width="small")},
+                    hide_index=True,
+                    use_container_width=True,
+                )
         else:
             st.info("No players matched the filter criteria.")
 
