@@ -27,23 +27,45 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from src.sleeper_api import (
-    get_user,
-    get_user_leagues,
-    get_league_rosters,
-    get_user_roster,
-    get_players,
-    get_roster_players,
-    get_free_agents,
-    get_traded_picks,
-    get_league_users,
-    get_nfl_state,
-    get_weekly_projections,
-    get_league_schedule,
-    get_league_matchups,
-    get_league_history,
-    compute_historical_standings,
-)
+# Invalidate import caches so Streamlit daemon processes always load fresh src modules
+importlib.invalidate_caches()
+try:
+    from src.sleeper_api import (
+        get_user,
+        get_user_leagues,
+        get_league_rosters,
+        get_user_roster,
+        get_players,
+        get_roster_players,
+        get_free_agents,
+        get_traded_picks,
+        get_league_users,
+        get_nfl_state,
+        get_weekly_projections,
+        get_league_schedule,
+        get_league_matchups,
+        get_league_history,
+        compute_historical_standings,
+    )
+except ImportError:
+    # Fallback for Streamlit Cloud hot-reload when module cache holds stale objects
+    import src.sleeper_api as _s_api
+    importlib.reload(_s_api)
+    get_user = getattr(_s_api, "get_user")
+    get_user_leagues = getattr(_s_api, "get_user_leagues")
+    get_league_rosters = getattr(_s_api, "get_league_rosters")
+    get_user_roster = getattr(_s_api, "get_user_roster")
+    get_players = getattr(_s_api, "get_players")
+    get_roster_players = getattr(_s_api, "get_roster_players")
+    get_free_agents = getattr(_s_api, "get_free_agents")
+    get_traded_picks = getattr(_s_api, "get_traded_picks")
+    get_league_users = getattr(_s_api, "get_league_users")
+    get_nfl_state = getattr(_s_api, "get_nfl_state")
+    get_weekly_projections = getattr(_s_api, "get_weekly_projections")
+    get_league_schedule = getattr(_s_api, "get_league_schedule")
+    get_league_matchups = getattr(_s_api, "get_league_matchups")
+    get_league_history = getattr(_s_api, "get_league_history")
+    compute_historical_standings = getattr(_s_api, "compute_historical_standings", lambda lid, r, w: {})
 from src.league_classifier import classify_league, get_starter_counts
 from src.market_data import (
     get_fp_rankings_raw,
@@ -136,11 +158,19 @@ from src.start_sit import (
     audit_weekly_lineup,
     find_streaming_recommendations,
 )
-from src.trade_engine import (
-    analyze_team_profile,
-    generate_trade_suggestions,
-    build_positional_room_leaderboard,
-)
+try:
+    from src.trade_engine import (
+        analyze_team_profile,
+        generate_trade_suggestions,
+        build_positional_room_leaderboard,
+    )
+except ImportError:
+    import src.trade_engine as _te
+    importlib.reload(_te)
+    analyze_team_profile = getattr(_te, "analyze_team_profile")
+    generate_trade_suggestions = getattr(_te, "generate_trade_suggestions")
+    build_positional_room_leaderboard = getattr(_te, "build_positional_room_leaderboard")
+
 from src.team_strength import (
     rank_teams_in_league,
     get_strength_tier,
@@ -156,13 +186,22 @@ from src.draft_picks import (
     get_picks_capital_value,
     format_picks_summary,
 )
-from src.playoff_simulator import (
-    compute_team_lineup_expectation,
-    run_monte_carlo_simulation,
-    compute_dynasty_power_rankings,
-    run_historical_simulation_snapshot,
-    compute_weekly_evolution_history,
-)
+try:
+    from src.playoff_simulator import (
+        compute_team_lineup_expectation,
+        run_monte_carlo_simulation,
+        compute_dynasty_power_rankings,
+        run_historical_simulation_snapshot,
+        compute_weekly_evolution_history,
+    )
+except ImportError:
+    import src.playoff_simulator as _ps
+    importlib.reload(_ps)
+    compute_team_lineup_expectation = getattr(_ps, "compute_team_lineup_expectation")
+    run_monte_carlo_simulation = getattr(_ps, "run_monte_carlo_simulation")
+    compute_dynasty_power_rankings = getattr(_ps, "compute_dynasty_power_rankings")
+    run_historical_simulation_snapshot = getattr(_ps, "run_historical_simulation_snapshot")
+    compute_weekly_evolution_history = getattr(_ps, "compute_weekly_evolution_history")
 from src.trade_finder import (
     resolve_asset_from_query,
     find_targeted_buy_trades,
@@ -1860,7 +1899,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v14_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v15_calibrated_redraft_depth"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()

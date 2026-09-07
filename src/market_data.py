@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import math
 import re
 import requests
 
@@ -650,13 +651,31 @@ def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
     return lookup
 
 
+def _calculate_redraft_depth_value(blended_rank: float) -> float:
+    """
+    Computes smooth, continuous single-season (redraft/ROS) valuation for bench and depth players
+    beyond FantasyCalc's liquid trade threshold (rank > 160).
+    Uses a smooth exponential decay curve anchored at rank 160 = 160.0 pts that halves
+    approximately every 40 ranks (k = ln(2)/40).
+    Ensures viable NFL contributors (e.g. Troy Franklin, Keon Coleman, Samaje Perine, Deshaun Watson)
+    maintain meaningful, proportional fantasy values rather than collapsing to near 0.
+    """
+    if blended_rank <= 160.0:
+        return 160.0
+    k = math.log(2) / 40.0
+    val = 160.0 * math.exp(-k * (blended_rank - 160.0))
+    if blended_rank > 450.0:
+        val = max(0.0, val * max(0.0, (550.0 - blended_rank) / 100.0))
+    return round(val, 1)
+
+
 def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
     """
     Enriches redraft lookup with authentic single-season market values
     from FantasyCalc (reflecting win-now impact without dynasty age penalties).
     Blends FantasyPros Redraft ECR and FantasyCalc rank data to assign mathematically
     consistent consensus overall and positional ranks.
-    Interpolates for depth players using an overall-rank curve without inverted rank artifacts.
+    Interpolates for depth players using a calibrated exponential depth curve without inverted rank artifacts.
     """
     fc_player_map = {}
     fc_curve = []
@@ -698,7 +717,11 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
     for sleeper_id, p_data in lookup.items():
         pos = str(p_data.get("position", "")).upper()
         if pos in ("K", "DST", "DEF"):
-            kv = compute_kicker_dst_value(p_data.get("rank_ecr"))
+            r_ecr = p_data.get("rank_ecr") or 1.0
+            if r_ecr < 900:
+                kv = max(25.0, min(140.0, round(140.0 - (float(r_ecr) - 1.0) * 5.0, 1)))
+            else:
+                kv = 25.0
             p_data["market_value"] = kv
             p_data["fc_val"] = kv
             p_data["fp_ecr_overall"] = float(p_data.get("rank_ecr_overall") or 999.0)
@@ -737,20 +760,21 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
             else:
                 blended_p = 999.0
 
-            curve_v = _interpolate_value_from_ecr(fc_curve, blended_o) if (fc_curve and blended_o <= 199) else 0.0
-            # Smooth illiquid trade drop-offs so bench players are calibrated to their rank tier
-            p_data["market_value"] = round(max(raw_fc_v, curve_v * 0.85 if curve_v > 40 else curve_v), 1)
+            if blended_o <= 160 and fc_curve:
+                curve_v = _interpolate_value_from_ecr(fc_curve, blended_o)
+                p_data["market_value"] = round(max(raw_fc_v, curve_v * 0.85 if curve_v > 40 else curve_v), 1)
+            else:
+                depth_v = _calculate_redraft_depth_value(blended_o)
+                p_data["market_value"] = round(max(raw_fc_v, depth_v), 1)
         else:
             blended_o = fp_o
             blended_p = fp_p
             p_data["fc_val"] = None
 
-            if blended_o <= 199 and fc_curve:
+            if blended_o <= 160 and fc_curve:
                 p_data["market_value"] = round(_interpolate_value_from_ecr(fc_curve, blended_o), 1)
-            elif blended_o < 250:
-                p_data["market_value"] = max(0.0, round(2.0 - (blended_o - 199) * 0.04, 1))
             else:
-                p_data["market_value"] = 0.0
+                p_data["market_value"] = round(_calculate_redraft_depth_value(blended_o), 1)
 
         p_data["rank_ecr_overall"] = blended_o
         p_data["rank_ecr_pos"] = blended_p
