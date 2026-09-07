@@ -12,7 +12,9 @@ Provides:
   - Tab 6: 🌐 Multi-League Portfolio & Player Exposure (Cross-League Shares & Risk)
 """
 
+import base64
 import copy
+import math
 import os
 import sys
 import importlib
@@ -152,7 +154,16 @@ ALLOWED_USERS = ["henriquefrz", "LucasFrazao"]
 # Streamlit Page Setup & Custom Mobile-Responsive CSS
 # -----------------------------------------------------------------------------
 LOGO_PATH = "assets/logo.jpg"
+LOGO_HORIZONTAL_PATH = "assets/logo_horizontal.png"
 PAGE_ICON = LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈"
+
+LOGO_HORIZONTAL_B64 = ""
+if os.path.exists(LOGO_HORIZONTAL_PATH):
+    try:
+        with open(LOGO_HORIZONTAL_PATH, "rb") as _f:
+            LOGO_HORIZONTAL_B64 = base64.b64encode(_f.read()).decode("utf-8")
+    except Exception:
+        LOGO_HORIZONTAL_B64 = ""
 
 st.set_page_config(
     page_title="Fantasy Analytics",
@@ -901,8 +912,8 @@ def render_market_table_html(market_rows):
             <tr>
                 <th style='width: 75px; text-align: center;'>Rank</th>
                 <th style='width: 28%; text-align: left;'>Player</th>
-                <th style='width: 12%; text-align: center;'>Overall ECR</th>
-                <th style='width: 12%; text-align: center;'>Pos ECR</th>
+                <th style='width: 12%; text-align: center;'>Overall Rank</th>
+                <th style='width: 12%; text-align: center;'>Pos Rank</th>
                 <th style='width: 16%; text-align: center;'>Consensus Value</th>
                 <th style='width: 11%; text-align: center;'>KeepTradeCut</th>
                 <th style='width: 11%; text-align: center;'>FantasyCalc</th>
@@ -981,8 +992,8 @@ def render_portfolio_table_html(portfolio_rows):
                 <th style='width: 60px; text-align: center;'>Age</th>
                 <th style='width: 10%; text-align: center;'>Shares</th>
                 <th style='width: 11%; text-align: center;'>Exposure</th>
-                <th style='width: 11%; text-align: center;'>Overall ECR</th>
-                <th style='width: 11%; text-align: center;'>Pos ECR</th>
+                <th style='width: 11%; text-align: center;'>Overall Rank</th>
+                <th style='width: 11%; text-align: center;'>Pos Rank</th>
                 <th style='width: 14%; text-align: center;'>Consensus Value</th>
                 <th style='width: 25%; text-align: left;'>Leagues Owned</th>
             </tr>
@@ -1114,13 +1125,14 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         <thead>
             <tr>
                 <th style='width: 70px; text-align: center;'>Rank</th>
-                <th style='width: 28%; text-align: left;'>Manager / Team</th>
-                <th style='width: 14%; text-align: center;'>Projected W-L</th>
-                <th style='width: 12%; text-align: center;'>Median PPG</th>
-                <th style='width: 12%; text-align: center;'>Playoff Odds</th>
-                <th style='width: 11%; text-align: center;'>1st-Round Bye</th>
-                <th style='width: 11%; text-align: center;'>Champ Odds</th>
-                <th style='width: 12%; text-align: center;'>Power Score</th>
+                <th style='width: 25%; text-align: left;'>Manager / Team</th>
+                <th style='width: 13%; text-align: center;'>Projected W-L</th>
+                <th style='width: 11%; text-align: center;'>Starters PPG</th>
+                <th style='width: 11%; text-align: center;'>Bench PPG</th>
+                <th style='width: 11%; text-align: center;'>Playoff Odds</th>
+                <th style='width: 10%; text-align: center;'>1st-Round Bye</th>
+                <th style='width: 10%; text-align: center;'>Champ Odds</th>
+                <th style='width: 11%; text-align: center;'>Power Score</th>
             </tr>
         </thead>
         <tbody>
@@ -1129,12 +1141,15 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         is_me = (r.get("roster_id") == user_roster_id)
         row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
         name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        starters_val = r.get("Starters PPG") or r.get("Median PPG", "—")
+        bench_val = r.get("Bench PPG", "—")
         html += f"""
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
             <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
-            <td style='text-align: center; color: #38bdf8;'>{r['Median PPG']}</td>
+            <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{starters_val}</td>
+            <td style='text-align: center; color: #94a3b8;'>{bench_val}</td>
             <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
             <td style='text-align: center;'><span class='rank-pill'>{r['1st-Round Bye']}</span></td>
             <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{r['Champ Odds']}</span></td>
@@ -1312,6 +1327,11 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
     else:
         spread_badge = f"<span style='background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>{diff:.1f} PTS UNDERDOG</span>"
 
+    # Sleeper-calibrated matchup win probability (normal distribution CDF, sigma=20.0 pts)
+    user_win_prob = 0.5 * (1.0 + math.erf(diff / (20.0 * math.sqrt(2)))) * 100.0
+    user_win_prob = max(1.0, min(99.0, round(user_win_prob, 1)))
+    opp_win_prob = round(100.0 - user_win_prob, 1)
+
     arena_html = f"""
     <div class='matchup-arena-card'>
         <div class='matchup-arena-grid'>
@@ -1320,13 +1340,20 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
                 <div style='font-size: 0.7rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>YOUR FRANCHISE</div>
                 <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{user_name}</div>
                 <div class='arena-proj-score' style='color: #38bdf8;'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='display: flex; align-items: center; gap: 6px; margin-top: 5px;'>
+                    <span style='background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{user_win_prob:.0f}% WIN CHANCE</span>
+                </div>
                 <div style='font-size: 0.76rem; color: #94a3b8; margin-top: 6px;'>Optimal Ceiling: <strong style='color: #f8fafc;'>{user_ceiling:.1f} pts</strong></div>
             </div>
 
-            <!-- VS & Spread Capsule -->
-            <div class='arena-vs-col'>
+            <!-- VS, Spread & Win Prob Bar -->
+            <div class='arena-vs-col' style='display: flex; flex-direction: column; align-items: center; gap: 8px;'>
                 <div style='background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 9999px; padding: 4px 12px; font-weight: 900; font-size: 0.95rem; color: #94a3b8; letter-spacing: 0.05em;'>VS</div>
                 {spread_badge}
+                <div style='width: 140px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; display: flex; margin-top: 4px;' title='Win Probability: {user_win_prob:.0f}% vs {opp_win_prob:.0f}%'>
+                    <div style='width: {user_win_prob}%; background: #38bdf8; height: 100%;'></div>
+                    <div style='width: {opp_win_prob}%; background: #64748b; height: 100%;'></div>
+                </div>
             </div>
 
             <!-- Opponent Franchise -->
@@ -1334,6 +1361,9 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
                 <div style='font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
                 <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{opp_name}</div>
                 <div class='arena-proj-score' style='color: #f8fafc;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 5px;'>
+                    <span style='background: rgba(148, 163, 184, 0.12); border: 1px solid rgba(148, 163, 184, 0.25); color: #cbd5e1; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{opp_win_prob:.0f}% WIN CHANCE</span>
+                </div>
                 <div style='font-size: 0.76rem; color: #64748b; margin-top: 6px;'>Week {active_week} Matchup</div>
             </div>
         </div>
@@ -1387,7 +1417,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v9_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v10_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -1721,14 +1751,23 @@ top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
 )
 
 with top_col_brand:
-    st.html(
-        """
-        <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
-            <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
-            <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
-        </a>
-        """
-    )
+    if LOGO_HORIZONTAL_B64:
+        st.html(
+            f"""
+            <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
+                <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
+            </a>
+            """
+        )
+    else:
+        st.html(
+            """
+            <a href="./" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
+                <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
+                <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
+            </a>
+            """
+        )
 
 with top_col_nav:
     cur_lid = st.session_state.get("selected_league_id")
@@ -1820,13 +1859,8 @@ primary_lookup = apply_valuation_mode(primary_lookup_base, mode=selected_mode)
 # =============================================================================
 if st.session_state.get("selected_league_id") is None:
     # Header Banner
-    col_hero_logo, col_hero_txt = st.columns([1, 6])
-    with col_hero_logo:
-        if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, use_container_width=True)
-    with col_hero_txt:
-        st.markdown("<h1 style='margin-bottom: 2px;'>Fantasy Analytics</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #94a3b8; font-size: 1.05rem; margin-top: 0px;'>Executive Multi-League Portfolio & Franchise Intelligence Platform</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-bottom: 4px; font-size: 2.1rem; font-weight: 900; letter-spacing: -0.02em; color: #f8fafc;'>Fantasy Analytics</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 1.05rem; margin-top: 0px; margin-bottom: 12px;'>Executive Multi-League Portfolio & Franchise Intelligence Platform</p>", unsafe_allow_html=True)
 
     st.caption(f"Connected Sleeper Account: **@{user['username']}** | Season: **{active_season}** (Wk {active_week}) | Active Model: **{VALUATION_MODES[selected_mode]}**")
 
@@ -2756,14 +2790,17 @@ else:
             avatar = get_player_avatar_url(add_id, pos, team)
             tag = s.get("priority_tag", "STARTER UPGRADE" if is_starter else "BENCH UPGRADE")
 
-            dyn_val = s.get("add_value", 0.0) if eval_dynasty else (s.get("add_alt_value") or s.get("add_value", 0.0))
-            ros_val = s.get("add_alt_value", 0.0) if eval_dynasty else s.get("add_value", 0.0)
-            
-            add_rank = s.get("add_ranking", {})
-            dyn_o_ecr = add_rank.get("rank_ecr_overall", 999.0)
-            dyn_p_ecr = add_rank.get("rank_ecr_pos", add_rank.get("rank_ecr", 999.0))
-            ros_o_rank = s.get("add_alt_rank") or (add_rank.get("rank_ecr_overall") if not eval_dynasty else alt_eval_lookup.get(add_id, {}).get("rank_ecr_overall", 999.0))
-            ros_p_rank = s.get("add_alt_pos_rank") or (add_rank.get("rank_ecr_pos") if not eval_dynasty else alt_eval_lookup.get(add_id, {}).get("rank_ecr_pos", 999.0))
+            # Add player dynasty & redraft metrics
+            add_dyn_data = primary_lookup.get(add_id, {})
+            add_ros_data = redraft_lookup.get(add_id, {})
+
+            dyn_val = add_dyn_data.get("market_value", 0.0)
+            ros_val = add_ros_data.get("market_value", 0.0)
+
+            dyn_o_ecr = add_dyn_data.get("rank_ecr_overall", 999.0)
+            dyn_p_ecr = add_dyn_data.get("rank_ecr_pos", add_dyn_data.get("rank_ecr", 999.0))
+            ros_o_rank = add_ros_data.get("rank_ecr_overall", 999.0)
+            ros_p_rank = add_ros_data.get("rank_ecr_pos", add_ros_data.get("rank_ecr", 999.0))
 
             dyn_o_str = f"#{int(dyn_o_ecr)}" if (dyn_o_ecr and dyn_o_ecr < 900) else "—"
             dyn_p_str = f"{pos}{int(dyn_p_ecr)}" if (dyn_p_ecr and dyn_p_ecr < 900) else "—"
@@ -2776,14 +2813,16 @@ else:
             drop_age = drop_p.get("age", "—")
             drop_avatar = get_player_avatar_url(drop_id, drop_pos, drop_team)
 
-            drop_rank = s.get("drop_ranking") or primary_lookup.get(drop_id, {})
-            drop_dyn_val = s.get("drop_value", 0.0) if eval_dynasty else (s.get("drop_alt_value") or s.get("drop_value", 0.0))
-            drop_ros_val = s.get("drop_alt_value", 0.0) if eval_dynasty else s.get("drop_value", 0.0)
+            drop_dyn_data = primary_lookup.get(drop_id, {})
+            drop_ros_data = redraft_lookup.get(drop_id, {})
 
-            drop_dyn_o = drop_rank.get("rank_ecr_overall", 999.0)
-            drop_dyn_p = drop_rank.get("rank_ecr_pos", drop_rank.get("rank_ecr", 999.0))
-            drop_ros_o_rank = s.get("drop_alt_rank") or (drop_rank.get("rank_ecr_overall") if not eval_dynasty else alt_eval_lookup.get(drop_id, {}).get("rank_ecr_overall", 999.0))
-            drop_ros_p_rank = s.get("drop_alt_pos_rank") or (drop_rank.get("rank_ecr_pos") if not eval_dynasty else alt_eval_lookup.get(drop_id, {}).get("rank_ecr_pos", 999.0))
+            drop_dyn_val = drop_dyn_data.get("market_value", 0.0)
+            drop_ros_val = drop_ros_data.get("market_value", 0.0)
+
+            drop_dyn_o = drop_dyn_data.get("rank_ecr_overall", 999.0)
+            drop_dyn_p = drop_dyn_data.get("rank_ecr_pos", drop_dyn_data.get("rank_ecr", 999.0))
+            drop_ros_o_rank = drop_ros_data.get("rank_ecr_overall", 999.0)
+            drop_ros_p_rank = drop_ros_data.get("rank_ecr_pos", drop_ros_data.get("rank_ecr", 999.0))
 
             drop_dyn_o_str = f"#{int(drop_dyn_o)}" if (drop_dyn_o and drop_dyn_o < 900) else "—"
             drop_dyn_p_str = f"{drop_pos}{int(drop_dyn_p)}" if (drop_dyn_p and drop_dyn_p < 900) else "—"
@@ -3005,55 +3044,43 @@ else:
 
         fa_rows.sort(key=lambda x: x["_raw_val"], reverse=True)
         if fa_rows:
-            for idx, r in enumerate(fa_rows, start=1):
+            c_fasort1, c_fasort2, c_fasort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+            with c_fasort1:
+                sort_fa_col = st.selectbox(
+                    "Sort Free Agents By:",
+                    ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
+                    key="fa_sort_col"
+                )
+            with c_fasort2:
+                sort_fa_order = st.selectbox(
+                    "Order:",
+                    ["Descending (High / Best)", "Ascending (Low)"],
+                    key="fa_sort_order"
+                )
+            with c_fasort3:
+                st.caption(f"Showing top {min(len(fa_rows), 50)} of {len(fa_rows)} matching free agents.")
+
+            sorted_fa = list(fa_rows)
+            is_desc = "Descending" in sort_fa_order
+            if sort_fa_col == "Consensus Value":
+                sorted_fa.sort(key=lambda x: x["_raw_val"], reverse=is_desc)
+            elif sort_fa_col in ("Overall Rank", "Overall ECR"):
+                sorted_fa.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
+            elif sort_fa_col in ("Pos Rank", "Pos ECR"):
+                sorted_fa.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
+            elif sort_fa_col == "KeepTradeCut":
+                sorted_fa.sort(key=lambda x: x["_ktc"], reverse=is_desc)
+            elif sort_fa_col == "FantasyCalc":
+                sorted_fa.sort(key=lambda x: x["_fc"], reverse=is_desc)
+            elif sort_fa_col == "DynastyProcess":
+                sorted_fa.sort(key=lambda x: x["_dp"], reverse=is_desc)
+            elif sort_fa_col == "Player Name":
+                sorted_fa.sort(key=lambda x: x["_name"], reverse=not is_desc)
+
+            for idx, r in enumerate(sorted_fa, start=1):
                 r["Rank"] = f"#{idx}"
 
-            c_faview1, c_faview2 = st.columns([1, 1])
-            with c_faview1:
-                fa_view = st.radio(
-                    "Display Format:",
-                    ["Standard Table", "Interactive Dataframe"],
-                    horizontal=True,
-                    key="fa_view_mode",
-                )
-            with c_faview2:
-                st.caption(f"Showing top {min(len(fa_rows), 50)} of {len(fa_rows)} matching available free agents.")
-
-            if fa_view == "Standard Table":
-                st.html(render_market_table_html(fa_rows[:50]))
-            else:
-                c_fasort1, c_fasort2 = st.columns([2, 1])
-                with c_fasort1:
-                    sort_fa_col = st.selectbox(
-                        "Sort Free Agents By:",
-                        ["Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
-                        key="fa_sort_col"
-                    )
-                with c_fasort2:
-                    sort_fa_order = st.selectbox(
-                        "Order:",
-                        ["Descending (High / Best)", "Ascending (Low)"],
-                        key="fa_sort_order"
-                    )
-
-                sorted_fa = list(fa_rows)
-                is_desc = "Descending" in sort_fa_order
-                if sort_fa_col == "Consensus Value":
-                    sorted_fa.sort(key=lambda x: x["_raw_val"], reverse=is_desc)
-                elif sort_fa_col == "Overall ECR":
-                    sorted_fa.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
-                elif sort_fa_col == "Pos ECR":
-                    sorted_fa.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
-                elif sort_fa_col == "KeepTradeCut":
-                    sorted_fa.sort(key=lambda x: x["_ktc"], reverse=is_desc)
-                elif sort_fa_col == "FantasyCalc":
-                    sorted_fa.sort(key=lambda x: x["_fc"], reverse=is_desc)
-                elif sort_fa_col == "DynastyProcess":
-                    sorted_fa.sort(key=lambda x: x["_dp"], reverse=is_desc)
-                elif sort_fa_col == "Player Name":
-                    sorted_fa.sort(key=lambda x: x["_name"], reverse=not is_desc)
-
-                st.html(render_market_table_html(sorted_fa[:50]))
+            st.html(render_market_table_html(sorted_fa[:50]))
         else:
             st.info("No free agents match current filter criteria.")
 
@@ -3105,13 +3132,15 @@ else:
                     "Rank": f"#{rank_idx}",
                     "Manager / Team": mgr,
                     "Projected W-L": f"{t['avg_wins']:.1f} - {t['avg_losses']:.1f}",
-                    "Median PPG": f"{t['expected_pts']:.1f}",
+                    "Starters PPG": f"{t['expected_pts']:.1f}",
+                    "Bench PPG": f"{t.get('bench_depth_pts', 0.0):.1f}",
                     "Playoff Odds": f"{t['playoff_pct']:.1f}%",
                     "1st-Round Bye": f"{t['bye_pct']:.1f}%",
                     "Champ Odds": f"{t['champ_pct']:.1f}%",
                     "Season Power Score": f"{t['power_score']:.1f}",
                 })
 
+            st.caption("Season Power Score Formula: 40% Starters PPG + 35% Projected Wins + 15% Playoff Odds + 10% Bench Depth PPG.")
             st.html(render_power_simulation_table_html(table_data, user_roster["roster_id"]))
 
         def render_dynasty_power_view():
@@ -3603,56 +3632,43 @@ else:
         market_rows.sort(key=lambda x: x["_val"], reverse=True)
 
         if market_rows:
-            # Add Rank number
-            for idx, r in enumerate(market_rows, start=1):
-                r["Rank"] = f"#{idx}"
-
-            c_mkview1, c_mkview2 = st.columns([1, 1])
-            with c_mkview1:
-                mkt_view = st.radio(
-                    "Display Format:",
-                    ["Standard Table", "Interactive Dataframe"],
-                    horizontal=True,
-                    key="mkt_view_mode",
+            c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+            with c_mksort1:
+                sort_mkt_col = st.selectbox(
+                    "Sort Market Players By:",
+                    ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
+                    key="mkt_sort_col"
                 )
-            with c_mkview2:
+            with c_mksort2:
+                sort_mkt_order = st.selectbox(
+                    "Order:",
+                    ["Descending (High / Best)", "Ascending (Low)"],
+                    key="mkt_sort_order"
+                )
+            with c_mksort3:
                 st.caption(f"Showing top {min(len(market_rows), 100)} of {len(market_rows)} matching assets.")
 
-            if mkt_view == "Standard Table":
-                st.html(render_market_table_html(market_rows[:100]))
-            else:
-                c_mksort1, c_mksort2 = st.columns([2, 1])
-                with c_mksort1:
-                    sort_mkt_col = st.selectbox(
-                        "Sort Market Players By:",
-                        ["Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
-                        key="mkt_sort_col"
-                    )
-                with c_mksort2:
-                    sort_mkt_order = st.selectbox(
-                        "Order:",
-                        ["Descending (High / Best)", "Ascending (Low)"],
-                        key="mkt_sort_order"
-                    )
+            sorted_mkt = list(market_rows)
+            is_desc = "Descending" in sort_mkt_order
+            if sort_mkt_col == "Consensus Value":
+                sorted_mkt.sort(key=lambda x: x["_val"], reverse=is_desc)
+            elif sort_mkt_col in ("Overall Rank", "Overall ECR"):
+                sorted_mkt.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
+            elif sort_mkt_col in ("Pos Rank", "Pos ECR"):
+                sorted_mkt.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
+            elif sort_mkt_col == "KeepTradeCut":
+                sorted_mkt.sort(key=lambda x: x["_ktc"], reverse=is_desc)
+            elif sort_mkt_col == "FantasyCalc":
+                sorted_mkt.sort(key=lambda x: x["_fc"], reverse=is_desc)
+            elif sort_mkt_col == "DynastyProcess":
+                sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
+            elif sort_mkt_col == "Player Name":
+                sorted_mkt.sort(key=lambda x: x["_name"], reverse=not is_desc)
 
-                sorted_mkt = list(market_rows)
-                is_desc = "Descending" in sort_mkt_order
-                if sort_mkt_col == "Consensus Value":
-                    sorted_mkt.sort(key=lambda x: x["_val"], reverse=is_desc)
-                elif sort_mkt_col == "Overall ECR":
-                    sorted_mkt.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
-                elif sort_mkt_col == "Pos ECR":
-                    sorted_mkt.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
-                elif sort_mkt_col == "KeepTradeCut":
-                    sorted_mkt.sort(key=lambda x: x["_ktc"], reverse=is_desc)
-                elif sort_mkt_col == "FantasyCalc":
-                    sorted_mkt.sort(key=lambda x: x["_fc"], reverse=is_desc)
-                elif sort_mkt_col == "DynastyProcess":
-                    sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
-                elif sort_mkt_col == "Player Name":
-                    sorted_mkt.sort(key=lambda x: x["_name"], reverse=not is_desc)
+            for idx, r in enumerate(sorted_mkt, start=1):
+                r["Rank"] = f"#{idx}"
 
-                st.html(render_market_table_html(sorted_mkt[:100]))
+            st.html(render_market_table_html(sorted_mkt[:100]))
         else:
             st.info("No players matched the filter criteria.")
 
@@ -3691,62 +3707,50 @@ else:
             filtered_exp = [r for r in filtered_exp if search_port.lower() in r["Player"].lower()]
 
         if filtered_exp:
-            c_pview1, c_pview2 = st.columns([1, 1])
-            with c_pview1:
-                port_view = st.radio(
-                    "Display Format:",
-                    ["Standard Table", "Interactive Dataframe"],
-                    horizontal=True,
-                    key="port_view_mode",
+            c_psort1, c_psort2, c_psort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+            with c_psort1:
+                sort_port_col = st.selectbox(
+                    "Sort Portfolio Players By:",
+                    ["Shares / Ownership", "Consensus Value", "Exposure %", "Overall Rank", "Pos Rank", "Age", "Player Name"],
+                    key="port_sort_col"
                 )
-            with c_pview2:
+            with c_psort2:
+                sort_port_order = st.selectbox(
+                    "Order:",
+                    ["Descending (High / Best)", "Ascending (Low)"],
+                    key="port_sort_order"
+                )
+            with c_psort3:
                 st.caption(f"Showing {len(filtered_exp)} portfolio players matching filters.")
 
-            if port_view == "Standard Table":
-                st.html(render_portfolio_table_html(filtered_exp[:100]))
-            else:
-                c_psort1, c_psort2 = st.columns([2, 1])
-                with c_psort1:
-                    sort_port_col = st.selectbox(
-                        "Sort Portfolio Players By:",
-                        ["Shares / Ownership", "Consensus Value", "Exposure %", "Overall ECR", "Pos ECR", "Age", "Player Name"],
-                        key="port_sort_col"
-                    )
-                with c_psort2:
-                    sort_port_order = st.selectbox(
-                        "Order:",
-                        ["Descending (High / Best)", "Ascending (Low)"],
-                        key="port_sort_order"
-                    )
+            sorted_port = list(filtered_exp)
+            is_desc = "Descending" in sort_port_order
 
-                sorted_port = list(filtered_exp)
-                is_desc = "Descending" in sort_port_order
+            def safe_ecr(val_str):
+                digits = "".join(c for c in str(val_str) if c.isdigit())
+                return float(digits) if digits else 9999.0
 
-                def safe_ecr(val_str):
-                    digits = "".join(c for c in str(val_str) if c.isdigit())
-                    return float(digits) if digits else 9999.0
+            def safe_age(val):
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return 0.0
 
-                def safe_age(val):
-                    try:
-                        return float(val)
-                    except (ValueError, TypeError):
-                        return 0.0
+            if sort_port_col == "Shares / Ownership":
+                sorted_port.sort(key=lambda x: (x.get("Share Count", 0), x.get("Consensus Value", 0)), reverse=is_desc)
+            elif sort_port_col == "Exposure %":
+                sorted_port.sort(key=lambda x: x.get("Exposure %", 0.0), reverse=is_desc)
+            elif sort_port_col == "Consensus Value":
+                sorted_port.sort(key=lambda x: float(x.get("Consensus Value", 0) if isinstance(x.get("Consensus Value"), (int, float)) else 0), reverse=is_desc)
+            elif sort_port_col in ("Overall Rank", "Overall ECR"):
+                sorted_port.sort(key=lambda x: safe_ecr(x.get("Overall ECR")), reverse=not is_desc)
+            elif sort_port_col in ("Pos Rank", "Pos ECR"):
+                sorted_port.sort(key=lambda x: safe_ecr(x.get("Pos ECR")), reverse=not is_desc)
+            elif sort_port_col == "Age":
+                sorted_port.sort(key=lambda x: safe_age(x.get("Age")), reverse=is_desc)
+            elif sort_port_col == "Player Name":
+                sorted_port.sort(key=lambda x: str(x.get("Player", "")).lower(), reverse=not is_desc)
 
-                if sort_port_col == "Shares / Ownership":
-                    sorted_port.sort(key=lambda x: (x.get("Share Count", 0), x.get("Consensus Value", 0)), reverse=is_desc)
-                elif sort_port_col == "Exposure %":
-                    sorted_port.sort(key=lambda x: x.get("Exposure %", 0.0), reverse=is_desc)
-                elif sort_port_col == "Consensus Value":
-                    sorted_port.sort(key=lambda x: float(x.get("Consensus Value", 0) if isinstance(x.get("Consensus Value"), (int, float)) else 0), reverse=is_desc)
-                elif sort_port_col == "Overall ECR":
-                    sorted_port.sort(key=lambda x: safe_ecr(x.get("Overall ECR")), reverse=not is_desc)
-                elif sort_port_col == "Pos ECR":
-                    sorted_port.sort(key=lambda x: safe_ecr(x.get("Pos ECR")), reverse=not is_desc)
-                elif sort_port_col == "Age":
-                    sorted_port.sort(key=lambda x: safe_age(x.get("Age")), reverse=is_desc)
-                elif sort_port_col == "Player Name":
-                    sorted_port.sort(key=lambda x: str(x.get("Player", "")).lower(), reverse=not is_desc)
-
-                st.html(render_portfolio_table_html(sorted_port[:100]))
+            st.html(render_portfolio_table_html(sorted_port[:100]))
         else:
             st.info("No players matching the portfolio filter criteria.")

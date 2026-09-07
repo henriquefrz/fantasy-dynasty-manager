@@ -514,6 +514,40 @@ def enrich_lookup_with_consensus_values(
         if "rank_ecr_pos" not in p:
             p["rank_ecr_pos"] = p.get("rank_ecr", 999.0)
 
+    recompute_consensus_ranks(lookup)
+    return lookup
+
+
+def recompute_consensus_ranks(lookup):
+    """
+    Assigns mathematically consistent consensus overall and positional ranks
+    strictly based on each player's active 'market_value' (descending).
+    Preserves original raw FantasyPros expert ranks as 'fp_ecr_overall' and 'fp_ecr_pos'.
+    """
+    for p in lookup.values():
+        if "fp_ecr_overall" not in p:
+            p["fp_ecr_overall"] = p.get("rank_ecr_overall", 999.0)
+        if "fp_ecr_pos" not in p:
+            p["fp_ecr_pos"] = p.get("rank_ecr_pos", p.get("rank_ecr", 999.0))
+
+    def sort_key(item):
+        val = float(item[1].get("market_value") or 0.0)
+        fp_o = float(item[1].get("fp_ecr_overall") or 9999.0)
+        return (-val, fp_o)
+
+    sorted_players = sorted(lookup.items(), key=sort_key)
+
+    by_pos = {}
+    for overall_idx, (pid, p_data) in enumerate(sorted_players, start=1):
+        p_data["rank_ecr_overall"] = float(overall_idx)
+        pos = p_data.get("position") or "UTIL"
+        by_pos.setdefault(pos, []).append((pid, p_data))
+
+    for pos, p_list in by_pos.items():
+        for pos_idx, (pid, p_data) in enumerate(p_list, start=1):
+            p_data["rank_ecr_pos"] = float(pos_idx)
+            p_data["rank_ecr"] = float(pos_idx)
+
     return lookup
 
 
@@ -521,19 +555,20 @@ def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
     """
     Dynamically recalculates 'market_value' for all players in an existing lookup
     using their stored fc_val, ktc_val, and dp_val without re-fetching from APIs.
-    Optionally re-applies TE Premium.
+    Optionally re-applies TE Premium. Recomputes consensus ranks.
     """
     for pid, p in lookup.items():
         fc_val = p.get("fc_val")
         ktc_val = p.get("ktc_val")
         dp_val = p.get("dp_val")
-        rank_ecr = p.get("rank_ecr", 999.0)
+        rank_ecr = p.get("fp_ecr_pos", p.get("rank_ecr", 999.0))
         pos = p.get("position", "")
         p["market_value"] = compute_composite_value(fc_val, ktc_val, dp_val, mode=mode, rank_ecr=rank_ecr, position=pos)
 
     if bonus_rec_te and bonus_rec_te > 0:
         apply_te_premium(lookup, bonus_rec_te)
 
+    recompute_consensus_ranks(lookup)
     return lookup
 
 
@@ -572,6 +607,7 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
         else:
             p_data["market_value"] = 0.0
 
+    recompute_consensus_ranks(lookup)
     return lookup
 
 

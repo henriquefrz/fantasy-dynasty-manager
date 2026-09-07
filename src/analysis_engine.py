@@ -421,7 +421,9 @@ def enrich_with_alt_ranking(suggestions, alt_lookup):
         add_alt = alt_lookup.get(suggestion.get("add_player_id")) if alt_lookup else None
         drop_alt = alt_lookup.get(suggestion.get("drop_player_id")) if alt_lookup else None
 
-        suggestion["add_alt_rank"] = add_alt["rank_ecr"] if add_alt else None
-        suggestion["drop_alt_rank"] = drop_alt["rank_ecr"] if drop_alt else None
+        suggestion["add_alt_rank"] = (add_alt.get("rank_ecr_overall") or add_alt.get("rank_ecr")) if add_alt else None
+        suggestion["add_alt_pos_rank"] = (add_alt.get("rank_ecr_pos") or add_alt.get("rank_ecr")) if add_alt else None
+        suggestion["drop_alt_rank"] = (drop_alt.get("rank_ecr_overall") or drop_alt.get("rank_ecr")) if drop_alt else None
+        suggestion["drop_alt_pos_rank"] = (drop_alt.get("rank_ecr_pos") or drop_alt.get("rank_ecr")) if drop_alt else None
 
     return suggestions
