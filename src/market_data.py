@@ -669,12 +669,116 @@ def _calculate_redraft_depth_value(blended_rank: float) -> float:
     return round(val, 1)
 
 
-def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
+def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, is_superflex=False):
     """
-    Enriches redraft lookup with authentic single-season market values
-    from FantasyCalc (reflecting win-now impact without dynasty age penalties).
-    Blends FantasyPros Redraft ECR and FantasyCalc rank data to assign mathematically
-    consistent consensus overall and positional ranks.
+    Computes statistical projected weekly points (PPG), positional ranks,
+    and VORP-based overall ranks for all players in projections_raw.
+    Acts as Pillar 3 in the Tri-Factor Redraft / ROS Consensus Engine.
+    """
+    from src.start_sit import calculate_weekly_projected_points
+
+    if not projections_raw:
+        return {}
+
+    default_scoring = {
+        "rec": 0.5,
+        "pass_td": 4.0,
+        "pass_yd": 0.04,
+        "rush_yd": 0.1,
+        "rec_yd": 0.1,
+        "rush_td": 6.0,
+        "rec_td": 6.0,
+        "pass_int": -2.0,
+        "fum_lost": -2.0,
+    }
+    active_scoring = scoring_settings if scoring_settings else default_scoring
+
+    scored_players = []
+    for pid, raw_proj in projections_raw.items():
+        if not raw_proj:
+            continue
+        p_data = lookup.get(str(pid)) or {}
+        pos = str(p_data.get("position") or raw_proj.get("pos") or "").upper()
+        name = p_data.get("player_name") or raw_proj.get("player_name") or str(pid)
+
+        if pos not in ("QB", "RB", "WR", "TE", "K", "DEF", "DST"):
+            continue
+
+        player_obj = {"position": pos, "full_name": name, "player_id": str(pid)}
+        pts = calculate_weekly_projected_points(str(pid), raw_proj, active_scoring, player_obj)
+        if pts > 0.0:
+            scored_players.append({
+                "pid": str(pid),
+                "name": name,
+                "pos": pos,
+                "pts": pts,
+            })
+
+    # 1. Compute Positional Ranks (1 to N within each position)
+    by_pos = {}
+    for p in scored_players:
+        by_pos.setdefault(p["pos"], []).append(p)
+
+    for pos, p_list in by_pos.items():
+        p_list.sort(key=lambda x: x["pts"], reverse=True)
+        for rank_idx, p in enumerate(p_list, start=1):
+            p["pos_rank"] = rank_idx
+
+    # 2. Compute Overall Ranks via Value Over Replacement Player (VORP)
+    # Baseline replacement levels in a 12-team league:
+    # 1QB: QB12, RB24, WR36, TE12
+    # Superflex: QB24, RB24, WR36, TE12
+    qb_baseline_idx = 23 if is_superflex else 11
+
+    def _get_baseline_pts(pos_key, idx, default_pts):
+        p_list = by_pos.get(pos_key, [])
+        if len(p_list) > idx:
+            return p_list[idx]["pts"]
+        return default_pts
+
+    baselines = {
+        "QB": _get_baseline_pts("QB", qb_baseline_idx, 14.0),
+        "RB": _get_baseline_pts("RB", 23, 8.0),
+        "WR": _get_baseline_pts("WR", 35, 8.0),
+        "TE": _get_baseline_pts("TE", 11, 6.0),
+        "K": _get_baseline_pts("K", 11, 6.0),
+        "DEF": _get_baseline_pts("DEF", 11, _get_baseline_pts("DST", 11, 6.0)),
+        "DST": _get_baseline_pts("DST", 11, 6.0),
+    }
+
+    for p in scored_players:
+        b_pts = baselines.get(p["pos"], 6.0)
+        if p["pos"] in ("K", "DEF", "DST"):
+            p["vorp"] = (p["pts"] - b_pts) - 4.0
+        else:
+            p["vorp"] = p["pts"] - b_pts
+
+    scored_players.sort(key=lambda x: x["vorp"], reverse=True)
+    for overall_idx, p in enumerate(scored_players, start=1):
+        p["overall_rank"] = overall_idx
+
+    return {
+        p["pid"]: {
+            "ppg": round(p["pts"], 1),
+            "pos_rank": p["pos_rank"],
+            "overall_rank": p["overall_rank"],
+        }
+        for p in scored_players
+    }
+
+
+def enrich_lookup_with_redraft_values(
+    lookup,
+    fc_redraft_raw=None,
+    projections_raw=None,
+    scoring_settings=None,
+    is_superflex=False,
+):
+    """
+    Enriches redraft lookup with authentic 3-Pillar Consensus single-season market values:
+    - Pillar 1 (Market Trades): FantasyCalc Redraft Trade Values & Ranks
+    - Pillar 2 (Expert Consensus): FantasyPros Redraft ECR & Positional Rankings
+    - Pillar 3 (Statistical Output): Sleeper Projections Model (Weekly PPG & VORP Ranks)
     Interpolates for depth players using a calibrated exponential depth curve without inverted rank artifacts.
     """
     fc_player_map = {}
@@ -682,7 +786,7 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
 
     for item in (fc_redraft_raw or []):
         p_info = item.get("player") or {}
-        sid = str(p_info.get("sleeperId") or "")
+        sid = str(p_info.get("sleeperId") or item.get("sleeperId") or "")
         v_raw = item.get("value")
         o_raw = item.get("overallRank")
         p_raw = item.get("positionRank")
@@ -714,8 +818,29 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
 
     fc_curve.sort(key=lambda x: x[0])
 
+    # Extract Pillar 3: Sleeper Quant Projections Model
+    proj_map = _extract_projections_pillar(
+        projections_raw=projections_raw,
+        lookup=lookup,
+        scoring_settings=scoring_settings,
+        is_superflex=is_superflex,
+    )
+
     for sleeper_id, p_data in lookup.items():
         pos = str(p_data.get("position", "")).upper()
+        sid_str = str(sleeper_id)
+
+        # Projections data for this player
+        p_proj = proj_map.get(sid_str)
+        proj_ppg = p_proj["ppg"] if p_proj else None
+        proj_o = float(p_proj["overall_rank"]) if p_proj else None
+        proj_p = float(p_proj["pos_rank"]) if p_proj else None
+
+        p_data["proj_ppg"] = proj_ppg
+        p_data["proj_overall_rank"] = proj_o
+        p_data["proj_pos_rank"] = proj_p
+
+        # Kickers and DSTs
         if pos in ("K", "DST", "DEF"):
             r_ecr = p_data.get("rank_ecr") or 1.0
             if r_ecr < 900:
@@ -724,6 +849,8 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
                 kv = 25.0
             p_data["market_value"] = kv
             p_data["fc_val"] = kv
+            p_data["fc_overall_rank"] = None
+            p_data["fc_pos_rank"] = None
             p_data["fp_ecr_overall"] = float(p_data.get("rank_ecr_overall") or 999.0)
             p_data["fp_ecr_pos"] = float(p_data.get("rank_ecr_pos") or p_data.get("rank_ecr") or 999.0)
             continue
@@ -733,48 +860,57 @@ def enrich_lookup_with_redraft_values(lookup, fc_redraft_raw=None):
         p_data["fp_ecr_overall"] = fp_o
         p_data["fp_ecr_pos"] = fp_p
 
-        fc_info = fc_player_map.get(sleeper_id)
+        fc_info = fc_player_map.get(sid_str)
         if fc_info:
             fc_o = fc_info["overall_rank"]
             fc_p = fc_info["pos_rank"]
             raw_fc_v = fc_info["val"]
             p_data["fc_val"] = raw_fc_v
-
-            # Consensus overall rank (50% FP ECR / 50% FC Rank when both exist)
-            if fp_o < 500 and fc_o is not None and fc_o < 500:
-                blended_o = round(fp_o * 0.5 + fc_o * 0.5, 1)
-            elif fp_o < 500:
-                blended_o = fp_o
-            elif fc_o is not None:
-                blended_o = fc_o
-            else:
-                blended_o = 999.0
-
-            # Consensus positional rank
-            if fp_p < 200 and fc_p is not None and fc_p < 200:
-                blended_p = round(fp_p * 0.5 + fc_p * 0.5, 1)
-            elif fp_p < 200:
-                blended_p = fp_p
-            elif fc_p is not None:
-                blended_p = fc_p
-            else:
-                blended_p = 999.0
-
-            if blended_o <= 160 and fc_curve:
-                curve_v = _interpolate_value_from_ecr(fc_curve, blended_o)
-                p_data["market_value"] = round(max(raw_fc_v, curve_v * 0.85 if curve_v > 40 else curve_v), 1)
-            else:
-                depth_v = _calculate_redraft_depth_value(blended_o)
-                p_data["market_value"] = round(max(raw_fc_v, depth_v), 1)
+            p_data["fc_overall_rank"] = fc_o
+            p_data["fc_pos_rank"] = fc_p
         else:
-            blended_o = fp_o
-            blended_p = fp_p
+            fc_o = None
+            fc_p = None
+            raw_fc_v = 0.0
             p_data["fc_val"] = None
+            p_data["fc_overall_rank"] = None
+            p_data["fc_pos_rank"] = None
 
-            if blended_o <= 160 and fc_curve:
-                p_data["market_value"] = round(_interpolate_value_from_ecr(fc_curve, blended_o), 1)
-            else:
-                p_data["market_value"] = round(_calculate_redraft_depth_value(blended_o), 1)
+        # Tri-Factor Overall Consensus Rank (FC + FP + PROJ)
+        valid_overall = []
+        if fc_o is not None and fc_o < 500:
+            valid_overall.append(fc_o)
+        if fp_o < 500:
+            valid_overall.append(fp_o)
+        if proj_o is not None and proj_o < 500:
+            valid_overall.append(proj_o)
+
+        if valid_overall:
+            blended_o = round(sum(valid_overall) / len(valid_overall), 1)
+        else:
+            blended_o = 999.0
+
+        # Tri-Factor Positional Consensus Rank (FC + FP + PROJ)
+        valid_pos = []
+        if fc_p is not None and fc_p < 200:
+            valid_pos.append(fc_p)
+        if fp_p < 200:
+            valid_pos.append(fp_p)
+        if proj_p is not None and proj_p < 200:
+            valid_pos.append(proj_p)
+
+        if valid_pos:
+            blended_p = round(sum(valid_pos) / len(valid_pos), 1)
+        else:
+            blended_p = 999.0
+
+        # Calculate Consensus Market Value
+        if blended_o <= 160 and fc_curve:
+            curve_v = _interpolate_value_from_ecr(fc_curve, blended_o)
+            p_data["market_value"] = round(max(raw_fc_v, curve_v * 0.85 if curve_v > 40 else curve_v), 1)
+        else:
+            depth_v = _calculate_redraft_depth_value(blended_o)
+            p_data["market_value"] = round(max(raw_fc_v, depth_v), 1)
 
         p_data["rank_ecr_overall"] = blended_o
         p_data["rank_ecr_pos"] = blended_p

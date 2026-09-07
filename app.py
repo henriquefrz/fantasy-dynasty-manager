@@ -1079,11 +1079,13 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 32%; text-align: left;'>Player</th>
-                    <th style='width: 15%; text-align: center;'>Overall Rank</th>
-                    <th style='width: 15%; text-align: center;'>Pos Rank</th>
-                    <th style='width: 19%; text-align: center;'>Single-Season Value</th>
-                    <th style='width: 19%; text-align: center;'>FantasyCalc Redraft</th>
+                    <th style='width: 27%; text-align: left;'>Player</th>
+                    <th style='width: 11%; text-align: center;'>Overall Rank</th>
+                    <th style='width: 11%; text-align: center;'>Pos Rank</th>
+                    <th style='width: 15%; text-align: center;'>Single-Season Value</th>
+                    <th style='width: 12%; text-align: center;'>FantasyCalc Trade</th>
+                    <th style='width: 12%; text-align: center;'>FantasyPros ECR</th>
+                    <th style='width: 12%; text-align: center;'>Sleeper Proj PPG</th>
                 </tr>
             </thead>
             <tbody>
@@ -1119,6 +1121,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
         val = r.get("Consensus Value", "0 pts")
         ktc = r.get("KeepTradeCut", "—")
         fc = r.get("FantasyCalc", "—")
+        fp = r.get("FantasyPros ECR", "—")
+        proj = r.get("Sleeper Proj PPG", "—")
         dp = r.get("DynastyProcess", "—")
 
         is_pick = False if is_redraft else is_draft_pick_asset(pid, pname, pos)
@@ -1156,6 +1160,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center; color: #94a3b8;'>{fc}</td>
+                    <td style='text-align: center; color: #94a3b8;'>{fp}</td>
+                    <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{proj}</td>
                 </tr>
             """
         else:
@@ -1291,6 +1297,38 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         age_cells += f"<td style='text-align: center; font-weight: 600; color: {color};'>{age_disp}</td>"
 
     if is_redraft:
+        # FantasyPros ECR Row
+        fp_cells = ""
+        valid_fps = [(p, float(p.get("fp_ecr_overall") or 999.0)) for p in comparison_assets if p.get("fp_ecr_overall") and float(p.get("fp_ecr_overall")) < 500]
+        if valid_fps:
+            fp_lead, fp_min = min(valid_fps, key=lambda x: x[1])
+            fp_adv = f"<span style='color: #fbbf24; font-weight: 700;'>{fp_lead['name']} (#{int(fp_min)})</span>"
+        else:
+            fp_min = None
+            fp_adv = "—"
+        for p in comparison_assets:
+            fp_v = p.get("fp_ecr_overall")
+            fp_str = f"#{int(fp_v)}" if (fp_v and float(fp_v) < 500) else "—"
+            is_fp_lead = (fp_v and float(fp_v) == fp_min and fp_min is not None)
+            color = "#fbbf24" if is_fp_lead else "#94a3b8"
+            fp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fp_str}</td>"
+
+        # Sleeper Projections PPG Row
+        proj_cells = ""
+        valid_projs = [(p, float(p.get("proj_ppg") or 0.0)) for p in comparison_assets if p.get("proj_ppg") is not None]
+        if valid_projs and max(x[1] for x in valid_projs) > 0:
+            proj_lead, proj_max = max(valid_projs, key=lambda x: x[1])
+            proj_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{proj_lead['name']} ({proj_max:.1f} PPG)</span>"
+        else:
+            proj_max = None
+            proj_adv = "—"
+        for p in comparison_assets:
+            pj_v = p.get("proj_ppg")
+            pj_str = f"{float(pj_v):.1f} PPG" if pj_v is not None else "—"
+            is_pj_lead = (pj_v is not None and float(pj_v) == proj_max and proj_max > 0)
+            color = "#38bdf8" if is_pj_lead else "#94a3b8"
+            proj_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{pj_str}</td>"
+
         rows_html = f"""
             <tr>
                 <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Consensus Value</td>
@@ -1308,9 +1346,19 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
                 <td style='text-align: center;'>{pos_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc (Single-Season)</td>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc Trade Value</td>
                 {fc_cells}
                 <td style='text-align: center;'>{fc_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyPros Consensus ECR</td>
+                {fp_cells}
+                <td style='text-align: center;'>{fp_adv}</td>
+            </tr>
+            <tr>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Sleeper Projected PPG</td>
+                {proj_cells}
+                <td style='text-align: center;'>{proj_adv}</td>
             </tr>
             <tr>
                 <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
@@ -1948,7 +1996,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v16_dynamic_record_rebuild_ceiling"):
+def fetch_market_database(_cache_version="v17_tri_factor_ros_engine"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -1961,6 +2009,11 @@ def fetch_market_database(_cache_version="v16_dynamic_record_rebuild_ceiling"):
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
     fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
+
+    nfl_state = get_nfl_state() or {}
+    season = nfl_state.get("season", "2026")
+    week = max(1, nfl_state.get("week", 1))
+    projections_raw = get_weekly_projections(season, week)
 
     # Positional lookups with raw constituent values preserved
     base_dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=True)
@@ -1976,7 +2029,7 @@ def fetch_market_database(_cache_version="v16_dynamic_record_rebuild_ceiling"):
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
-    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft)
+    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft, projections_raw=projections_raw)
 
     # Raw pick bundles for instant mode switching
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
@@ -1995,6 +2048,7 @@ def fetch_market_database(_cache_version="v16_dynamic_record_rebuild_ceiling"):
         "fc_sf": fc_sf,
         "fc_1qb": fc_1qb,
         "fc_redraft": fc_redraft,
+        "projections_raw": projections_raw,
         "dynasty_sf_lookup": base_dynasty_sf,
         "dynasty_1qb_lookup": base_dynasty_1qb,
         "redraft_lookup": base_redraft,
@@ -4419,6 +4473,9 @@ else:
             ktc_v = p_data.get("ktc_val")
             fc_v = p_data.get("fc_val")
             dp_v = p_data.get("dp_val")
+            proj_ppg = p_data.get("proj_ppg")
+            fp_o = p_data.get("fp_ecr_overall")
+            fp_p = p_data.get("fp_ecr_pos")
 
             pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
             overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
@@ -4455,6 +4512,13 @@ else:
                 "KeepTradeCut": f"{ktc_v:,.0f}" if ktc_v is not None else "—",
                 "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
                 "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
+                "FantasyPros ECR": f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500) else "—",
+                "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
+                "proj_ppg": proj_ppg,
+                "fp_ecr_overall": fp_o,
+                "fp_ecr_pos": fp_p,
+                "_proj_ppg": float(proj_ppg or 0.0),
+                "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
                 "ktc_val": ktc_v,
                 "fc_val": fc_v,
                 "dp_val": dp_v,
@@ -4492,7 +4556,7 @@ else:
                 c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
                 with c_mksort1:
                     sort_options = (
-                        ["Consensus Value", "Overall Rank", "Pos Rank", "FantasyCalc", "Player Name"]
+                        ["Consensus Value", "Overall Rank", "Pos Rank", "FantasyCalc", "FantasyPros ECR", "Sleeper Projections PPG", "Player Name"]
                         if is_redraft
                         else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
                     )
@@ -4527,6 +4591,10 @@ else:
                     sorted_mkt.sort(key=lambda x: x["_ktc"], reverse=is_desc)
                 elif sort_mkt_col == "FantasyCalc":
                     sorted_mkt.sort(key=lambda x: x["_fc"], reverse=is_desc)
+                elif sort_mkt_col == "FantasyPros ECR":
+                    sorted_mkt.sort(key=lambda x: x["_fp_ecr"], reverse=not is_desc)
+                elif sort_mkt_col == "Sleeper Projections PPG":
+                    sorted_mkt.sort(key=lambda x: x["_proj_ppg"], reverse=is_desc)
                 elif sort_mkt_col == "DynastyProcess":
                     sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
                 elif sort_mkt_col == "Player Name":
@@ -4672,6 +4740,25 @@ else:
                             sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p1['name']}</b> (+{d_diff:,.0f} pts).")
                         elif d_diff < 0:
                             sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p2['name']}</b> (+{abs(d_diff):,.0f} pts).")
+                else:
+                    if p1.get("proj_ppg") and p2.get("proj_ppg"):
+                        p_diff = float(p1["proj_ppg"]) - float(p2["proj_ppg"])
+                        if p_diff > 0:
+                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>Sleeper Projections</span> model projects <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG, +{p_diff:.1f} PPG).")
+                        elif p_diff < 0:
+                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>Sleeper Projections</span> model projects <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG, +{abs(p_diff):.1f} PPG).")
+
+                    if p1.get("fp_ecr_overall") and p2.get("fp_ecr_overall"):
+                        try:
+                            fp1 = float(p1["fp_ecr_overall"])
+                            fp2 = float(p2["fp_ecr_overall"])
+                            if fp1 < 500 and fp2 < 500:
+                                if fp1 < fp2:
+                                    sentiment_bullets.append(f"<span style='color: #fbbf24;'>FantasyPros ECR</span> consensus favors <b>{p1['name']}</b> (#{int(fp1)} vs #{int(fp2)}).")
+                                elif fp2 < fp1:
+                                    sentiment_bullets.append(f"<span style='color: #fbbf24;'>FantasyPros ECR</span> consensus favors <b>{p2['name']}</b> (#{int(fp2)} vs #{int(fp1)}).")
+                        except (ValueError, TypeError):
+                            pass
 
                 # Executive Advantage Banner
                 lead_title = "Single-Season Value Leader" if is_redraft else "Consensus Value Leader"
@@ -4719,16 +4806,25 @@ else:
                         val_card_title = "Single-Season Market Value" if is_redraft else "Consensus Market Value"
 
                         if is_redraft:
+                            fp_o_val = asset.get("fp_ecr_overall")
+                            fp_disp = f"#{int(fp_o_val)}" if (fp_o_val and float(fp_o_val) < 500) else "—"
+                            pj_val = asset.get("proj_ppg")
+                            pj_disp = f"{pj_val:.1f} PPG" if pj_val is not None else "—"
+
                             constituent_grid = f"""
                             <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
-                            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
+                            <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;'>
                                 <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc Redraft</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                    <div style='font-size: 0.64rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
                                 </div>
                                 <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Redraft Rank</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{asset['pos_ecr_str']}</div>
+                                    <div style='font-size: 0.64rem; color: #fbbf24; font-weight: 700;'>FantasyPros</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fp_disp}</div>
+                                </div>
+                                <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.64rem; color: #38bdf8; font-weight: 700;'>Projections</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{pj_disp}</div>
                                 </div>
                             </div>
                             """
