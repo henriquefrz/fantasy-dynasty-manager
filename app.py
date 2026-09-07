@@ -389,7 +389,54 @@ st.markdown(
         border-radius: 10px !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         background: #111827 !important;
-        overflow: hidden !important;
+    /* Matchup Arena & Start/Sit Responsive Components */
+    .matchup-arena-card {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    }
+    .matchup-arena-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 16px;
+        align-items: center;
+    }
+    .arena-team-left {
+        text-align: left;
+    }
+    .arena-team-right {
+        text-align: right;
+    }
+    .arena-vs-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 12px;
+    }
+    .arena-proj-score {
+        font-size: 2.1rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    .start-sit-card {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .start-sit-middle {
+        text-align: center;
+        flex-shrink: 0;
     }
     .player-cell {
         display: flex;
@@ -671,6 +718,61 @@ st.markdown(
             width: 36px !important;
             height: 36px !important;
         }
+
+        /* Mobile Matchup Arena Card */
+        .matchup-arena-card {
+            padding: 14px 12px !important;
+            margin-bottom: 14px !important;
+        }
+        .matchup-arena-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+        }
+        .arena-team-left, .arena-team-right {
+            text-align: center !important;
+        }
+        .arena-proj-score {
+            font-size: 1.55rem !important;
+        }
+        .arena-vs-col {
+            grid-column: span 2 !important;
+            flex-direction: row !important;
+            order: 3 !important;
+            padding-top: 8px !important;
+            margin-top: 6px !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+            gap: 10px !important;
+        }
+
+        /* Mobile Start/Sit Card */
+        .start-sit-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+            padding: 12px 12px !important;
+        }
+        .start-sit-middle {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding-bottom: 8px !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            order: -1 !important;
+        }
+        .start-sit-player-right {
+            flex-direction: row !important;
+            justify-content: flex-start !important;
+        }
+        .start-sit-player-right-info {
+            text-align: left !important;
+            order: 2 !important;
+        }
+        .start-sit-player-right-avatar {
+            order: 1 !important;
+        }
+        .start-sit-player-right-badge {
+            order: 0 !important;
+        }
     }
     </style>
     """,
@@ -933,6 +1035,70 @@ def render_portfolio_table_html(portfolio_rows):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_picks_table_html(pick_rows, show_equity=False):
+    """
+    Renders Future Draft Capital Portfolio with purple Draft Pick Shield badges,
+    spacious rows (~56px), and consensus market value, matching website theme.
+    """
+    if not pick_rows:
+        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No future draft picks recorded.</p>"
+
+    eq_th = "<th style='width: 15%; text-align: center;'>Equity</th>" if show_equity else ""
+
+    html = f"""
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-roster'>
+        <thead>
+            <tr>
+                <th style='width: 45%; text-align: left;'>Draft Pick Asset</th>
+                <th style='width: 15%; text-align: center;'>Season</th>
+                <th style='width: 15%; text-align: center;'>Round</th>
+                <th style='width: 25%; text-align: center;'>Consensus Market Value</th>
+                {eq_th}
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for r in pick_rows:
+        asset_name = r.get("Draft Pick Asset", "Draft Pick")
+        season = r.get("Season", "—")
+        round_str = r.get("Round", "—")
+        val = r.get("Consensus Market Value", r.get("Consensus Value", "0 pts"))
+        eq = r.get("Equity Share", "0.0%")
+
+        avatar_img = "<div class='player-avatar-44' style='background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(126, 34, 206, 0.45) 100%); border: 1px solid rgba(168, 85, 247, 0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d8b4fe; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;'><span>PICK</span></div>"
+
+        eq_td = f"<td style='color: #38bdf8; font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
+
+        html += f"""
+            <tr>
+                <td style='text-align: left;'>
+                    <div class='player-cell'>
+                        {avatar_img}
+                        <div class='player-info'>
+                            <span class='player-name'>{asset_name}</span>
+                            <div class='player-meta'>
+                                <span class='badge-pos badge-pick' style='font-size: 0.68rem; padding: 1px 5px;'>PICK</span>
+                                <span>{season}</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td style='text-align: center; color: #f8fafc; font-weight: 700;'><span class='rank-pill'>{season}</span></td>
+                <td style='text-align: center; color: #cbd5e1;'><span class='rank-pill rank-pill-highlight'>{round_str}</span></td>
+                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
+                {eq_td}
+            </tr>
+        """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
 def render_power_simulation_table_html(sim_rows, user_roster_id):
     """
     Renders Season Standings & Playoff Simulation table with subtle cyan highlighting
@@ -1144,27 +1310,27 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
         spread_badge = f"<span style='background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>{diff:.1f} PTS UNDERDOG</span>"
 
     arena_html = f"""
-    <div style='background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);'>
-        <div style='display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;'>
+    <div class='matchup-arena-card'>
+        <div class='matchup-arena-grid'>
             <!-- User Franchise -->
-            <div style='text-align: left;'>
+            <div class='arena-team-left'>
                 <div style='font-size: 0.7rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>YOUR FRANCHISE</div>
-                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0;'>{user_name}</div>
-                <div style='font-size: 2.1rem; font-weight: 900; color: #38bdf8; line-height: 1;'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{user_name}</div>
+                <div class='arena-proj-score' style='color: #38bdf8;'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
                 <div style='font-size: 0.76rem; color: #94a3b8; margin-top: 6px;'>Optimal Ceiling: <strong style='color: #f8fafc;'>{user_ceiling:.1f} pts</strong></div>
             </div>
 
             <!-- VS & Spread Capsule -->
-            <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 12px;'>
-                <div style='background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 9999px; padding: 5px 14px; font-weight: 900; font-size: 1.05rem; color: #94a3b8; letter-spacing: 0.05em;'>VS</div>
+            <div class='arena-vs-col'>
+                <div style='background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 9999px; padding: 4px 12px; font-weight: 900; font-size: 0.95rem; color: #94a3b8; letter-spacing: 0.05em;'>VS</div>
                 {spread_badge}
             </div>
 
             <!-- Opponent Franchise -->
-            <div style='text-align: right;'>
+            <div class='arena-team-right'>
                 <div style='font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
-                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0;'>{opp_name}</div>
-                <div style='font-size: 2.1rem; font-weight: 900; color: #f8fafc; line-height: 1;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{opp_name}</div>
+                <div class='arena-proj-score' style='color: #f8fafc;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
                 <div style='font-size: 0.76rem; color: #64748b; margin-top: 6px;'>Week {active_week} Matchup</div>
             </div>
         </div>
@@ -1183,7 +1349,7 @@ def render_start_sit_card_html(swap):
     sit_avatar = get_player_avatar_url(sit_p.get("player_id"), sit_p.get("position"), sit_p.get("team"))
 
     card_html = f"""
-    <div style='background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
+    <div class='start-sit-card'>
         <!-- START Player -->
         <div style='display: flex; align-items: center; gap: 10px;'>
             <span style='background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>START</span>
@@ -1195,19 +1361,19 @@ def render_start_sit_card_html(swap):
         </div>
 
         <!-- Net Gain & Slot Pill -->
-        <div style='text-align: center;'>
+        <div class='start-sit-middle'>
             <div style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 800;'>+{gain:.1f} PTS GAIN</div>
             <div style='font-size: 0.7rem; color: #64748b; margin-top: 3px; font-weight: 600;'>Slot: {slot}</div>
         </div>
 
         <!-- SIT Player -->
-        <div style='display: flex; align-items: center; gap: 10px;'>
-            <div style='text-align: right;'>
+        <div class='start-sit-player-right' style='display: flex; align-items: center; gap: 10px;'>
+            <div class='start-sit-player-right-info' style='text-align: right;'>
                 <div style='font-size: 0.92rem; font-weight: 800; color: #cbd5e1;'>{sit_p.get("full_name")}</div>
                 <div style='font-size: 0.74rem; color: #64748b;'>{sit_p.get("position")} • {sit_p.get("team") or "FA"} • {swap["sit_proj"]:.1f} pts</div>
             </div>
-            <img src='{sit_avatar}' class='player-avatar-44' style='opacity: 0.75;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
-            <span style='background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 800; padding: 3px 7px; border-radius: 4px;'>SIT</span>
+            <img src='{sit_avatar}' class='player-avatar-44 start-sit-player-right-avatar' style='opacity: 0.75;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+            <span class='start-sit-player-right-badge' style='background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>SIT</span>
         </div>
     </div>
     """
@@ -1218,7 +1384,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v7_fantasy_analytics_executive"):
+def fetch_market_database(_cache_version="v8_fantasy_analytics_executive"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2291,10 +2457,7 @@ else:
                 })
             if pick_rows:
                 pick_rows.sort(key=lambda x: x["_val"], reverse=True)
-                df_picks = pd.DataFrame(pick_rows)
-                if "_val" in df_picks.columns:
-                    df_picks = df_picks.drop(columns=["_val"])
-                st.dataframe(df_picks, hide_index=True, use_container_width=True)
+                st.html(render_picks_table_html(pick_rows))
             else:
                 st.info("No future draft picks recorded.")
 
@@ -2526,11 +2689,13 @@ else:
             add_rank = s.get("add_ranking", {})
             dyn_o_ecr = add_rank.get("rank_ecr_overall", 999.0)
             dyn_p_ecr = add_rank.get("rank_ecr_pos", add_rank.get("rank_ecr", 999.0))
-            ros_rank = s.get("add_alt_rank") or 999.0
+            ros_o_rank = s.get("add_alt_rank") or (add_rank.get("rank_ecr_overall") if not eval_dynasty else alt_eval_lookup.get(add_id, {}).get("rank_ecr_overall", 999.0))
+            ros_p_rank = s.get("add_alt_pos_rank") or (add_rank.get("rank_ecr_pos") if not eval_dynasty else alt_eval_lookup.get(add_id, {}).get("rank_ecr_pos", 999.0))
 
             dyn_o_str = f"#{int(dyn_o_ecr)}" if (dyn_o_ecr and dyn_o_ecr < 900) else "—"
             dyn_p_str = f"{pos}{int(dyn_p_ecr)}" if (dyn_p_ecr and dyn_p_ecr < 900) else "—"
-            ros_str = f"#{int(ros_rank)}" if (ros_rank and ros_rank < 900) else "—"
+            ros_o_str = f"#{int(ros_o_rank)}" if (ros_o_rank and ros_o_rank < 900) else "—"
+            ros_p_str = f"{pos}{int(ros_p_rank)}" if (ros_p_rank and ros_p_rank < 900) else "—"
 
             # Drop player metrics & avatar
             drop_pos = drop_p.get("position", "UTIL")
@@ -2544,11 +2709,13 @@ else:
 
             drop_dyn_o = drop_rank.get("rank_ecr_overall", 999.0)
             drop_dyn_p = drop_rank.get("rank_ecr_pos", drop_rank.get("rank_ecr", 999.0))
-            drop_ros_rank = s.get("drop_alt_rank") or alt_eval_lookup.get(drop_id, {}).get("rank_ecr_pos", 999.0)
+            drop_ros_o_rank = s.get("drop_alt_rank") or (drop_rank.get("rank_ecr_overall") if not eval_dynasty else alt_eval_lookup.get(drop_id, {}).get("rank_ecr_overall", 999.0))
+            drop_ros_p_rank = s.get("drop_alt_pos_rank") or (drop_rank.get("rank_ecr_pos") if not eval_dynasty else alt_eval_lookup.get(drop_id, {}).get("rank_ecr_pos", 999.0))
 
             drop_dyn_o_str = f"#{int(drop_dyn_o)}" if (drop_dyn_o and drop_dyn_o < 900) else "—"
             drop_dyn_p_str = f"{drop_pos}{int(drop_dyn_p)}" if (drop_dyn_p and drop_dyn_p < 900) else "—"
-            drop_ros_str = f"#{int(drop_ros_rank)}" if (drop_ros_rank and drop_ros_rank < 900) else "—"
+            drop_ros_o_str = f"#{int(drop_ros_o_rank)}" if (drop_ros_o_rank and drop_ros_o_rank < 900) else "—"
+            drop_ros_p_str = f"{drop_pos}{int(drop_ros_p_rank)}" if (drop_ros_p_rank and drop_ros_p_rank < 900) else "—"
 
             gain = s.get("market_value_gain", 0.0)
             gain_sign = "+" if gain >= 0 else ""
@@ -2614,7 +2781,7 @@ else:
                                 </div>
                                 <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
                                     <span class='rank-pill'>Dynasty: {dyn_val:,.0f} pts ({dyn_o_str} Ovr • {dyn_p_str})</span>
-                                    <span class='rank-pill rank-pill-highlight'>ROS: {ros_val:,.0f} pts (Rank {ros_str})</span>
+                                    <span class='rank-pill rank-pill-highlight'>ROS Value: {ros_val:,.0f} pts ({ros_o_str} Ovr • {ros_p_str})</span>
                                 </div>
                             </div>
                         </div>
@@ -2633,7 +2800,7 @@ else:
                                 </div>
                                 <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
                                     <span class='rank-pill'>Dynasty: {drop_dyn_val:,.0f} pts ({drop_dyn_o_str} Ovr • {drop_dyn_p_str})</span>
-                                    <span class='rank-pill rank-pill-highlight'>ROS: {drop_ros_val:,.0f} pts (Rank {drop_ros_str})</span>
+                                    <span class='rank-pill rank-pill-highlight'>ROS Value: {drop_ros_val:,.0f} pts ({drop_ros_o_str} Ovr • {drop_ros_p_str})</span>
                                 </div>
                             </div>
                         </div>
@@ -2729,9 +2896,14 @@ else:
                 ktc_str = "—"
 
             try:
-                dp_str = f"{float(dp_v):,.0f}" if dp_v is not None else "—"
+                raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
             except (ValueError, TypeError):
-                dp_str = "—"
+                raw_o_ecr = 9999.0
+
+            try:
+                raw_p_ecr = float(ecr) if (ecr is not None and float(ecr) < 900) else 9999.0
+            except (ValueError, TypeError):
+                raw_p_ecr = 9999.0
 
             fa_rows.append({
                 "Avatar": get_player_avatar_url(pid, pos, fa.get("team")),
@@ -2745,6 +2917,12 @@ else:
                 "KeepTradeCut": ktc_str,
                 "DynastyProcess": dp_str,
                 "_raw_val": val,
+                "_overall_ecr": raw_o_ecr,
+                "_pos_ecr": raw_p_ecr,
+                "_ktc": float(ktc_v) if (ktc_v is not None and str(ktc_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_fc": float(fc_v) if (fc_v is not None and str(fc_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_name": pname.lower(),
             })
 
         fa_rows.sort(key=lambda x: x["_raw_val"], reverse=True)
@@ -2766,31 +2944,38 @@ else:
             if fa_view == "Standard Table":
                 st.html(render_market_table_html(fa_rows[:50]))
             else:
-                df_rows = []
-                for r in fa_rows[:50]:
-                    r_copy = dict(r)
-                    if not str(r_copy.get("Avatar", "")).startswith("http"):
-                        r_copy["Avatar"] = "https://sleepercdn.com/images/v2/icons/player_default.webp"
-                    df_rows.append(r_copy)
-                df_fa = pd.DataFrame(df_rows).drop(columns=["_raw_val"])
-                st.dataframe(
-                    df_fa[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
-                    column_config={
-                        "Rank": st.column_config.TextColumn("Rank", width="small"),
-                        "Avatar": st.column_config.ImageColumn("", width="small"),
-                        "Player": st.column_config.TextColumn("Player", width="medium"),
-                        "Pos": st.column_config.TextColumn("Pos", width="small"),
-                        "NFL Team": st.column_config.TextColumn("Team", width="small"),
-                        "Consensus Value": st.column_config.TextColumn("Consensus Value", width="medium"),
-                        "Overall ECR": st.column_config.TextColumn("Overall ECR", width="small"),
-                        "Pos ECR": st.column_config.TextColumn("Pos ECR", width="small"),
-                        "KeepTradeCut": st.column_config.TextColumn("KeepTradeCut", width="small"),
-                        "FantasyCalc": st.column_config.TextColumn("FantasyCalc", width="small"),
-                        "DynastyProcess": st.column_config.TextColumn("DynastyProcess", width="small"),
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                )
+                c_fasort1, c_fasort2 = st.columns([2, 1])
+                with c_fasort1:
+                    sort_fa_col = st.selectbox(
+                        "Sort Free Agents By:",
+                        ["Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
+                        key="fa_sort_col"
+                    )
+                with c_fasort2:
+                    sort_fa_order = st.selectbox(
+                        "Order:",
+                        ["Descending (High / Best)", "Ascending (Low)"],
+                        key="fa_sort_order"
+                    )
+
+                sorted_fa = list(fa_rows)
+                is_desc = "Descending" in sort_fa_order
+                if sort_fa_col == "Consensus Value":
+                    sorted_fa.sort(key=lambda x: x["_raw_val"], reverse=is_desc)
+                elif sort_fa_col == "Overall ECR":
+                    sorted_fa.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
+                elif sort_fa_col == "Pos ECR":
+                    sorted_fa.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
+                elif sort_fa_col == "KeepTradeCut":
+                    sorted_fa.sort(key=lambda x: x["_ktc"], reverse=is_desc)
+                elif sort_fa_col == "FantasyCalc":
+                    sorted_fa.sort(key=lambda x: x["_fc"], reverse=is_desc)
+                elif sort_fa_col == "DynastyProcess":
+                    sorted_fa.sort(key=lambda x: x["_dp"], reverse=is_desc)
+                elif sort_fa_col == "Player Name":
+                    sorted_fa.sort(key=lambda x: x["_name"], reverse=not is_desc)
+
+                st.html(render_market_table_html(sorted_fa[:50]))
         else:
             st.info("No free agents match current filter criteria.")
 
@@ -2953,7 +3138,7 @@ else:
                                 "Consensus Value": f"{pk_val:,.0f} pts",
                                 "Equity Share": pk_eq,
                             })
-                        st.dataframe(pd.DataFrame(pk_rows), hide_index=True, use_container_width=True)
+                        st.html(render_picks_table_html(pk_rows, show_equity=True))
                     else:
                         st.info("No draft pick assets in this league format.")
 
@@ -3307,6 +3492,16 @@ else:
             pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
             overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
 
+            try:
+                raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
+            except (ValueError, TypeError):
+                raw_o_ecr = 9999.0
+
+            try:
+                raw_p_ecr = float(ecr) if (ecr is not None and float(ecr) < 900) else 9999.0
+            except (ValueError, TypeError):
+                raw_p_ecr = 9999.0
+
             market_rows.append({
                 "Avatar": get_player_avatar_url(pid, pos, team),
                 "Player": pname,
@@ -3319,6 +3514,12 @@ else:
                 "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
                 "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
                 "_val": val,
+                "_overall_ecr": raw_o_ecr,
+                "_pos_ecr": raw_p_ecr,
+                "_ktc": float(ktc_v) if (ktc_v is not None and str(ktc_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_fc": float(fc_v) if (fc_v is not None and str(fc_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_name": pname.lower(),
             })
 
         market_rows.sort(key=lambda x: x["_val"], reverse=True)
@@ -3342,31 +3543,38 @@ else:
             if mkt_view == "Standard Table":
                 st.html(render_market_table_html(market_rows[:100]))
             else:
-                df_rows = []
-                for r in market_rows[:150]:
-                    r_copy = dict(r)
-                    if not str(r_copy.get("Avatar", "")).startswith("http"):
-                        r_copy["Avatar"] = "https://sleepercdn.com/images/v2/icons/player_default.webp"
-                    df_rows.append(r_copy)
-                df_market = pd.DataFrame(df_rows).drop(columns=["_val"])
-                st.dataframe(
-                    df_market[["Rank", "Avatar", "Player", "Pos", "NFL Team", "Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess"]],
-                    column_config={
-                        "Rank": st.column_config.TextColumn("Rank", width="small"),
-                        "Avatar": st.column_config.ImageColumn("", width="small"),
-                        "Player": st.column_config.TextColumn("Player", width="medium"),
-                        "Pos": st.column_config.TextColumn("Pos", width="small"),
-                        "NFL Team": st.column_config.TextColumn("Team", width="small"),
-                        "Consensus Value": st.column_config.TextColumn("Consensus Value", width="medium"),
-                        "Overall ECR": st.column_config.TextColumn("Overall ECR", width="small"),
-                        "Pos ECR": st.column_config.TextColumn("Pos ECR", width="small"),
-                        "KeepTradeCut": st.column_config.TextColumn("KeepTradeCut", width="small"),
-                        "FantasyCalc": st.column_config.TextColumn("FantasyCalc", width="small"),
-                        "DynastyProcess": st.column_config.TextColumn("DynastyProcess", width="small"),
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                )
+                c_mksort1, c_mksort2 = st.columns([2, 1])
+                with c_mksort1:
+                    sort_mkt_col = st.selectbox(
+                        "Sort Market Players By:",
+                        ["Consensus Value", "Overall ECR", "Pos ECR", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
+                        key="mkt_sort_col"
+                    )
+                with c_mksort2:
+                    sort_mkt_order = st.selectbox(
+                        "Order:",
+                        ["Descending (High / Best)", "Ascending (Low)"],
+                        key="mkt_sort_order"
+                    )
+
+                sorted_mkt = list(market_rows)
+                is_desc = "Descending" in sort_mkt_order
+                if sort_mkt_col == "Consensus Value":
+                    sorted_mkt.sort(key=lambda x: x["_val"], reverse=is_desc)
+                elif sort_mkt_col == "Overall ECR":
+                    sorted_mkt.sort(key=lambda x: x["_overall_ecr"], reverse=not is_desc)
+                elif sort_mkt_col == "Pos ECR":
+                    sorted_mkt.sort(key=lambda x: x["_pos_ecr"], reverse=not is_desc)
+                elif sort_mkt_col == "KeepTradeCut":
+                    sorted_mkt.sort(key=lambda x: x["_ktc"], reverse=is_desc)
+                elif sort_mkt_col == "FantasyCalc":
+                    sorted_mkt.sort(key=lambda x: x["_fc"], reverse=is_desc)
+                elif sort_mkt_col == "DynastyProcess":
+                    sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
+                elif sort_mkt_col == "Player Name":
+                    sorted_mkt.sort(key=lambda x: x["_name"], reverse=not is_desc)
+
+                st.html(render_market_table_html(sorted_mkt[:100]))
         else:
             st.info("No players matched the filter criteria.")
 
@@ -3419,25 +3627,48 @@ else:
             if port_view == "Standard Table":
                 st.html(render_portfolio_table_html(filtered_exp[:100]))
             else:
-                df_exp = pd.DataFrame(filtered_exp)
-                df_exp["Consensus Value"] = df_exp["Consensus Value"].apply(lambda v: f"{v:,.0f} pts" if isinstance(v, (int, float)) else v)
-                st.dataframe(
-                    df_exp[["Avatar", "Player", "Pos", "NFL Team", "Age", "Shares", "Exposure", "Overall ECR", "Pos ECR", "Consensus Value", "Leagues Owned"]],
-                    column_config={
-                        "Avatar": st.column_config.ImageColumn("", width="small"),
-                        "Player": st.column_config.TextColumn("Player", width="medium"),
-                        "Pos": st.column_config.TextColumn("Pos", width="small"),
-                        "NFL Team": st.column_config.TextColumn("Team", width="small"),
-                        "Age": st.column_config.TextColumn("Age", width="small"),
-                        "Shares": st.column_config.TextColumn("Shares", width="small"),
-                        "Exposure": st.column_config.TextColumn("Exposure", width="small"),
-                        "Overall ECR": st.column_config.TextColumn("Overall ECR", width="small"),
-                        "Pos ECR": st.column_config.TextColumn("Pos ECR", width="small"),
-                        "Consensus Value": st.column_config.TextColumn("Consensus Value", width="medium"),
-                        "Leagues Owned": st.column_config.TextColumn("Leagues Owned", width="large"),
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                )
+                c_psort1, c_psort2 = st.columns([2, 1])
+                with c_psort1:
+                    sort_port_col = st.selectbox(
+                        "Sort Portfolio Players By:",
+                        ["Shares / Ownership", "Consensus Value", "Exposure %", "Overall ECR", "Pos ECR", "Age", "Player Name"],
+                        key="port_sort_col"
+                    )
+                with c_psort2:
+                    sort_port_order = st.selectbox(
+                        "Order:",
+                        ["Descending (High / Best)", "Ascending (Low)"],
+                        key="port_sort_order"
+                    )
+
+                sorted_port = list(filtered_exp)
+                is_desc = "Descending" in sort_port_order
+
+                def safe_ecr(val_str):
+                    digits = "".join(c for c in str(val_str) if c.isdigit())
+                    return float(digits) if digits else 9999.0
+
+                def safe_age(val):
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return 0.0
+
+                if sort_port_col == "Shares / Ownership":
+                    sorted_port.sort(key=lambda x: (x.get("Share Count", 0), x.get("Consensus Value", 0)), reverse=is_desc)
+                elif sort_port_col == "Exposure %":
+                    sorted_port.sort(key=lambda x: x.get("Exposure %", 0.0), reverse=is_desc)
+                elif sort_port_col == "Consensus Value":
+                    sorted_port.sort(key=lambda x: float(x.get("Consensus Value", 0) if isinstance(x.get("Consensus Value"), (int, float)) else 0), reverse=is_desc)
+                elif sort_port_col == "Overall ECR":
+                    sorted_port.sort(key=lambda x: safe_ecr(x.get("Overall ECR")), reverse=not is_desc)
+                elif sort_port_col == "Pos ECR":
+                    sorted_port.sort(key=lambda x: safe_ecr(x.get("Pos ECR")), reverse=not is_desc)
+                elif sort_port_col == "Age":
+                    sorted_port.sort(key=lambda x: safe_age(x.get("Age")), reverse=is_desc)
+                elif sort_port_col == "Player Name":
+                    sorted_port.sort(key=lambda x: str(x.get("Player", "")).lower(), reverse=not is_desc)
+
+                st.html(render_portfolio_table_html(sorted_port[:100]))
         else:
             st.info("No players matching the portfolio filter criteria.")
