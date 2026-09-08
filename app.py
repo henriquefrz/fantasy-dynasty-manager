@@ -260,6 +260,38 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = "dark"
+is_light = (st.session_state.get("theme_mode", "dark") == "light")
+
+theme_tokens_css = f"""
+<style>
+:root {{
+    --bg-main: {'#f8fafc' if is_light else '#0b0f19'};
+    --bg-header: {'rgba(255, 255, 255, 0.95)' if is_light else 'rgba(11, 15, 23, 0.95)'};
+    --bg-card: {'#ffffff' if is_light else '#111827'};
+    --bg-card-subtle: {'#f1f5f9' if is_light else 'rgba(15, 23, 42, 0.75)'};
+    --bg-table-header: {'#f1f5f9' if is_light else '#1a2234'};
+    --bg-table-row: {'#ffffff' if is_light else '#111827'};
+    --bg-table-row-hover: {'rgba(0, 0, 0, 0.03)' if is_light else 'rgba(255, 255, 255, 0.02)'};
+    --text-primary: {'#0f172a' if is_light else '#f8fafc'};
+    --text-secondary: {'#475569' if is_light else '#94a3b8'};
+    --text-muted: {'#64748b' if is_light else '#64748b'};
+    --border-subtle: {'rgba(0, 0, 0, 0.09)' if is_light else 'rgba(255, 255, 255, 0.08)'};
+    --border-medium: {'rgba(0, 0, 0, 0.16)' if is_light else 'rgba(255, 255, 255, 0.16)'};
+    --card-shadow: {'0 4px 14px -2px rgba(0, 0, 0, 0.06)' if is_light else '0 4px 14px -2px rgba(0, 0, 0, 0.35)'};
+    --topbar-bg: {'rgba(255, 255, 255, 0.92)' if is_light else 'rgba(15, 23, 42, 0.82)'};
+    --brand-btn-bg: {'linear-gradient(135deg, rgba(14, 165, 233, 0.10) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%)'};
+    --brand-btn-border: {'rgba(56, 189, 248, 0.4)' if is_light else 'rgba(56, 189, 248, 0.35)'};
+    --arena-card-bg: {'linear-gradient(135deg, rgba(241, 245, 249, 0.95) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
+    --arena-card-border: {'rgba(56, 189, 248, 0.4)' if is_light else 'rgba(56, 189, 248, 0.25)'};
+    --start-sit-bg: {'linear-gradient(135deg, rgba(241, 245, 249, 0.85) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%)'};
+    --start-sit-border: {'rgba(16, 185, 129, 0.4)' if is_light else 'rgba(16, 185, 129, 0.35)'};
+}}
+</style>
+"""
+st.markdown(theme_tokens_css, unsafe_allow_html=True)
+
 st.markdown(
     """
     <style>
@@ -271,11 +303,17 @@ st.markdown(
         display: none !important;
     }
 
+    /* Base App Styling & Theming */
+    .stApp, [data-testid="stAppViewContainer"] {
+        background-color: var(--bg-main) !important;
+        color: var(--text-primary) !important;
+    }
+
     /* Fixed Streamlit Header Styling */
     header[data-testid="stHeader"] {
-        background: rgba(11, 15, 23, 0.95) !important;
+        background: var(--bg-header) !important;
         backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-bottom: 1px solid var(--border-subtle) !important;
         z-index: 99 !important;
     }
 
@@ -315,22 +353,41 @@ st.markdown(
 
     /* Top Bar Brand Home Button */
     .st-key-btn_brand_home button {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%) !important;
-        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        background: var(--brand-btn-bg) !important;
+        border: 1px solid var(--brand-btn-border) !important;
         border-radius: 8px !important;
-        color: #f8fafc !important;
+        color: var(--text-primary) !important;
         font-weight: 800 !important;
         font-size: 1.05rem !important;
         letter-spacing: -0.01em !important;
         padding: 6px 14px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        box-shadow: var(--card-shadow) !important;
         transition: all 0.2s ease !important;
     }
     .st-key-btn_brand_home button:hover {
         background: rgba(56, 189, 248, 0.2) !important;
         border-color: rgba(56, 189, 248, 0.75) !important;
         box-shadow: 0 0 14px rgba(56, 189, 248, 0.3) !important;
-        color: #ffffff !important;
+        color: #38bdf8 !important;
+    }
+
+    /* Top Bar Theme Toggle Button */
+    .st-key-btn_top_theme_toggle button {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
+        font-size: 0.88rem !important;
+        padding: 6px 10px !important;
+        min-height: 38px !important;
+        box-shadow: var(--card-shadow) !important;
+        transition: all 0.2s ease !important;
+    }
+    .st-key-btn_top_theme_toggle button:hover {
+        border-color: #38bdf8 !important;
+        color: #38bdf8 !important;
+        transform: scale(1.02);
     }
 
     /* Typographic Status Capsules (Option 2 - Clean & Professional) */
@@ -345,55 +402,56 @@ st.markdown(
     }
     .status-contender {
         background: rgba(14, 165, 233, 0.12);
-        color: #38bdf8;
+        color: #0284c7;
         border: 1px solid rgba(56, 189, 248, 0.35);
     }
     .status-bubble {
         background: rgba(245, 158, 11, 0.12);
-        color: #fbbf24;
+        color: #d97706;
         border: 1px solid rgba(251, 191, 36, 0.35);
     }
     .status-rebuild {
         background: rgba(16, 185, 129, 0.12);
-        color: #34d399;
+        color: #059669;
         border: 1px solid rgba(52, 211, 153, 0.35);
     }
 
-    /* Refined Linear Dark Cards */
+    /* Refined Linear Cards */
     .card-container {
         border-radius: 10px;
         padding: 16px 18px;
         margin-bottom: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: #111827;
-        box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.35);
+        border: 1px solid var(--border-subtle);
+        background: var(--bg-card);
+        box-shadow: var(--card-shadow);
+        color: var(--text-primary);
         transition: border-color 0.15s ease;
     }
     .card-container:hover {
-        border-color: rgba(255, 255, 255, 0.16);
+        border-color: var(--border-medium);
     }
     .card-highlight {
         border-left: 3px solid #38bdf8;
     }
     .card-alert {
         border-left: 3px solid #f59e0b;
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, #111827 100%);
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-card) 100%);
     }
     .card-success {
         border-left: 3px solid #10b981;
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #111827 100%);
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, var(--bg-card) 100%);
     }
 
-    /* Top Navigation Bar Container (Option 1: Linear & Vercel Glassmorphism) */
+    /* Top Navigation Bar Container */
     .st-key-topbar_nav_container {
-        background: rgba(15, 23, 42, 0.82) !important;
+        background: var(--topbar-bg) !important;
         backdrop-filter: blur(12px) !important;
         -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid var(--border-subtle) !important;
         border-radius: 14px !important;
         padding: 6px 18px !important;
         margin-bottom: 20px !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+        box-shadow: var(--card-shadow) !important;
     }
     .st-key-topbar_nav_container div[data-testid="stHorizontalBlock"] {
         align-items: center !important;
@@ -423,11 +481,11 @@ st.markdown(
 
     /* Streamlit Native Metric Cards */
     div[data-testid="stMetric"] {
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-subtle) !important;
         border-radius: 10px;
         padding: 12px 16px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        box-shadow: var(--card-shadow);
         min-height: 108px !important;
         display: flex !important;
         flex-direction: column !important;
@@ -437,13 +495,14 @@ st.markdown(
         font-size: 1.45rem !important;
         font-weight: 700 !important;
         letter-spacing: -0.01em;
+        color: var(--text-primary) !important;
     }
     div[data-testid="stMetricLabel"] {
         font-size: 0.78rem !important;
         font-weight: 600 !important;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: #94a3b8 !important;
+        color: var(--text-secondary) !important;
     }
 
     /* Modern Tabs Bar */
@@ -454,7 +513,7 @@ st.markdown(
         scrollbar-width: thin;
         -webkit-overflow-scrolling: touch;
         padding-bottom: 6px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid var(--border-subtle);
     }
     div[data-baseweb="tab"] {
         white-space: nowrap !important;
@@ -463,23 +522,29 @@ st.markdown(
         padding: 8px 16px !important;
         border-radius: 6px !important;
         min-height: 42px !important;
+        color: var(--text-secondary) !important;
+    }
+    div[data-baseweb="tab"][aria-selected="true"] {
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
     }
 
     /* Tables & DataFrames */
     div[data-testid="stDataFrame"] {
         border-radius: 10px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border-subtle);
+        background: var(--bg-card) !important;
     }
 
-    /* Executive Dark Roster Table with Responsive Touch Scrolling */
+    /* Executive Roster Table with Responsive Touch Scrolling */
     .table-responsive-wrapper {
         width: 100%;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
         border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: #111827;
+        border: 1px solid var(--border-subtle);
+        background: var(--bg-card);
         margin-top: 6px;
         margin-bottom: 16px;
     }
@@ -487,7 +552,7 @@ st.markdown(
         width: 100% !important;
         min-width: 680px;
         border-collapse: collapse;
-        background: #111827;
+        background: var(--bg-card);
         font-size: 0.88rem;
         margin: 0;
     }
@@ -498,48 +563,42 @@ st.markdown(
     .roster-table-opponent { min-width: 480px !important; }
 
     .roster-table th {
-        background: #1a2234;
-        color: #94a3b8;
+        background: var(--bg-table-header) !important;
+        color: var(--text-secondary) !important;
         text-transform: uppercase;
         font-size: 0.72rem;
         font-weight: 700;
         letter-spacing: 0.05em;
         padding: 12px 14px;
         text-align: left;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid var(--border-subtle);
         white-space: nowrap !important;
     }
     .roster-table td {
         padding: 12px 14px;
         vertical-align: middle;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        color: #e2e8f0;
+        border-bottom: 1px solid var(--border-subtle);
+        color: var(--text-primary);
         white-space: nowrap !important;
     }
     .roster-table tr:last-child td {
         border-bottom: none;
     }
     .roster-table tr:hover td {
-        background: rgba(255, 255, 255, 0.02);
+        background: var(--bg-table-row-hover);
     }
     .mobile-scroll-hint {
         display: none;
     }
-    div[data-testid="stDataFrame"] {
-        border-radius: 10px !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        background: #111827 !important;
-        overflow: hidden !important;
-    }
 
     /* Matchup Arena & Start/Sit Responsive Components */
     .matchup-arena-card {
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%);
-        border: 1px solid rgba(56, 189, 248, 0.25);
+        background: var(--arena-card-bg);
+        border: 1px solid var(--arena-card-border);
         border-radius: 12px;
         padding: 20px 24px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--card-shadow);
     }
     .matchup-arena-grid {
         display: grid;
@@ -567,8 +626,8 @@ st.markdown(
         line-height: 1;
     }
     .start-sit-card {
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%);
-        border: 1px solid rgba(16, 185, 129, 0.35);
+        background: var(--start-sit-bg);
+        border: 1px solid var(--start-sit-border);
         border-radius: 10px;
         padding: 12px 16px;
         margin-bottom: 10px;
@@ -601,11 +660,11 @@ st.markdown(
     }
     .player-name {
         font-weight: 600;
-        color: #ffffff;
+        color: var(--text-primary);
         font-size: 0.92rem;
     }
     .player-meta {
-        color: #94a3b8;
+        color: var(--text-secondary);
         font-size: 0.75rem;
         display: flex;
         align-items: center;
@@ -618,7 +677,7 @@ st.markdown(
         font-size: 0.75rem;
         font-weight: 600;
         background: rgba(255, 255, 255, 0.06);
-        color: #cbd5e1;
+        color: var(--text-secondary);
     }
     .rank-pill-highlight {
         background: rgba(56, 189, 248, 0.15);
@@ -626,7 +685,7 @@ st.markdown(
     }
     .val-pill {
         font-weight: 700;
-        color: #f1f5f9;
+        color: var(--text-primary);
         font-variant-numeric: tabular-nums;
     }
 
@@ -658,16 +717,16 @@ st.markdown(
         margin-bottom: 12px;
     }
     .dash-stat-box {
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
         border-radius: 10px;
         padding: 12px 14px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--card-shadow);
     }
     .dash-stat-label {
         font-size: 0.72rem;
         font-weight: 700;
-        color: #94a3b8;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.04em;
         margin-bottom: 4px;
@@ -675,25 +734,25 @@ st.markdown(
     .dash-stat-value {
         font-size: 1.35rem;
         font-weight: 800;
-        color: #f8fafc;
+        color: var(--text-primary);
         letter-spacing: -0.01em;
     }
     .dash-stat-sub {
         font-size: 0.74rem;
-        color: #64748b;
+        color: var(--text-muted);
         margin-top: 2px;
     }
     .prob-card-container {
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
         border-radius: 10px;
         padding: 14px 16px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--card-shadow);
     }
     .prob-title {
         font-size: 0.76rem;
         font-weight: 700;
-        color: #94a3b8;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 10px;
@@ -706,13 +765,13 @@ st.markdown(
         justify-content: space-between;
         font-size: 0.8rem;
         font-weight: 600;
-        color: #cbd5e1;
+        color: var(--text-primary);
         margin-bottom: 3px;
     }
     .prob-track {
         width: 100%;
         height: 8px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--border-subtle);
         border-radius: 9999px;
         overflow: hidden;
     }
@@ -731,15 +790,15 @@ st.markdown(
         margin-bottom: 20px;
     }
     .lineup-card {
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
         border-radius: 12px;
         padding: 12px;
         display: flex;
         flex-direction: column;
         align-items: center;
         transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--card-shadow);
     }
     .lineup-card:hover {
         transform: translateY(-2px);
@@ -756,7 +815,7 @@ st.markdown(
     .lineup-card-team {
         font-size: 0.72rem;
         font-weight: 700;
-        color: #94a3b8;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
@@ -785,7 +844,7 @@ st.markdown(
     .lineup-name {
         font-size: 0.86rem;
         font-weight: 700;
-        color: #f8fafc;
+        color: var(--text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -795,10 +854,10 @@ st.markdown(
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 4px;
-        background: rgba(15, 23, 42, 0.6);
+        background: var(--bg-card-subtle);
         border-radius: 8px;
         padding: 6px 8px;
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border-subtle);
     }
     .lineup-stat-box {
         display: flex;
@@ -808,14 +867,14 @@ st.markdown(
     .lineup-stat-label {
         font-size: 0.62rem;
         font-weight: 700;
-        color: #64748b;
+        color: var(--text-muted);
         letter-spacing: 0.05em;
         text-transform: uppercase;
     }
     .lineup-stat-val {
         font-size: 0.76rem;
         font-weight: 700;
-        color: #e2e8f0;
+        color: var(--text-primary);
     }
     .text-cyan {
         color: #38bdf8 !important;
@@ -885,9 +944,9 @@ st.markdown(
             text-align: left !important;
             width: 100% !important;
             padding: 12px 14px !important;
-            background: rgba(15, 23, 42, 0.6) !important;
+            background: var(--bg-card-subtle) !important;
             border-radius: 10px !important;
-            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid var(--border-subtle) !important;
         }
         .arena-team-left {
             order: 1 !important;
@@ -932,7 +991,7 @@ st.markdown(
             justify-content: space-between !important;
             align-items: center !important;
             padding-bottom: 8px !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-bottom: 1px solid var(--border-subtle) !important;
             order: 1 !important;
         }
         .start-sit-player-start {
@@ -1764,39 +1823,51 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
     """
 
     def rank_pill(rank_val, is_active_col=False):
+        theme_is_light = (st.session_state.get("theme_mode", "dark") == "light")
         if rank_val <= 3:
             bg = "rgba(16, 185, 129, 0.15)"
-            color = "#34d399"
+            color = "#059669" if theme_is_light else "#34d399"
             border = "rgba(16, 185, 129, 0.4)"
         elif rank_val <= 6:
             bg = "rgba(14, 165, 233, 0.15)"
-            color = "#38bdf8"
+            color = "#0284c7" if theme_is_light else "#38bdf8"
             border = "rgba(14, 165, 233, 0.4)"
         else:
-            bg = "rgba(148, 163, 184, 0.10)"
-            color = "#94a3b8"
-            border = "rgba(148, 163, 184, 0.25)"
+            bg = "rgba(100, 116, 139, 0.12)" if theme_is_light else "rgba(148, 163, 184, 0.10)"
+            color = "#475569" if theme_is_light else "#94a3b8"
+            border = "rgba(100, 116, 139, 0.25)" if theme_is_light else "rgba(148, 163, 184, 0.25)"
         hl_style = "border: 1px solid #38bdf8; font-weight: 800;" if is_active_col else f"border: 1px solid {border};"
         return f"<span style='background: {bg}; color: {color}; {hl_style} border-radius: 4px; padding: 1px 6px; font-size: 0.70rem; font-weight: 700; margin-left: 4px;'>#{rank_val}</span>"
 
     for r in room_rows:
         is_me = (r.get("roster_id") == user_roster_id)
         row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
-        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: var(--text-primary);"
         rank_disp = r.get("disp_rank", r.get("total_rank", 1))
 
-        picks_td = f"<td style='text-align: center;'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>" if show_picks else ""
+        qb_v = r["qb_val"]
+        qb_raw = r.get("qb_raw_val", qb_v)
+        rb_v = r["rb_val"]
+        rb_raw = r.get("rb_raw_val", rb_v)
+        wr_v = r["wr_val"]
+        wr_raw = r.get("wr_raw_val", wr_v)
+        te_v = r["te_val"]
+        te_raw = r.get("te_raw_val", te_v)
+        tot_v = r["total_val"]
+        tot_raw = r.get("raw_total_val", tot_v)
+
+        picks_td = f"<td style='text-align: center;' title='Draft Capital: {r['picks_val']:,.0f}'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>" if show_picks else ""
 
         html += f"""
         <tr style='{row_style}'>
-            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>#{rank_disp}</td>
+            <td style='text-align: center; color: var(--text-secondary); font-weight: 700;'>#{rank_disp}</td>
             <td style='text-align: left; {name_weight}'>{r['manager_name']}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['qb_val']:,.0f}</span> {rank_pill(r['qb_rank'], sort_col=='qb_val')}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['rb_val']:,.0f}</span> {rank_pill(r['rb_rank'], sort_col=='rb_val')}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['wr_val']:,.0f}</span> {rank_pill(r['wr_rank'], sort_col=='wr_val')}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['te_val']:,.0f}</span> {rank_pill(r['te_rank'], sort_col=='te_val')}</td>
+            <td style='text-align: center;' title='Effective: {qb_v:,.0f} | Gross: {qb_raw:,.0f}'><span style='color: var(--text-primary); font-weight: 700;'>{qb_v:,.0f}</span> {rank_pill(r['qb_rank'], sort_col=='qb_val')}</td>
+            <td style='text-align: center;' title='Effective: {rb_v:,.0f} | Gross: {rb_raw:,.0f}'><span style='color: var(--text-primary); font-weight: 700;'>{rb_v:,.0f}</span> {rank_pill(r['rb_rank'], sort_col=='rb_val')}</td>
+            <td style='text-align: center;' title='Effective: {wr_v:,.0f} | Gross: {wr_raw:,.0f}'><span style='color: var(--text-primary); font-weight: 700;'>{wr_v:,.0f}</span> {rank_pill(r['wr_rank'], sort_col=='wr_val')}</td>
+            <td style='text-align: center;' title='Effective: {te_v:,.0f} | Gross: {te_raw:,.0f}'><span style='color: var(--text-primary); font-weight: 700;'>{te_v:,.0f}</span> {rank_pill(r['te_rank'], sort_col=='te_val')}</td>
             {picks_td}
-            <td style='text-align: center;'><span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{r['total_val']:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
+            <td style='text-align: center;' title='Effective: {tot_v:,.0f} | Gross: {tot_raw:,.0f}'><span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{tot_v:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
         </tr>
         """
 
@@ -2365,8 +2436,8 @@ if selected_mode not in mode_keys:
 # Top Navigation Bar (Option 1: Linear & Vercel Glassmorphism)
 # -----------------------------------------------------------------------------
 with st.container(key="topbar_nav_container"):
-    top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
-        [2.8, 3.4, 1.6, 2.2], vertical_alignment="center"
+    top_col_brand, top_col_nav, top_col_theme, top_col_cfg, top_col_user = st.columns(
+        [2.6, 3.2, 0.9, 1.3, 2.0], vertical_alignment="center"
     )
 
     with top_col_brand:
@@ -2375,7 +2446,7 @@ with st.container(key="topbar_nav_container"):
                 f"""
                 <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
                     <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
-                    <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
+                    <span style="font-weight: 900; font-size: 1.25rem; color: var(--text-primary); letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
                 </a>
                 """
             )
@@ -2392,7 +2463,7 @@ with st.container(key="topbar_nav_container"):
                 f"""
                 <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
                     <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
-                    <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
+                    <span style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); letter-spacing: -0.01em;">Fantasy Analytics</span>
                 </a>
                 """
             )
@@ -2425,8 +2496,30 @@ with st.container(key="topbar_nav_container"):
             label_visibility="collapsed"
         )
 
+    with top_col_theme:
+        cur_t = st.session_state.get("theme_mode", "dark")
+        btn_txt = "☀️ Light" if cur_t == "dark" else "🌙 Dark"
+        btn_tip = "Switch to Light Mode" if cur_t == "dark" else "Switch to Dark Mode"
+        if st.button(btn_txt, key="btn_top_theme_toggle", help=btn_tip, use_container_width=True):
+            st.session_state["theme_mode"] = "light" if cur_t == "dark" else "dark"
+            st.rerun()
+
     with top_col_cfg:
         with st.popover("Settings", use_container_width=True):
+            st.markdown("#### Display Theme")
+            theme_choice = st.radio(
+                "Interface Theme:",
+                ["🌙 Dark Mode", "☀️ Light Mode"],
+                index=0 if st.session_state.get("theme_mode", "dark") == "dark" else 1,
+                horizontal=True,
+                key="theme_mode_radio_settings"
+            )
+            desired_t = "light" if "Light" in theme_choice else "dark"
+            if desired_t != st.session_state.get("theme_mode", "dark"):
+                st.session_state["theme_mode"] = desired_t
+                st.rerun()
+
+            st.markdown("---")
             st.markdown("#### Valuation Consensus Model")
             cur_m_idx = mode_keys.index(selected_mode) if selected_mode in mode_keys else 0
             selected_mode_label = st.selectbox(
@@ -4098,11 +4191,15 @@ else:
             show_picks = (is_dynasty and not use_redraft)
 
             if show_picks:
-                st.caption("League-wide Positional Room & Draft Capital Leaderboard (KeepTradeCut / Dynasty Daddy style).")
+                st.caption("League-wide Positional Room & Draft Capital Leaderboard • Starter-Weighted Lineup Utility (100% Starters, 50% Key Backups, 20% Depth, 5% Bloat Discount).")
             else:
-                st.caption("League-wide Positional Room Leaderboard (evaluated on 3-Pillar Single-Season / ROS values).")
+                st.caption("League-wide Positional Room Leaderboard (Single-Season ROS) • Starter-Weighted Lineup Utility (100% Starters, 50% Key Backups, 20% Depth, 5% Bloat Discount).")
 
-            room_data = build_positional_room_leaderboard(all_team_profiles, use_redraft=use_redraft)
+            room_data = build_positional_room_leaderboard(
+                all_team_profiles, 
+                use_redraft=use_redraft,
+                roster_positions=roster_pos
+            )
 
             with col_sort:
                 if show_picks:
@@ -4152,18 +4249,22 @@ else:
 
                 with col_q:
                     st.metric("QB Room", f"{sel_room_data['qb_val']:,.0f} pts", f"Rank #{sel_room_data['qb_rank']}")
+                    st.caption(f"Starters: {sel_room_data.get('qb_starter_val', 0):,.0f} | Gross: {sel_room_data.get('qb_raw_val', sel_room_data['qb_val']):,.0f}")
                     for name in sel_room_data['top_qbs']:
                         st.caption(f"• {name}")
                 with col_r:
                     st.metric("RB Room", f"{sel_room_data['rb_val']:,.0f} pts", f"Rank #{sel_room_data['rb_rank']}")
+                    st.caption(f"Starters: {sel_room_data.get('rb_starter_val', 0):,.0f} | Gross: {sel_room_data.get('rb_raw_val', sel_room_data['rb_val']):,.0f}")
                     for name in sel_room_data['top_rbs']:
                         st.caption(f"• {name}")
                 with col_w:
                     st.metric("WR Room", f"{sel_room_data['wr_val']:,.0f} pts", f"Rank #{sel_room_data['wr_rank']}")
+                    st.caption(f"Starters: {sel_room_data.get('wr_starter_val', 0):,.0f} | Gross: {sel_room_data.get('wr_raw_val', sel_room_data['wr_val']):,.0f}")
                     for name in sel_room_data['top_wrs']:
                         st.caption(f"• {name}")
                 with col_t:
                     st.metric("TE Room", f"{sel_room_data['te_val']:,.0f} pts", f"Rank #{sel_room_data['te_rank']}")
+                    st.caption(f"Starters: {sel_room_data.get('te_starter_val', 0):,.0f} | Gross: {sel_room_data.get('te_raw_val', sel_room_data['te_val']):,.0f}")
                     for name in sel_room_data['top_tes']:
                         st.caption(f"• {name}")
                 if show_picks:
