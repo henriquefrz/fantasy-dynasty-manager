@@ -839,6 +839,8 @@ def build_positional_room_leaderboard(
         tot_raw_val = qb_raw + rb_raw + wr_raw + te_raw + picks_val
 
         dyn_rank, dyn_score = dyn_ranks_map.get(rid, (0, 0.0)) if not use_redraft else (0, 0.0)
+        in_season_rank = p.get("in_season_rank", 0)
+        in_season_power_score = p.get("in_season_power_score", 0.0)
 
         room_data.append({
             "roster_id": rid,
@@ -846,6 +848,9 @@ def build_positional_room_leaderboard(
             # Dynasty power rankings alignment
             "dynasty_rank": dyn_rank,
             "dynasty_score": dyn_score,
+            # In-season power rankings alignment
+            "in_season_rank": in_season_rank,
+            "in_season_power_score": in_season_power_score,
             # Effective Starter-Weighted Values (used for room rankings)
             "qb_val": qb_val,
             "rb_val": rb_val,

@@ -228,7 +228,8 @@ ALLOWED_USERS = ["henriquefrz", "LucasFrazao"]
 LOGO_PATH = "assets/logo.jpg"
 LOGO_HORIZONTAL_PATH = "assets/logo_horizontal.png"
 ICON_F_YARDS_PATH = "assets/icon_f_yards.png"
-PAGE_ICON = LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈"
+ICON_F_YARDS_BLACK_PATH = "assets/icon_f_yards_black.png"
+PAGE_ICON = ICON_F_YARDS_BLACK_PATH if os.path.exists(ICON_F_YARDS_BLACK_PATH) else (LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈")
 
 LOGO_HORIZONTAL_B64 = ""
 if os.path.exists(LOGO_HORIZONTAL_PATH):
@@ -245,6 +246,14 @@ if os.path.exists(ICON_F_YARDS_PATH):
             ICON_F_YARDS_B64 = base64.b64encode(_f.read()).decode("utf-8")
     except Exception:
         ICON_F_YARDS_B64 = ""
+
+ICON_F_YARDS_BLACK_B64 = ""
+if os.path.exists(ICON_F_YARDS_BLACK_PATH):
+    try:
+        with open(ICON_F_YARDS_BLACK_PATH, "rb") as _f:
+            ICON_F_YARDS_BLACK_B64 = base64.b64encode(_f.read()).decode("utf-8")
+    except Exception:
+        ICON_F_YARDS_BLACK_B64 = ""
 
 st.set_page_config(
     page_title="Fantasy Analytics",
@@ -543,6 +552,9 @@ st.markdown(
     }
 
     /* Modern Tabs Bar */
+    [data-testid="stTabs"] {
+        background-color: transparent !important;
+    }
     [data-baseweb="tab-list"],
     div[data-baseweb="tab-list"] {
         gap: 6px;
@@ -552,6 +564,7 @@ st.markdown(
         -webkit-overflow-scrolling: touch;
         padding-bottom: 6px;
         border-bottom: 1px solid var(--border-subtle);
+        background-color: transparent !important;
     }
     button[data-baseweb="tab"],
     [data-baseweb="tab"],
@@ -564,39 +577,47 @@ st.markdown(
         min-height: 42px !important;
         background-color: transparent !important;
         color: var(--text-secondary) !important;
+        opacity: 1 !important;
     }
+    [data-testid="stTabs"] button[data-baseweb="tab"] p,
+    [data-testid="stTabs"] button[data-baseweb="tab"] span,
+    [data-testid="stTabs"] button[data-baseweb="tab"] div,
+    [data-testid="stTabs"] [data-testid="stMarkdownContainer"] p,
     button[data-baseweb="tab"] *,
     [data-baseweb="tab"] *,
     div[data-baseweb="tab"] * {
         color: var(--text-secondary) !important;
         font-weight: 600 !important;
+        opacity: 1 !important;
     }
     button[data-baseweb="tab"]:hover,
-    button[data-baseweb="tab"]:hover * {
+    button[data-baseweb="tab"]:hover *,
+    [data-testid="stTabs"] button[data-baseweb="tab"]:hover p,
+    [data-testid="stTabs"] button[data-baseweb="tab"]:hover span {
         color: var(--accent-cyan) !important;
     }
     button[data-baseweb="tab"][aria-selected="true"],
     [data-baseweb="tab"][aria-selected="true"],
-    div[data-baseweb="tab"][aria-selected="true"] {
-        color: var(--text-primary) !important;
-        font-weight: 800 !important;
-    }
+    div[data-baseweb="tab"][aria-selected="true"],
+    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p,
+    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span,
+    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] div,
+    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] [data-testid="stMarkdownContainer"] p,
     button[data-baseweb="tab"][aria-selected="true"] *,
     [data-baseweb="tab"][aria-selected="true"] *,
     div[data-baseweb="tab"][aria-selected="true"] * {
-        color: var(--text-primary) !important;
+        color: var(--accent-cyan) !important;
         font-weight: 800 !important;
+        opacity: 1 !important;
     }
     [data-baseweb="tab-highlight"],
     div[data-baseweb="tab-highlight"] {
         background-color: var(--accent-cyan) !important;
     }
 
-    /* Tables & DataFrames */
-    [data-testid="stDataFrame"],
-    div[data-testid="stDataFrame"] {
-        border-radius: 10px;
-        overflow: hidden;
+    /* Streamlit Tables & DataFrames */
+    .stDataFrame,
+    [data-testid="stDataFrame"] {
         border: 1px solid var(--border-subtle);
         background: var(--bg-card) !important;
     }
@@ -655,7 +676,7 @@ st.markdown(
         color: var(--text-secondary) !important;
     }
 
-    /* Streamlit Selectboxes & BaseWeb Controls */
+    /* Streamlit Selectboxes & BaseWeb Controls (Topbar & Universal) */
     [data-testid="stSelectbox"] {
         background-color: transparent !important;
     }
@@ -667,10 +688,15 @@ st.markdown(
         font-weight: 700 !important;
         letter-spacing: 0.02em !important;
     }
+    .st-key-topbar_nav_container [data-baseweb="select"],
     [data-testid="stSelectbox"] [data-baseweb="select"],
     div[data-baseweb="select"] {
         background-color: transparent !important;
     }
+    .st-key-topbar_nav_container [data-baseweb="select"] > div,
+    .st-key-topbar_nav_container div[data-baseweb="select"] > div,
+    .st-key-top_workspace_selector [data-baseweb="select"] > div,
+    .st-key-top_account_selector [data-baseweb="select"] > div,
     [data-testid="stSelectbox"] [data-baseweb="select"] > div,
     div[data-baseweb="select"] > div {
         background-color: var(--bg-card) !important;
@@ -679,10 +705,14 @@ st.markdown(
         color: var(--text-primary) !important;
         box-shadow: var(--card-shadow) !important;
     }
+    .st-key-topbar_nav_container [data-baseweb="select"] > div:hover,
     [data-testid="stSelectbox"] [data-baseweb="select"] > div:hover,
     div[data-baseweb="select"] > div:hover {
         border-color: var(--accent-cyan) !important;
     }
+    .st-key-topbar_nav_container [data-baseweb="select"] input,
+    [data-testid="stSelectbox"] [data-baseweb="select"] input,
+    .st-key-topbar_nav_container [data-baseweb="select"] > div > div,
     [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
     div[data-baseweb="select"] > div > div,
     [data-testid="stSelectbox"] [data-baseweb="select"] div[role="combobox"],
@@ -690,14 +720,46 @@ st.markdown(
         background-color: transparent !important;
         color: var(--text-primary) !important;
     }
+    .st-key-topbar_nav_container [data-baseweb="select"] *,
     [data-testid="stSelectbox"] [data-baseweb="select"] *,
     div[data-baseweb="select"] * {
         color: var(--text-primary) !important;
     }
+    .st-key-topbar_nav_container [data-baseweb="select"] svg,
     [data-testid="stSelectbox"] [data-baseweb="select"] svg,
     div[data-baseweb="select"] svg {
         fill: var(--text-secondary) !important;
         color: var(--text-secondary) !important;
+    }
+
+    /* Streamlit Native Alerts & Success Banners */
+    [data-testid="stAlert"] {
+        border-radius: 10px !important;
+        box-shadow: var(--card-shadow) !important;
+    }
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] div,
+    [data-testid="stAlert"] div {
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stAlert"] strong {
+        color: var(--text-primary) !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentSuccess"]),
+    div[data-testid="stAlert"]:has(svg[data-testid="stNotificationIconSuccess"]) {
+        background-color: {'rgba(16, 185, 129, 0.14)' if is_light else 'rgba(16, 185, 129, 0.16)'} !important;
+        border: 1px solid {'rgba(16, 185, 129, 0.40)' if is_light else 'rgba(16, 185, 129, 0.4)'} !important;
+    }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentSuccess"]) p,
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentSuccess"]) span {
+        color: {'#065f46' if is_light else '#a7f3d0'} !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stAlert"]:has([data-testid="stNotificationContentSuccess"]) strong {
+        color: {'#047857' if is_light else '#34d399'} !important;
+        font-weight: 800 !important;
     }
 
     /* Dropdown popover menu list options */
@@ -2754,11 +2816,12 @@ with st.container(key="topbar_nav_container"):
 
     with top_col_brand:
         curr_theme_val = "light" if is_light else "dark"
-        if ICON_F_YARDS_B64:
+        icon_to_use = ICON_F_YARDS_BLACK_B64 if (is_light and ICON_F_YARDS_BLACK_B64) else ICON_F_YARDS_B64
+        if icon_to_use:
             st.html(
                 f"""
                 <a href="?user={active_user_handle}&theme={curr_theme_val}" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
-                    <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
+                    <img src="data:image/png;base64,{icon_to_use}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
                     <span style="font-weight: 900; font-size: 1.25rem; color: var(--text-primary); letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
                 </a>
                 """
@@ -3296,6 +3359,21 @@ else:
                 p["dynasty_rank"] = dyn_rank_map[r_id][0]
                 p["dynasty_score"] = dyn_rank_map[r_id][1]
 
+    # Map in-season simulation power rankings for Redraft & Contender alignment
+    sim_rank_map = {}
+    if live_sim_results:
+        ranked_sim = sorted(live_sim_results.values(), key=lambda t: t.get("power_score", 0.0), reverse=True)
+        sim_rank_map = {t["roster_id"]: (idx, t.get("power_score", 0.0)) for idx, t in enumerate(ranked_sim, 1)}
+
+    for p in all_team_profiles:
+        r_id = p["roster_id"]
+        if r_id in sim_rank_map:
+            p["in_season_rank"] = sim_rank_map[r_id][0]
+            p["in_season_power_score"] = sim_rank_map[r_id][1]
+        else:
+            p["in_season_rank"] = redraft_pos
+            p["in_season_power_score"] = 0.0
+
     format_badge = f"{'Dynasty' if is_dynasty else 'Redraft'} • {'Superflex' if is_superflex else '1QB'} • {len(rosters)} Teams"
     if tep_bonus > 0:
         format_badge += f" • +{tep_bonus:g} TEP"
@@ -3321,8 +3399,12 @@ else:
             dyn_rank_str = f"#{dyn_pos_to_use} of {len(all_team_profiles)}" if dyn_pos_to_use else "Pre-Draft"
             st.metric("Dynasty Roster Rank", dyn_rank_str, f"{user_profile['total_value']:,.0f} pts")
         else:
-            red_rank_str = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "Pre-Draft"
-            st.metric("In-Season Rank", red_rank_str)
+            user_in_season_pos = user_profile.get("in_season_rank") if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0])
+            user_in_season_pos_to_use = user_in_season_pos or redraft_pos
+            user_in_season_score = user_profile.get("in_season_power_score", 0.0) if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[1])
+            red_rank_str = f"#{user_in_season_pos_to_use} of {len(all_team_profiles)}" if user_in_season_pos_to_use else "Pre-Draft"
+            score_delta = f"Power Score: {user_in_season_score:.1f}" if user_in_season_score > 0 else "Active Season"
+            st.metric("In-Season Rank", red_rank_str, score_delta)
     with col_m4:
         if is_dynasty and user_profile:
             red_rank_str = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "Pre-Draft"
@@ -4566,14 +4648,22 @@ else:
                 )
                 sort_key = sort_options[chosen_sort]
 
-            if sort_key == "total_val" and not use_redraft:
-                sorted_rooms = sorted(room_data, key=lambda x: (x.get("dynasty_score", 0.0), x.get("total_val", 0.0)), reverse=True)
+            if sort_key == "total_val":
+                if not use_redraft:
+                    sorted_rooms = sorted(room_data, key=lambda x: (x.get("dynasty_score", 0.0), x.get("total_val", 0.0)), reverse=True)
+                else:
+                    sorted_rooms = sorted(room_data, key=lambda x: (x.get("in_season_power_score", 0.0), x.get("total_val", 0.0)), reverse=True)
             else:
                 sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
 
             for idx, r in enumerate(sorted_rooms, 1):
-                if sort_key == "total_val" and not use_redraft and r.get("dynasty_rank"):
-                    r["disp_rank"] = r["dynasty_rank"]
+                if sort_key == "total_val":
+                    if not use_redraft and r.get("dynasty_rank"):
+                        r["disp_rank"] = r["dynasty_rank"]
+                    elif use_redraft and r.get("in_season_rank"):
+                        r["disp_rank"] = r["in_season_rank"]
+                    else:
+                        r["disp_rank"] = idx
                 else:
                     r["disp_rank"] = idx
 
