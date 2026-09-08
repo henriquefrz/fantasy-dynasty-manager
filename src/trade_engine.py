@@ -732,6 +732,8 @@ def build_positional_room_leaderboard(
     all_team_profiles: List[Dict[str, Any]], 
     use_redraft: bool = False,
     roster_positions: Optional[List[str]] = None,
+    *args,
+    **kwargs,
 ) -> List[Dict[str, Any]]:
     """
     Ranks all teams side-by-side across QB Room, RB Room, WR Room, TE Room, and Draft Capital.

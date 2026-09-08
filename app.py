@@ -158,18 +158,11 @@ from src.start_sit import (
     audit_weekly_lineup,
     find_streaming_recommendations,
 )
-try:
-    from src.trade_engine import (
-        analyze_team_profile,
-        generate_trade_suggestions,
-        build_positional_room_leaderboard,
-    )
-except ImportError:
-    import src.trade_engine as _te
-    importlib.reload(_te)
-    analyze_team_profile = getattr(_te, "analyze_team_profile")
-    generate_trade_suggestions = getattr(_te, "generate_trade_suggestions")
-    build_positional_room_leaderboard = getattr(_te, "build_positional_room_leaderboard")
+import src.trade_engine as _te
+importlib.reload(_te)
+analyze_team_profile = _te.analyze_team_profile
+generate_trade_suggestions = _te.generate_trade_suggestions
+build_positional_room_leaderboard = _te.build_positional_room_leaderboard
 
 try:
     from src.team_strength import (
@@ -274,19 +267,35 @@ theme_tokens_css = f"""
     --bg-table-header: {'#f1f5f9' if is_light else '#1a2234'};
     --bg-table-row: {'#ffffff' if is_light else '#111827'};
     --bg-table-row-hover: {'rgba(0, 0, 0, 0.03)' if is_light else 'rgba(255, 255, 255, 0.02)'};
+    --bg-table-row-highlight: {'rgba(14, 165, 233, 0.10)' if is_light else 'rgba(14, 165, 233, 0.16)'};
     --text-primary: {'#0f172a' if is_light else '#f8fafc'};
     --text-secondary: {'#475569' if is_light else '#94a3b8'};
     --text-muted: {'#64748b' if is_light else '#64748b'};
     --border-subtle: {'rgba(0, 0, 0, 0.09)' if is_light else 'rgba(255, 255, 255, 0.08)'};
     --border-medium: {'rgba(0, 0, 0, 0.16)' if is_light else 'rgba(255, 255, 255, 0.16)'};
-    --card-shadow: {'0 4px 14px -2px rgba(0, 0, 0, 0.06)' if is_light else '0 4px 14px -2px rgba(0, 0, 0, 0.35)'};
-    --topbar-bg: {'rgba(255, 255, 255, 0.92)' if is_light else 'rgba(15, 23, 42, 0.82)'};
+    --card-shadow: {'0 2px 10px -2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)' if is_light else '0 4px 14px -2px rgba(0, 0, 0, 0.35)'};
+    --topbar-bg: {'rgba(255, 255, 255, 0.95)' if is_light else 'rgba(15, 23, 42, 0.85)'};
     --brand-btn-bg: {'linear-gradient(135deg, rgba(14, 165, 233, 0.10) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%)'};
-    --brand-btn-border: {'rgba(56, 189, 248, 0.4)' if is_light else 'rgba(56, 189, 248, 0.35)'};
-    --arena-card-bg: {'linear-gradient(135deg, rgba(241, 245, 249, 0.95) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
-    --arena-card-border: {'rgba(56, 189, 248, 0.4)' if is_light else 'rgba(56, 189, 248, 0.25)'};
-    --start-sit-bg: {'linear-gradient(135deg, rgba(241, 245, 249, 0.85) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%)'};
-    --start-sit-border: {'rgba(16, 185, 129, 0.4)' if is_light else 'rgba(16, 185, 129, 0.35)'};
+    --brand-btn-border: {'rgba(14, 165, 233, 0.35)' if is_light else 'rgba(56, 189, 248, 0.35)'};
+    --arena-card-bg: {'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
+    --arena-card-border: {'rgba(14, 165, 233, 0.35)' if is_light else 'rgba(56, 189, 248, 0.25)'};
+    --start-sit-bg: {'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%)'};
+    --start-sit-border: {'rgba(16, 185, 129, 0.35)' if is_light else 'rgba(16, 185, 129, 0.35)'};
+    --stat-cell-bg: {'#f1f5f9' if is_light else 'rgba(15, 23, 42, 0.7)'};
+    --stat-cell-border: {'rgba(0, 0, 0, 0.08)' if is_light else 'rgba(51, 65, 85, 0.5)'};
+    --league-card-bg: {'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
+    --chip-bg: {'#ffffff' if is_light else 'rgba(15, 23, 42, 0.7)'};
+    --chip-border: {'rgba(0, 0, 0, 0.08)' if is_light else 'rgba(255, 255, 255, 0.08)'};
+    --pill-bg: {'rgba(0, 0, 0, 0.05)' if is_light else 'rgba(255, 255, 255, 0.06)'};
+    --pill-text: {'#475569' if is_light else '#94a3b8'};
+    --vs-badge-bg: {'#f1f5f9' if is_light else 'rgba(30, 41, 59, 0.9)'};
+    --vs-badge-border: {'#cbd5e1' if is_light else 'rgba(51, 65, 85, 0.8)'};
+    --vs-badge-text: {'#475569' if is_light else '#94a3b8'};
+    --accent-cyan: {'#0284c7' if is_light else '#38bdf8'};
+    --accent-green: {'#059669' if is_light else '#34d399'};
+    --accent-amber: {'#d97706' if is_light else '#fbbf24'};
+    --accent-purple: {'#7c3aed' if is_light else '#c084fc'};
+    --accent-rose: {'#e11d48' if is_light else '#fb7185'};
 }}
 </style>
 """
@@ -537,6 +546,37 @@ st.markdown(
         background: var(--bg-card) !important;
     }
 
+    /* Streamlit Expander */
+    div[data-testid="stExpander"] {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: 10px !important;
+        box-shadow: var(--card-shadow) !important;
+    }
+    div[data-testid="stExpander"] summary {
+        color: var(--text-primary) !important;
+    }
+    div[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+        color: var(--text-primary) !important;
+    }
+
+    /* Streamlit Popovers & Selectboxes */
+    div[data-baseweb="popover"], div[data-baseweb="popover"] > div {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-subtle) !important;
+    }
+    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+        color: var(--text-primary) !important;
+    }
+    div[data-testid="stRadio"] label {
+        color: var(--text-primary) !important;
+    }
+
     /* Executive Roster Table with Responsive Touch Scrolling */
     .table-responsive-wrapper {
         width: 100%;
@@ -650,8 +690,8 @@ st.markdown(
         height: 44px;
         border-radius: 50%;
         object-fit: cover;
-        background: #1f2937;
-        border: 2px solid rgba(255, 255, 255, 0.12);
+        background: var(--bg-card-subtle);
+        border: 2px solid var(--border-subtle);
         flex-shrink: 0;
     }
     .player-info {
@@ -676,12 +716,14 @@ st.markdown(
         border-radius: 4px;
         font-size: 0.75rem;
         font-weight: 600;
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text-secondary);
+        background: var(--pill-bg);
+        color: var(--pill-text);
+        border: 1px solid var(--border-subtle);
     }
     .rank-pill-highlight {
-        background: rgba(56, 189, 248, 0.15);
-        color: #38bdf8;
+        background: rgba(14, 165, 233, 0.12);
+        color: var(--accent-cyan);
+        border: 1px solid rgba(14, 165, 233, 0.3);
     }
     .val-pill {
         font-weight: 700;
@@ -835,7 +877,7 @@ st.markdown(
         height: 52px;
         border-radius: 50%;
         object-fit: cover;
-        background: #1e293b;
+        background: var(--bg-card-subtle);
     }
     .lineup-card-body {
         width: 100%;
@@ -1041,7 +1083,7 @@ def render_player_table_html(player_rows, show_equity=True):
     symmetrical column balance, and consensus market value.
     """
     if not player_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
+        return "<p style='color: var(--text-secondary); font-style: italic; padding: 12px;'>No players to display.</p>"
 
     if show_equity:
         header_cols = """
@@ -1087,9 +1129,9 @@ def render_player_table_html(player_rows, show_equity=True):
         val = r.get("Consensus Value", "0 pts")
         eq = r.get("Equity Share", "0.0%")
 
-        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-secondary);'>—</div>"
 
-        equity_td = f"<td style='color: #38bdf8; font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
+        equity_td = f"<td style='color: var(--accent-cyan); font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
 
         html += f"""
             <tr>
@@ -1100,17 +1142,17 @@ def render_player_table_html(player_rows, show_equity=True):
                         <div class='player-info'>
                             <span class='player-name'>{pname}</span>
                             <div class='player-meta'>
-                                <span style='font-weight: 600; color: #cbd5e1;'>{pos}</span>
+                                <span style='font-weight: 600; color: var(--text-secondary);'>{pos}</span>
                                 <span>•</span>
                                 <span>{team}</span>
                             </div>
                         </div>
                     </div>
                 </td>
-                <td style='color: #94a3b8; text-align: center;'>{age}</td>
+                <td style='color: var(--text-secondary); text-align: center;'>{age}</td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                <td class='val-pill' style='text-align: center;'>{val}</td>
+                <td class='val-pill' style='text-align: center; color: var(--text-primary);'>{val}</td>
                 {equity_td}
             </tr>
         """
@@ -1128,7 +1170,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
     spacious rows (~56px), and consensus metrics (dynasty or single-season).
     """
     if not market_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
+        return "<p style='color: var(--text-secondary); font-style: italic; padding: 12px;'>No players to display.</p>"
 
     if is_redraft:
         html = """
@@ -1197,12 +1239,12 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
             if avatar:
                 avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
             else:
-                avatar_img = "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+                avatar_img = "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-secondary);'>—</div>"
 
         if is_redraft:
             html += f"""
                 <tr>
-                    <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{rank_str}</td>
+                    <td style='text-align: center; color: var(--text-secondary); font-weight: 700;'>{rank_str}</td>
                     <td style='text-align: left;'>
                         <div class='player-cell'>
                             {avatar_img}
@@ -1217,16 +1259,16 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     </td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{fc}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{fp}</td>
-                    <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{proj}</td>
+                    <td class='val-pill' style='text-align: center; color: var(--accent-cyan);'>{val}</td>
+                    <td style='text-align: center; color: var(--text-secondary);'>{fc}</td>
+                    <td style='text-align: center; color: var(--text-secondary);'>{fp}</td>
+                    <td style='text-align: center; color: var(--accent-cyan); font-weight: 700;'>{proj}</td>
                 </tr>
             """
         else:
             html += f"""
                 <tr>
-                    <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{rank_str}</td>
+                    <td style='text-align: center; color: var(--text-secondary); font-weight: 700;'>{rank_str}</td>
                     <td style='text-align: left;'>
                         <div class='player-cell'>
                             {avatar_img}
@@ -1241,10 +1283,10 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     </td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{fc}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{dp}</td>
+                    <td class='val-pill' style='text-align: center; color: var(--accent-cyan);'>{val}</td>
+                    <td style='text-align: center; color: var(--text-secondary);'>{ktc}</td>
+                    <td style='text-align: center; color: var(--text-secondary);'>{fc}</td>
+                    <td style='text-align: center; color: var(--text-secondary);'>{dp}</td>
                 </tr>
             """
     html += """
@@ -1267,7 +1309,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
 
     headers = "<th style='width: 25%; text-align: left;'>Comparison Metric</th>"
     for p in comparison_assets:
-        headers += f"<th style='width: {col_w}; text-align: center; color: #f8fafc;'>{p['name']}</th>"
+        headers += f"<th style='width: {col_w}; text-align: center; color: var(--text-primary);'>{p['name']}</th>"
     headers += "<th style='width: 25%; text-align: center;'>Advantage / Leader</th>"
 
     # 1. Consensus Value Row
@@ -1277,12 +1319,12 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
     val_runner_up = sorted(comparison_assets, key=lambda x: x.get("val", 0.0), reverse=True)[1]
     v_diff = max_val - val_runner_up.get("val", 0.0)
     v_pct = (v_diff / val_runner_up.get("val", 1.0) * 100) if val_runner_up.get("val", 0) > 0 else 0.0
-    val_adv = f"<span style='color: #34d399; font-weight: 700;'>{val_leader['name']} (+{v_diff:,.0f} pts / +{v_pct:.1f}%)</span>" if v_diff > 0 else "<span style='color: #94a3b8;'>Tied</span>"
+    val_adv = f"<span style='color: var(--accent-green); font-weight: 700;'>{val_leader['name']} (+{v_diff:,.0f} pts / +{v_pct:.1f}%)</span>" if v_diff > 0 else "<span style='color: var(--text-secondary);'>Tied</span>"
 
     for p in comparison_assets:
         v = p.get("val", 0.0)
         is_top = (v == max_val and v_diff > 0)
-        color = "#34d399" if is_top else "#cbd5e1"
+        color = "var(--accent-green)" if is_top else "var(--text-secondary)"
         weight = "800" if is_top else "600"
         val_cells += f"<td style='text-align: center; font-weight: {weight}; color: {color};'>{v:,.0f} pts</td>"
 
@@ -1291,7 +1333,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
     valid_ovrs = [(p, p.get("o_ecr", 999.0)) for p in comparison_assets if p.get("o_ecr") and p.get("o_ecr") < 900]
     if valid_ovrs:
         best_ovr_p, best_ovr_val = min(valid_ovrs, key=lambda x: x[1])
-        ovr_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{best_ovr_p['name']} (#{int(best_ovr_val)})</span>"
+        ovr_adv = f"<span style='color: var(--accent-cyan); font-weight: 700;'>{best_ovr_p['name']} (#{int(best_ovr_val)})</span>"
     else:
         best_ovr_val = None
         ovr_adv = "—"
@@ -1300,7 +1342,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         o = p.get("o_ecr")
         o_str = f"#{int(o)}" if (o and o < 900) else "—"
         is_best = (o == best_ovr_val and o is not None and o < 900)
-        color = "#38bdf8" if is_best else "#94a3b8"
+        color = "var(--accent-cyan)" if is_best else "var(--text-secondary)"
         ovr_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{o_str}</td>"
 
     # 3. Positional Rank Row
@@ -1308,15 +1350,15 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
     for p in comparison_assets:
         p_ecr = p.get("p_ecr")
         pos_str = f"{p['pos']}{int(p_ecr)}" if (p_ecr and p_ecr < 900) else "—"
-        pos_cells += f"<td style='text-align: center; font-weight: 700; color: #cbd5e1;'>{pos_str}</td>"
-    pos_adv = "<span style='color: #94a3b8;'>Per Position Tier</span>"
+        pos_cells += f"<td style='text-align: center; font-weight: 700; color: var(--text-secondary);'>{pos_str}</td>"
+    pos_adv = "<span style='color: var(--text-secondary);'>Per Position Tier</span>"
 
     # 4. FantasyCalc Row
     fc_cells = ""
     fc_vals = [(p, float(p.get("fc_val") or 0.0)) for p in comparison_assets if p.get("fc_val") is not None]
     if fc_vals and max(x[1] for x in fc_vals) > 0:
         fc_leader, fc_max = max(fc_vals, key=lambda x: x[1])
-        fc_adv = f"<span style='color: #34d399; font-weight: 700;'>{fc_leader['name']} ({fc_max:,.0f})</span>"
+        fc_adv = f"<span style='color: var(--accent-green); font-weight: 700;'>{fc_leader['name']} ({fc_max:,.0f})</span>"
     else:
         fc_max = None
         fc_adv = "—"
@@ -1325,7 +1367,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         fv = p.get("fc_val")
         fv_str = f"{float(fv):,.0f}" if fv is not None else "—"
         is_fc_lead = (fv is not None and float(fv) == fc_max and fc_max > 0)
-        color = "#34d399" if is_fc_lead else "#94a3b8"
+        color = "var(--accent-green)" if is_fc_lead else "var(--text-secondary)"
         fc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fv_str}</td>"
 
     # 5. Age & Horizon Row
@@ -1341,7 +1383,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
     if len(valid_ages) >= 2:
         youngest_p, min_age = min(valid_ages, key=lambda x: x[1])
         oldest_p, max_age = max(valid_ages, key=lambda x: x[1])
-        age_adv = f"<span style='color: #34d399; font-weight: 700;'>{youngest_p['name']} ({min_age:.1f} yrs • -{max_age - min_age:.1f}y)</span>" if max_age > min_age else "<span style='color: #94a3b8;'>Equal Age</span>"
+        age_adv = f"<span style='color: var(--accent-green); font-weight: 700;'>{youngest_p['name']} ({min_age:.1f} yrs • -{max_age - min_age:.1f}y)</span>" if max_age > min_age else "<span style='color: var(--text-secondary);'>Equal Age</span>"
     else:
         min_age = None
         age_adv = "—"
@@ -1352,7 +1394,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             is_youngest = (float(p.get("age")) == min_age and min_age is not None and len(valid_ages) >= 2 and max_age > min_age)
         except (ValueError, TypeError):
             is_youngest = False
-        color = "#34d399" if is_youngest else "#94a3b8"
+        color = "var(--accent-green)" if is_youngest else "var(--text-secondary)"
         age_cells += f"<td style='text-align: center; font-weight: 600; color: {color};'>{age_disp}</td>"
 
     if is_redraft:
@@ -1361,7 +1403,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         valid_fps = [(p, float(p.get("fp_ecr_overall") or 999.0)) for p in comparison_assets if p.get("fp_ecr_overall") and float(p.get("fp_ecr_overall")) < 500]
         if valid_fps:
             fp_lead, fp_min = min(valid_fps, key=lambda x: x[1])
-            fp_adv = f"<span style='color: #fbbf24; font-weight: 700;'>{fp_lead['name']} (#{int(fp_min)})</span>"
+            fp_adv = f"<span style='color: var(--accent-amber); font-weight: 700;'>{fp_lead['name']} (#{int(fp_min)})</span>"
         else:
             fp_min = None
             fp_adv = "—"
@@ -1369,7 +1411,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             fp_v = p.get("fp_ecr_overall")
             fp_str = f"#{int(fp_v)}" if (fp_v and float(fp_v) < 500) else "—"
             is_fp_lead = (fp_v and float(fp_v) == fp_min and fp_min is not None)
-            color = "#fbbf24" if is_fp_lead else "#94a3b8"
+            color = "var(--accent-amber)" if is_fp_lead else "var(--text-secondary)"
             fp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fp_str}</td>"
 
         # Sleeper Projections PPG Row
@@ -1377,7 +1419,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         valid_projs = [(p, float(p.get("proj_ppg") or 0.0)) for p in comparison_assets if p.get("proj_ppg") is not None]
         if valid_projs and max(x[1] for x in valid_projs) > 0:
             proj_lead, proj_max = max(valid_projs, key=lambda x: x[1])
-            proj_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{proj_lead['name']} ({proj_max:.1f} PPG)</span>"
+            proj_adv = f"<span style='color: var(--accent-cyan); font-weight: 700;'>{proj_lead['name']} ({proj_max:.1f} PPG)</span>"
         else:
             proj_max = None
             proj_adv = "—"
@@ -1385,42 +1427,42 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             pj_v = p.get("proj_ppg")
             pj_str = f"{float(pj_v):.1f} PPG" if pj_v is not None else "—"
             is_pj_lead = (pj_v is not None and float(pj_v) == proj_max and proj_max > 0)
-            color = "#38bdf8" if is_pj_lead else "#94a3b8"
+            color = "var(--accent-cyan)" if is_pj_lead else "var(--text-secondary)"
             proj_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{pj_str}</td>"
 
         rows_html = f"""
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Consensus Value</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Single-Season Consensus Value</td>
                 {val_cells}
                 <td style='text-align: center;'>{val_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Overall Rank</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Single-Season Overall Rank</td>
                 {ovr_cells}
                 <td style='text-align: center;'>{ovr_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Single-Season Pos Rank</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Single-Season Pos Rank</td>
                 {pos_cells}
                 <td style='text-align: center;'>{pos_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc Trade Value</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>FantasyCalc Trade Value</td>
                 {fc_cells}
                 <td style='text-align: center;'>{fc_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyPros Consensus ECR</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>FantasyPros Consensus ECR</td>
                 {fp_cells}
                 <td style='text-align: center;'>{fp_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Sleeper Projected PPG</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Sleeper Projected PPG</td>
                 {proj_cells}
                 <td style='text-align: center;'>{proj_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Age & Horizon</td>
                 {age_cells}
                 <td style='text-align: center;'>{age_adv}</td>
             </tr>
@@ -1431,7 +1473,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         ktc_vals = [(p, float(p.get("ktc_val") or 0.0)) for p in comparison_assets if p.get("ktc_val") is not None]
         if ktc_vals and max(x[1] for x in ktc_vals) > 0:
             ktc_leader, ktc_max = max(ktc_vals, key=lambda x: x[1])
-            ktc_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{ktc_leader['name']} ({ktc_max:,.0f})</span>"
+            ktc_adv = f"<span style='color: var(--accent-cyan); font-weight: 700;'>{ktc_leader['name']} ({ktc_max:,.0f})</span>"
         else:
             ktc_max = None
             ktc_adv = "—"
@@ -1440,7 +1482,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             kv = p.get("ktc_val")
             kv_str = f"{float(kv):,.0f}" if kv is not None else "—"
             is_ktc_lead = (kv is not None and float(kv) == ktc_max and ktc_max > 0)
-            color = "#38bdf8" if is_ktc_lead else "#94a3b8"
+            color = "var(--accent-cyan)" if is_ktc_lead else "var(--text-secondary)"
             ktc_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{kv_str}</td>"
 
         # 6. DynastyProcess Row
@@ -1448,7 +1490,7 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         dp_vals = [(p, float(p.get("dp_val") or 0.0)) for p in comparison_assets if p.get("dp_val") is not None]
         if dp_vals and max(x[1] for x in dp_vals) > 0:
             dp_leader, dp_max = max(dp_vals, key=lambda x: x[1])
-            dp_adv = f"<span style='color: #c084fc; font-weight: 700;'>{dp_leader['name']} ({dp_max:,.0f})</span>"
+            dp_adv = f"<span style='color: var(--accent-purple); font-weight: 700;'>{dp_leader['name']} ({dp_max:,.0f})</span>"
         else:
             dp_max = None
             dp_adv = "—"
@@ -1457,42 +1499,42 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             dv = p.get("dp_val")
             dv_str = f"{float(dv):,.0f}" if dv is not None else "—"
             is_dp_lead = (dv is not None and float(dv) == dp_max and dp_max > 0)
-            color = "#c084fc" if is_dp_lead else "#94a3b8"
+            color = "var(--accent-purple)" if is_dp_lead else "var(--text-secondary)"
             dp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{dv_str}</td>"
 
         rows_html = f"""
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Market Value</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Consensus Market Value</td>
                 {val_cells}
                 <td style='text-align: center;'>{val_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Overall Rank</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Consensus Overall Rank</td>
                 {ovr_cells}
                 <td style='text-align: center;'>{ovr_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Consensus Positional Rank</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Consensus Positional Rank</td>
                 {pos_cells}
                 <td style='text-align: center;'>{pos_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>KeepTradeCut (KTC)</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>KeepTradeCut (KTC)</td>
                 {ktc_cells}
                 <td style='text-align: center;'>{ktc_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc (FC Trades)</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>FantasyCalc (FC Trades)</td>
                 {fc_cells}
                 <td style='text-align: center;'>{fc_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>DynastyProcess (DP Model)</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>DynastyProcess (DP Model)</td>
                 {dp_cells}
                 <td style='text-align: center;'>{dp_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
+                <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>Age & Horizon</td>
                 {age_cells}
                 <td style='text-align: center;'>{age_adv}</td>
             </tr>
@@ -1520,7 +1562,7 @@ def render_portfolio_table_html(portfolio_rows):
     spacious rows (~56px), exposure badge/progress, dual ECR badges, and leagues owned.
     """
     if not portfolio_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players in portfolio.</p>"
+        return "<p style='color: var(--text-secondary); font-style: italic; padding: 12px;'>No players in portfolio.</p>"
 
     html = """
     <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
@@ -1556,7 +1598,7 @@ def render_portfolio_table_html(portfolio_rows):
             val = f"{val:,.0f} pts"
         leagues_str = r.get("Leagues Owned", "")
 
-        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-secondary);'>—</div>"
 
         html += f"""
             <tr>
@@ -1572,13 +1614,13 @@ def render_portfolio_table_html(portfolio_rows):
                         </div>
                     </div>
                 </td>
-                <td style='color: #94a3b8; text-align: center;'>{age}</td>
-                <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{shares}</span></td>
+                <td style='color: var(--text-secondary); text-align: center;'>{age}</td>
+                <td style='text-align: center; font-weight: 700; color: var(--text-primary);'><span class='rank-pill'>{shares}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{exp}</span></td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
-                <td style='text-align: left; font-size: 0.78rem; color: #94a3b8; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='{leagues_str}'>{leagues_str}</td>
+                <td class='val-pill' style='text-align: center; color: var(--accent-cyan);'>{val}</td>
+                <td style='text-align: left; font-size: 0.78rem; color: var(--text-secondary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='{leagues_str}'>{leagues_str}</td>
             </tr>
         """
     html += """
@@ -1595,7 +1637,7 @@ def render_picks_table_html(pick_rows, show_equity=False):
     spacious rows (~56px), and consensus market value, matching website theme.
     """
     if not pick_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No future draft picks recorded.</p>"
+        return "<p style='color: var(--text-secondary); font-style: italic; padding: 12px;'>No future draft picks recorded.</p>"
 
     eq_th = "<th style='width: 15%; text-align: center;'>Equity</th>" if show_equity else ""
 
@@ -1623,7 +1665,7 @@ def render_picks_table_html(pick_rows, show_equity=False):
 
         avatar_img = "<div class='player-avatar-44' style='background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(126, 34, 206, 0.45) 100%); border: 1px solid rgba(168, 85, 247, 0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d8b4fe; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;'><span>PICK</span></div>"
 
-        eq_td = f"<td style='color: #38bdf8; font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
+        eq_td = f"<td style='color: var(--accent-cyan); font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
 
         html += f"""
             <tr>
@@ -1639,9 +1681,9 @@ def render_picks_table_html(pick_rows, show_equity=False):
                         </div>
                     </div>
                 </td>
-                <td style='text-align: center; color: #f8fafc; font-weight: 700;'><span class='rank-pill'>{season}</span></td>
-                <td style='text-align: center; color: #cbd5e1;'><span class='rank-pill rank-pill-highlight'>{round_str}</span></td>
-                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
+                <td style='text-align: center; color: var(--text-primary); font-weight: 700;'><span class='rank-pill'>{season}</span></td>
+                <td style='text-align: center; color: var(--text-secondary);'><span class='rank-pill rank-pill-highlight'>{round_str}</span></td>
+                <td class='val-pill' style='text-align: center; color: var(--accent-cyan);'>{val}</td>
                 {eq_td}
             </tr>
         """
@@ -1680,8 +1722,8 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
     """
     for r in sim_rows:
         is_me = (r.get("roster_id") == user_roster_id)
-        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
-        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        row_style = "background: var(--bg-table-row-highlight); border-left: 4px solid var(--accent-cyan);" if is_me else ""
+        name_weight = "font-weight: 800; color: var(--accent-cyan);" if is_me else "font-weight: 600; color: var(--text-primary);"
         starters_val = r.get("Starters PPG") or r.get("Median PPG", "—")
         bench_val = r.get("Bench PPG", "—")
 
@@ -1715,16 +1757,16 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
 
         html += f"""
         <tr style='{row_style}'>
-            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
+            <td style='text-align: center; color: var(--text-secondary); font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
             <td style='text-align: center;'>{status_pill}</td>
-            <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
-            <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{starters_val}</td>
-            <td style='text-align: center; color: #94a3b8;'>{bench_val}</td>
+            <td style='text-align: center; font-weight: 600; color: var(--text-primary);'>{r['Projected W-L']}</td>
+            <td style='text-align: center; color: var(--accent-cyan); font-weight: 700;'>{starters_val}</td>
+            <td style='text-align: center; color: var(--text-secondary);'>{bench_val}</td>
             <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
             <td style='text-align: center;'><span class='rank-pill'>{r['1st-Round Bye']}</span></td>
-            <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{r['Champ Odds']}</span></td>
-            <td class='val-pill' style='text-align: center;'>{r['Season Power Score']}</td>
+            <td style='text-align: center;'><span class='rank-pill' style='color: var(--accent-purple);'>{r['Champ Odds']}</span></td>
+            <td class='val-pill' style='text-align: center; color: var(--text-primary);'>{r['Season Power Score']}</td>
         </tr>
         """
     html += """
@@ -1759,18 +1801,18 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
     """
     for r in dyn_rows:
         is_me = (r.get("roster_id") == user_roster_id)
-        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
-        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        row_style = "background: var(--bg-table-row-highlight); border-left: 4px solid var(--accent-cyan);" if is_me else ""
+        name_weight = "font-weight: 800; color: var(--accent-cyan);" if is_me else "font-weight: 600; color: var(--text-primary);"
         tier = r.get("Competitive Tier", "Active")
         tier_cls = "status-contender" if "Contender" in tier else ("status-rebuild" if "Rebuild" in tier else "status-bubble")
         html += f"""
         <tr style='{row_style}'>
-            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
+            <td style='text-align: center; color: var(--text-secondary); font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
-            <td class='val-pill' style='text-align: center; color: #38bdf8;'>{r['Dynasty Score']}</td>
-            <td style='text-align: center;'>{r['Starters Val (50%)']}</td>
-            <td style='text-align: center; color: #94a3b8;'>{r['Bench Val (30%)']}</td>
-            <td style='text-align: center; color: #c084fc;'>{r['Picks Capital (20%)']}</td>
+            <td class='val-pill' style='text-align: center; color: var(--accent-cyan);'>{r['Dynasty Score']}</td>
+            <td style='text-align: center; color: var(--text-primary);'>{r['Starters Val (50%)']}</td>
+            <td style='text-align: center; color: var(--text-secondary);'>{r['Bench Val (30%)']}</td>
+            <td style='text-align: center; color: var(--accent-purple);'>{r['Picks Capital (20%)']}</td>
             <td style='text-align: center;'><span class='status-capsule {tier_cls}'>{tier}</span></td>
         </tr>
         """
@@ -1836,13 +1878,13 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
             bg = "rgba(100, 116, 139, 0.12)" if theme_is_light else "rgba(148, 163, 184, 0.10)"
             color = "#475569" if theme_is_light else "#94a3b8"
             border = "rgba(100, 116, 139, 0.25)" if theme_is_light else "rgba(148, 163, 184, 0.25)"
-        hl_style = "border: 1px solid #38bdf8; font-weight: 800;" if is_active_col else f"border: 1px solid {border};"
+        hl_style = "border: 1px solid var(--accent-cyan); font-weight: 800;" if is_active_col else f"border: 1px solid {border};"
         return f"<span style='background: {bg}; color: {color}; {hl_style} border-radius: 4px; padding: 1px 6px; font-size: 0.70rem; font-weight: 700; margin-left: 4px;'>#{rank_val}</span>"
 
     for r in room_rows:
         is_me = (r.get("roster_id") == user_roster_id)
-        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
-        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: var(--text-primary);"
+        row_style = "background: var(--bg-table-row-highlight); border-left: 4px solid var(--accent-cyan);" if is_me else ""
+        name_weight = "font-weight: 800; color: var(--accent-cyan);" if is_me else "font-weight: 600; color: var(--text-primary);"
         rank_disp = r.get("disp_rank", r.get("total_rank", 1))
 
         qb_v = r["qb_val"]
@@ -1856,7 +1898,7 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
         tot_v = r["total_val"]
         tot_raw = r.get("raw_total_val", tot_v)
 
-        picks_td = f"<td style='text-align: center;' title='Draft Capital: {r['picks_val']:,.0f}'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>" if show_picks else ""
+        picks_td = f"<td style='text-align: center;' title='Draft Capital: {r['picks_val']:,.0f}'><span style='color: var(--accent-purple); font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>" if show_picks else ""
 
         html += f"""
         <tr style='{row_style}'>
@@ -1867,7 +1909,7 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
             <td style='text-align: center;' title='Effective: {wr_v:,.0f} | Gross: {wr_raw:,.0f}'><span style='color: var(--text-primary); font-weight: 700;'>{wr_v:,.0f}</span> {rank_pill(r['wr_rank'], sort_col=='wr_val')}</td>
             <td style='text-align: center;' title='Effective: {te_v:,.0f} | Gross: {te_raw:,.0f}'><span style='color: var(--text-primary); font-weight: 700;'>{te_v:,.0f}</span> {rank_pill(r['te_rank'], sort_col=='te_val')}</td>
             {picks_td}
-            <td style='text-align: center;' title='Effective: {tot_v:,.0f} | Gross: {tot_raw:,.0f}'><span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{tot_v:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
+            <td style='text-align: center;' title='Effective: {tot_v:,.0f} | Gross: {tot_raw:,.0f}'><span class='val-pill' style='color: var(--accent-cyan); font-weight: 800;'>{tot_v:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
         </tr>
         """
 
@@ -1886,7 +1928,7 @@ def render_starter_card_grid_html(starters_rows):
     positional ECR, overall ECR, and consensus value.
     """
     if not starters_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No active starters designated.</p>"
+        return "<p style='color: var(--text-secondary); font-style: italic; padding: 12px;'>No active starters designated.</p>"
 
     card_items = []
     for s in starters_rows:
@@ -1916,7 +1958,7 @@ def render_starter_card_grid_html(starters_rows):
                 <div class='lineup-stats-grid'>
                     <div class='lineup-stat-box'>
                         <div class='lineup-stat-label'>POS ECR</div>
-                        <div class='lineup-stat-val text-cyan'>{pos_ecr}</div>
+                        <div class='lineup-stat-val' style='color: var(--accent-cyan);'>{pos_ecr}</div>
                     </div>
                     <div class='lineup-stat-box'>
                         <div class='lineup-stat-label'>OVERALL</div>
@@ -1924,7 +1966,7 @@ def render_starter_card_grid_html(starters_rows):
                     </div>
                     <div class='lineup-stat-box' style='grid-column: span 2;'>
                         <div class='lineup-stat-label'>MARKET VALUE ({eq})</div>
-                        <div class='lineup-stat-val text-gold'>{val}</div>
+                        <div class='lineup-stat-val' style='color: var(--accent-amber);'>{val}</div>
                     </div>
                 </div>
             </div>
@@ -1943,7 +1985,7 @@ def render_starter_card_grid_html(starters_rows):
 def render_opponent_lineup_html(opp_rows):
     """Renders opponent starting lineup with 44px avatars and clean row spacing."""
     if not opp_rows:
-        return "<p style='color: #94a3b8; padding: 8px;'>No opponent lineup available.</p>"
+        return "<p style='color: var(--text-secondary); padding: 8px;'>No opponent lineup available.</p>"
     html = """
     <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
     <div class='table-responsive-wrapper'>
@@ -1964,7 +2006,7 @@ def render_opponent_lineup_html(opp_rows):
         pname = r.get("Player", "—")
         team = r.get("NFL Team", "—")
         proj = r.get("Projected", "0.0 pts")
-        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-secondary);'>—</div>"
         html += f"""
             <tr>
                 <td><span class='badge-pos badge-rb'>{slot}</span></td>
@@ -1976,8 +2018,8 @@ def render_opponent_lineup_html(opp_rows):
                         </div>
                     </div>
                 </td>
-                <td style='color: #94a3b8;'>{team}</td>
-                <td class='val-pill' style='color: #38bdf8;'>{proj}</td>
+                <td style='color: var(--text-secondary);'>{team}</td>
+                <td class='val-pill' style='color: var(--accent-cyan);'>{proj}</td>
             </tr>
         """
     html += """
@@ -1991,9 +2033,9 @@ def render_opponent_lineup_html(opp_rows):
 def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_proj, active_week):
     diff = user_proj - opp_proj
     if diff >= 0:
-        spread_badge = f"<span style='background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>+{diff:.1f} PTS FAVORED</span>"
+        spread_badge = f"<span style='background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--accent-green); padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>+{diff:.1f} PTS FAVORED</span>"
     else:
-        spread_badge = f"<span style='background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>{diff:.1f} PTS UNDERDOG</span>"
+        spread_badge = f"<span style='background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: var(--accent-amber); padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>{diff:.1f} PTS UNDERDOG</span>"
 
     # Sleeper-calibrated matchup win probability (normal distribution CDF, sigma=20.0 pts)
     user_win_prob = 0.5 * (1.0 + math.erf(diff / (20.0 * math.sqrt(2)))) * 100.0
@@ -2005,34 +2047,34 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
         <div class='matchup-arena-grid'>
             <!-- User Franchise -->
             <div class='arena-team-left'>
-                <div style='font-size: 0.7rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>YOUR FRANCHISE</div>
-                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{user_name}</div>
-                <div class='arena-proj-score' style='color: #38bdf8;'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='font-size: 0.7rem; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em;'>YOUR FRANCHISE</div>
+                <div style='font-size: 1.15rem; font-weight: 900; color: var(--text-primary); margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{user_name}</div>
+                <div class='arena-proj-score' style='color: var(--accent-cyan);'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);'>PROJ</span></div>
                 <div style='display: flex; align-items: center; gap: 6px; margin-top: 5px;'>
-                    <span style='background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{user_win_prob:.0f}% WIN CHANCE</span>
+                    <span style='background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: var(--accent-cyan); font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{user_win_prob:.0f}% WIN CHANCE</span>
                 </div>
-                <div style='font-size: 0.76rem; color: #94a3b8; margin-top: 6px;'>Optimal Ceiling: <strong style='color: #f8fafc;'>{user_ceiling:.1f} pts</strong></div>
+                <div style='font-size: 0.76rem; color: var(--text-secondary); margin-top: 6px;'>Optimal Ceiling: <strong style='color: var(--text-primary);'>{user_ceiling:.1f} pts</strong></div>
             </div>
 
             <!-- VS, Spread & Win Prob Bar -->
             <div class='arena-vs-col' style='display: flex; flex-direction: column; align-items: center; gap: 8px;'>
-                <div style='background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 9999px; padding: 4px 12px; font-weight: 900; font-size: 0.95rem; color: #94a3b8; letter-spacing: 0.05em;'>VS</div>
+                <div style='background: var(--vs-badge-bg); border: 1px solid var(--vs-badge-border); border-radius: 9999px; padding: 4px 12px; font-weight: 900; font-size: 0.95rem; color: var(--vs-badge-text); letter-spacing: 0.05em;'>VS</div>
                 {spread_badge}
-                <div style='width: 140px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; display: flex; margin-top: 4px;' title='Win Probability: {user_win_prob:.0f}% vs {opp_win_prob:.0f}%'>
-                    <div style='width: {user_win_prob}%; background: #38bdf8; height: 100%;'></div>
-                    <div style='width: {opp_win_prob}%; background: #64748b; height: 100%;'></div>
+                <div style='width: 140px; height: 6px; background: var(--border-subtle); border-radius: 3px; overflow: hidden; display: flex; margin-top: 4px;' title='Win Probability: {user_win_prob:.0f}% vs {opp_win_prob:.0f}%'>
+                    <div style='width: {user_win_prob}%; background: var(--accent-cyan); height: 100%;'></div>
+                    <div style='width: {opp_win_prob}%; background: var(--text-secondary); height: 100%;'></div>
                 </div>
             </div>
 
             <!-- Opponent Franchise -->
             <div class='arena-team-right'>
-                <div style='font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
-                <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{opp_name}</div>
-                <div class='arena-proj-score' style='color: #f8fafc;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div style='font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
+                <div style='font-size: 1.15rem; font-weight: 900; color: var(--text-primary); margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{opp_name}</div>
+                <div class='arena-proj-score' style='color: var(--text-primary);'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);'>PROJ</span></div>
                 <div class='arena-opp-prob-row' style='display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 5px;'>
-                    <span style='background: rgba(148, 163, 184, 0.12); border: 1px solid rgba(148, 163, 184, 0.25); color: #cbd5e1; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{opp_win_prob:.0f}% WIN CHANCE</span>
+                    <span style='background: var(--pill-bg); border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{opp_win_prob:.0f}% WIN CHANCE</span>
                 </div>
-                <div style='font-size: 0.76rem; color: #64748b; margin-top: 6px;'>Week {active_week} Matchup</div>
+                <div style='font-size: 0.76rem; color: var(--text-secondary); margin-top: 6px;'>Week {active_week} Matchup</div>
             </div>
         </div>
     </div>
@@ -2053,27 +2095,27 @@ def render_start_sit_card_html(swap):
     <div class='start-sit-card'>
         <!-- Net Gain & Slot Pill -->
         <div class='start-sit-middle'>
-            <div style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 800;'>+{gain:.1f} PTS GAIN</div>
-            <div style='font-size: 0.7rem; color: #64748b; margin-top: 3px; font-weight: 600;'>Slot: {slot}</div>
+            <div style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--accent-green); padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 800;'>+{gain:.1f} PTS GAIN</div>
+            <div style='font-size: 0.7rem; color: var(--text-secondary); margin-top: 3px; font-weight: 600;'>Slot: {slot}</div>
         </div>
 
         <!-- START Player -->
         <div class='start-sit-player-start' style='display: flex; align-items: center; gap: 10px;'>
-            <span style='background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>START</span>
+            <span style='background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.5); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>START</span>
             <img src='{st_avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
             <div>
-                <div style='font-size: 0.92rem; font-weight: 800; color: #f8fafc;'>{st_p.get("full_name")}</div>
-                <div style='font-size: 0.74rem; color: #94a3b8;'>{st_p.get("position")} • {st_p.get("team") or "FA"} • <strong style='color: #34d399;'>{swap["start_proj"]:.1f} pts</strong></div>
+                <div style='font-size: 0.92rem; font-weight: 800; color: var(--text-primary);'>{st_p.get("full_name")}</div>
+                <div style='font-size: 0.74rem; color: var(--text-secondary);'>{st_p.get("position")} • {st_p.get("team") or "FA"} • <strong style='color: var(--accent-green);'>{swap["start_proj"]:.1f} pts</strong></div>
             </div>
         </div>
 
         <!-- SIT Player -->
         <div class='start-sit-player-sit' style='display: flex; align-items: center; gap: 10px;'>
-            <span style='background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>SIT</span>
+            <span style='background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.35); font-size: 0.68rem; font-weight: 900; padding: 3px 7px; border-radius: 4px;'>SIT</span>
             <img src='{sit_avatar}' class='player-avatar-44' style='opacity: 0.75;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
             <div class='start-sit-sit-info'>
-                <div style='font-size: 0.92rem; font-weight: 800; color: #cbd5e1;'>{sit_p.get("full_name")}</div>
-                <div style='font-size: 0.74rem; color: #64748b;'>{sit_p.get("position")} • {sit_p.get("team") or "FA"} • {swap["sit_proj"]:.1f} pts</div>
+                <div style='font-size: 0.92rem; font-weight: 800; color: var(--text-primary);'>{sit_p.get("full_name")}</div>
+                <div style='font-size: 0.74rem; color: var(--text-secondary);'>{sit_p.get("position")} • {sit_p.get("team") or "FA"} • {swap["sit_proj"]:.1f} pts</div>
             </div>
         </div>
     </div>
@@ -2583,8 +2625,8 @@ primary_lookup = apply_valuation_mode(primary_lookup_base, mode=selected_mode)
 # =============================================================================
 if st.session_state.get("selected_league_id") is None:
     # Header Banner
-    st.markdown("<h1 style='margin-bottom: 4px; font-size: 2.1rem; font-weight: 900; letter-spacing: -0.02em; color: #f8fafc;'>Fantasy Analytics</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94a3b8; font-size: 1.05rem; margin-top: 0px; margin-bottom: 12px;'>Executive Multi-League Portfolio & Franchise Intelligence Platform</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-bottom: 4px; font-size: 2.1rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary);'>Fantasy Analytics</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: var(--text-secondary); font-size: 1.05rem; margin-top: 0px; margin-bottom: 12px;'>Executive Multi-League Portfolio & Franchise Intelligence Platform</p>", unsafe_allow_html=True)
 
     st.caption(f"Connected Sleeper Account: **@{user['username']}** | Season: **{active_season}** (Wk {active_week}) | Active Model: **{VALUATION_MODES[selected_mode]}**")
 
@@ -2662,36 +2704,36 @@ if st.session_state.get("selected_league_id") is None:
 
         # Starter slots preview
         starter_badges = f"""
-        <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: #94a3b8; margin: 8px 0 12px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
-            <span style='color: #64748b; font-weight: 700;'>Starters:</span>
-            <span style='color: #38bdf8; font-weight: 600;'>{slots_str}</span>
+        <div style='background: var(--stat-cell-bg); border: 1px solid var(--stat-cell-border); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: var(--text-secondary); margin: 8px 0 12px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
+            <span style='color: var(--text-muted); font-weight: 700;'>Starters:</span>
+            <span style='color: var(--accent-cyan); font-weight: 600;'>{slots_str}</span>
         </div>
         """ if slots_str else ""
 
         # 4-Cell Matrix
         dyn_cell = f"""
         <div style='background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 4px; text-align: center;'>
-            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #38bdf8; letter-spacing: 0.04em;'>Dynasty</div>
-            <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{d_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
-            <div style='font-size: 0.65rem; color: #38bdf8; opacity: 0.85; margin-top: 2px;'>Capital</div>
+            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: var(--accent-cyan); letter-spacing: 0.04em;'>Dynasty</div>
+            <div style='font-size: 0.95rem; font-weight: 900; color: var(--text-primary); margin-top: 2px;'>#{d_pos} <span style='font-size: 0.68rem; font-weight: 500; color: var(--text-muted);'>/ {total_rosters}</span></div>
+            <div style='font-size: 0.65rem; color: var(--accent-cyan); opacity: 0.85; margin-top: 2px;'>Capital</div>
         </div>
         """ if is_dyn else f"""
-        <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
-            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Type</div>
-            <div style='font-size: 0.85rem; font-weight: 800; color: #f8fafc; margin-top: 4px;'>Redraft</div>
-            <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Annual</div>
+        <div style='background: var(--stat-cell-bg); border: 1px solid var(--stat-cell-border); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: var(--text-secondary); letter-spacing: 0.04em;'>Type</div>
+            <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;'>Redraft</div>
+            <div style='font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;'>Annual</div>
         </div>
         """
 
         season_subtext = "🏆 Favorite" if r_pos == 1 else ("Playoff Lock" if r_pos <= 4 else ("In the Hunt" if r_pos <= 7 else "Rebuilding"))
-        season_color = "#34d399" if r_pos <= 3 else ("#38bdf8" if r_pos <= 6 else "#94a3b8")
-        season_bg = "rgba(16, 185, 129, 0.08)" if r_pos <= 3 else "rgba(15, 23, 42, 0.7)"
-        season_border = "rgba(16, 185, 129, 0.25)" if r_pos <= 3 else "rgba(51, 65, 85, 0.5)"
+        season_color = "var(--accent-green)" if r_pos <= 3 else ("var(--accent-cyan)" if r_pos <= 6 else "var(--text-secondary)")
+        season_bg = "rgba(16, 185, 129, 0.08)" if r_pos <= 3 else "var(--stat-cell-bg)"
+        season_border = "rgba(16, 185, 129, 0.25)" if r_pos <= 3 else "var(--stat-cell-border)"
 
         season_cell = f"""
         <div style='background: {season_bg}; border: 1px solid {season_border}; border-radius: 8px; padding: 8px 4px; text-align: center;'>
             <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: {season_color}; letter-spacing: 0.04em;'>Season</div>
-            <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{r_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
+            <div style='font-size: 0.95rem; font-weight: 900; color: var(--text-primary); margin-top: 2px;'>#{r_pos} <span style='font-size: 0.68rem; font-weight: 500; color: var(--text-muted);'>/ {total_rosters}</span></div>
             <div style='font-size: 0.65rem; color: {season_color}; font-weight: 600; margin-top: 2px;'>{season_subtext}</div>
         </div>
         """
@@ -2700,21 +2742,21 @@ if st.session_state.get("selected_league_id") is None:
         inaug_txt = f"Inaugural: {history.get('inaugural_season', '—')}"
         heritage_txt = "Migrated" if history.get("is_migrated") else "Native Sleeper"
         user_titles = history.get("user_titles", 0)
-        title_badge = f"<span style='background: rgba(234, 179, 8, 0.18); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.45); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 800;'>🏆 {user_titles} Title{'s' if user_titles > 1 else ''}</span>" if user_titles > 0 else ""
-        heritage_badge = f"<span style='background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 600;'>{heritage_txt}</span>"
+        title_badge = f"<span style='background: rgba(234, 179, 8, 0.18); color: var(--accent-amber); border: 1px solid rgba(234, 179, 8, 0.45); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 800;'>🏆 {user_titles} Title{'s' if user_titles > 1 else ''}</span>" if user_titles > 0 else ""
+        heritage_badge = f"<span style='background: var(--pill-bg); color: var(--text-secondary); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 600;'>{heritage_txt}</span>"
 
         card_html = f"""
-        <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
+        <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; {border_accent} background: var(--league-card-bg); box-shadow: var(--card-shadow);'>
             <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
                 <div>
                     <a href='?league={lid}&user={active_user_handle}' target='_self' style='text-decoration: none; color: inherit;'>
-                        <h4 style='margin: 0; color: #f8fafc; font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
+                        <h4 style='margin: 0; color: var(--text-primary); font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
                     </a>
                     <div style='display: flex; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 4px;'>
-                        <span style='color: #94a3b8; font-size: 0.78rem; font-weight: 500;'>{type_str}</span>
+                        <span style='color: var(--text-secondary); font-size: 0.78rem; font-weight: 500;'>{type_str}</span>
                         {tep_badge}
                     </div>
-                    <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.73rem; color: #64748b; flex-wrap: wrap;'>
+                    <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.73rem; color: var(--text-muted); flex-wrap: wrap;'>
                         <span>{inaug_txt} • {history.get('total_seasons', 1)} Seasons</span>
                         {heritage_badge}
                         {title_badge}
@@ -2726,15 +2768,15 @@ if st.session_state.get("selected_league_id") is None:
             {starter_badges}
 
             <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;'>
-                <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
-                    <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Record</div>
-                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{w}-{l}</div>
-                    <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Wk {active_week}</div>
+                <div style='background: var(--stat-cell-bg); border: 1px solid var(--stat-cell-border); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                    <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: var(--text-secondary); letter-spacing: 0.04em;'>Record</div>
+                    <div style='font-size: 0.95rem; font-weight: 900; color: var(--text-primary); margin-top: 2px;'>{w}-{l}</div>
+                    <div style='font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;'>Wk {active_week}</div>
                 </div>
-                <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
-                    <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Points</div>
-                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{fpts:,.1f}</div>
-                    <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>PF Scored</div>
+                <div style='background: var(--stat-cell-bg); border: 1px solid var(--stat-cell-border); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                    <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: var(--text-secondary); letter-spacing: 0.04em;'>Points</div>
+                    <div style='font-size: 0.95rem; font-weight: 900; color: var(--text-primary); margin-top: 2px;'>{fpts:,.1f}</div>
+                    <div style='font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;'>PF Scored</div>
                 </div>
                 {dyn_cell}
                 {season_cell}
@@ -3061,12 +3103,12 @@ else:
         # 1. Team Identity Hero Banner
         st.markdown(
             f"""
-            <div style='display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(17, 24, 39, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px 22px; margin-bottom: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.35);'>
+            <div style='display: flex; align-items: center; justify-content: space-between; background: var(--league-card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 22px; margin-bottom: 18px; box-shadow: var(--shadow-sm);'>
                 <div style='display: flex; align-items: center; gap: 16px;'>
                     <img src='{team_avatar}' style='width: 50px; height: 50px; border-radius: 50%; border: 2px solid #38bdf8; object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                     <div>
-                        <div style='font-size: 1.35rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em;'>{team_name}</div>
-                        <div style='font-size: 0.82rem; color: #94a3b8; margin-top: 2px;'>{format_badge}</div>
+                        <div style='font-size: 1.35rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;'>{team_name}</div>
+                        <div style='font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;'>{format_badge}</div>
                     </div>
                 </div>
                 <div>
@@ -3197,9 +3239,9 @@ else:
                     row_bg = "style='background: rgba(234, 179, 8, 0.08);'" if is_u else ""
                     champ_html += f"""
                         <tr {row_bg}>
-                            <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{seas}</span></td>
-                            <td style='text-align: left; font-weight: 700; color: {'#facc15' if is_u else '#e2e8f0'};'>{champ_name}</td>
-                            <td style='text-align: center; color: #94a3b8;'>{rec}</td>
+                            <td style='text-align: center; font-weight: 700; color: var(--text-primary);'><span class='rank-pill'>{seas}</span></td>
+                            <td style='text-align: left; font-weight: 700; color: {'#facc15' if is_u else 'var(--text-primary)'};'>{champ_name}</td>
+                            <td style='text-align: center; color: var(--text-secondary);'>{rec}</td>
                             <td style='text-align: center;'>{fr_badge}</td>
                         </tr>
                     """
@@ -3445,7 +3487,7 @@ else:
                 <div style='background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;'>
                     <div>
                         <strong style='color: #38bdf8;'>⚡ Lineup Optimization Available:</strong>
-                        <span style='color: #cbd5e1; font-size: 0.86rem; margin-left: 6px;'>You can gain <strong style='color: #34d399;'>+{audit['points_differential']:.1f} pts</strong> with optimal starter swaps.</span>
+                        <span style='color: var(--text-secondary); font-size: 0.86rem; margin-left: 6px;'>You can gain <strong style='color: #34d399;'>+{audit['points_differential']:.1f} pts</strong> with optimal starter swaps.</span>
                     </div>
                 </div>
                 """,
@@ -3458,7 +3500,7 @@ else:
                 f"""
                 <div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;'>
                     <strong style='color: #34d399;'>⭐ Optimal Lineup Configured:</strong>
-                    <span style='color: #cbd5e1; font-size: 0.86rem; margin-left: 6px;'>Your active starting lineup maximizes projected points for Week {active_week}.</span>
+                    <span style='color: var(--text-secondary); font-size: 0.86rem; margin-left: 6px;'>Your active starting lineup maximizes projected points for Week {active_week}.</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3470,7 +3512,7 @@ else:
                 """
                 <div style='background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.35); border-radius: 8px; padding: 10px 14px; margin: 16px 0 10px 0;'>
                     <strong style='color: #fb7185;'>⚠️ Active Starter Injury Risk Detected:</strong>
-                    <span style='color: #cbd5e1; font-size: 0.86rem; margin-left: 6px;'>The following players in your starting lineup carry official injury designations:</span>
+                    <span style='color: var(--text-secondary); font-size: 0.86rem; margin-left: 6px;'>The following players in your starting lineup carry official injury designations:</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3489,7 +3531,7 @@ else:
                     <div style='display: flex; align-items: center; gap: 8px;'>
                         <span style='color: #38bdf8; font-size: 0.8rem; font-weight: 700;'>➔ Recommended Pivot:</span>
                         <img src='{p_avatar}' class='player-avatar-44' style='width: 32px; height: 32px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
-                        <span style='font-weight: 700; color: #f8fafc; font-size: 0.85rem;'>{pname}</span>
+                        <span style='font-weight: 700; color: var(--text-primary); font-size: 0.85rem;'>{pname}</span>
                         <span style='color: #34d399; font-weight: 700; font-size: 0.8rem;'>({pproj:.1f} pts)</span>
                     </div>
                     """
@@ -3498,13 +3540,13 @@ else:
 
                 st.markdown(
                     f"""
-                    <div class='injury-alert-card' style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
+                    <div class='injury-alert-card' style='background: var(--stat-cell-bg); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;'>
                         <div style='display: flex; align-items: center; gap: 10px;'>
                             <span style='background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; font-weight: 900;'>{status.upper()}</span>
                             <img src='{s_avatar}' class='player-avatar-44' style='width: 36px; height: 36px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                             <div>
-                                <span style='font-weight: 800; color: #f8fafc; font-size: 0.9rem;'>{sname}</span>
-                                <span style='color: #94a3b8; font-size: 0.76rem; margin-left: 6px;'>({slot} • {inj['starter_proj']:.1f} pts)</span>
+                                <span style='font-weight: 800; color: var(--text-primary); font-size: 0.9rem;'>{sname}</span>
+                                <span style='color: var(--text-secondary); font-size: 0.76rem; margin-left: 6px;'>({slot} • {inj['starter_proj']:.1f} pts)</span>
                             </div>
                         </div>
                         {pivot_html}
@@ -3643,17 +3685,17 @@ else:
                     c_avatar = get_player_avatar_url(c_id, c_pos, c_team)
                     c_pos_cls = f"badge-{c_pos.lower()}" if f"badge-{c_pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
                     chips.append(
-                        f"<div style='display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem;'>"
+                        f"<div style='display: flex; align-items: center; gap: 8px; background: var(--chip-bg); border: 1px solid var(--chip-border); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem;'>"
                         f"<img src='{c_avatar}' style='width: 24px; height: 24px; border-radius: 50%; object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
-                        f"<span style='color: #f8fafc; font-weight: 600;'>{c_name}</span>"
+                        f"<span style='color: var(--text-primary); font-weight: 600;'>{c_name}</span>"
                         f"<span class='badge-pos {c_pos_cls}' style='font-size: 0.65rem; padding: 1px 4px;'>{c_pos}</span>"
-                        f"<span style='color: #94a3b8;'>({c_val:,.0f} pts)</span>"
+                        f"<span style='color: var(--text-secondary);'>({c_val:,.0f} pts)</span>"
                         f"<span style='color: #34d399; font-weight: 700;'>+{c_gain:,.0f} pts</span>"
                         f"</div>"
                     )
                 alt_drops_html = f"""
-                <div style='margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06);'>
-                    <div style='font-size: 0.76rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>
+                <div style='margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle);'>
+                    <div style='font-size: 0.76rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>
                         Alternative Cut Options ({len(viable_drops)} bench players below FA value):
                     </div>
                     <div style='display: flex; flex-wrap: wrap; gap: 8px;'>
@@ -3677,9 +3719,9 @@ else:
                             <img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                             <div>
                                 <div style='display: flex; align-items: center; gap: 6px;'>
-                                    <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{add_name}</span>
+                                    <span style='font-size: 1.02rem; font-weight: 700; color: var(--text-primary);'>{add_name}</span>
                                     <span class='badge-pos badge-{pos.lower()}'>{pos}</span>
-                                    <span style='color: #94a3b8; font-size: 0.8rem;'>{team} • Age {age}</span>
+                                    <span style='color: var(--text-secondary); font-size: 0.8rem;'>{team} • Age {age}</span>
                                 </div>
                                 <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
                                     <span class='rank-pill'>Dynasty: {dyn_val:,.0f} pts ({dyn_o_str} Ovr • {dyn_p_str})</span>
@@ -3696,9 +3738,9 @@ else:
                             <img src='{drop_avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                             <div>
                                 <div style='display: flex; align-items: center; gap: 6px;'>
-                                    <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{drop_name}</span>
+                                    <span style='font-size: 1.02rem; font-weight: 700; color: var(--text-primary);'>{drop_name}</span>
                                     <span class='badge-pos badge-{drop_pos.lower()}'>{drop_pos}</span>
-                                    <span style='color: #94a3b8; font-size: 0.8rem;'>{drop_team} • Age {drop_age}</span>
+                                    <span style='color: var(--text-secondary); font-size: 0.8rem;'>{drop_team} • Age {drop_age}</span>
                                 </div>
                                 <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
                                     <span class='rank-pill'>Dynasty: {drop_dyn_val:,.0f} pts ({drop_dyn_o_str} Ovr • {drop_dyn_p_str})</span>
@@ -3744,7 +3786,7 @@ else:
                 """
                 <div class='card-container'>
                     <h4 style='margin-bottom: 6px; color: #38bdf8;'>Roster Optimization Status: Optimal</h4>
-                    <p style='color: #94a3b8; margin-bottom: 0;'>No immediate waiver wire adds recommended for this roster. Your active starting lineup and bench depth currently hold higher consensus valuation than all available free agents in this league.</p>
+                    <p style='color: var(--text-secondary); margin-bottom: 0;'>No immediate waiver wire adds recommended for this roster. Your active starting lineup and bench depth currently hold higher consensus valuation than all available free agents in this league.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -4009,7 +4051,7 @@ else:
                             elif diff < -0.5:
                                 trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{diff:.1f}% ↓</span>"
                             else:
-                                trend_badge = "<span style='color: #94a3b8;'>— 0.0%</span>"
+                                trend_badge = "<span style='color: var(--text-secondary);'>— 0.0%</span>"
                         else:
                             trend_badge = "<span style='color: #64748b;'>Baseline</span>"
                         prev_playoff_pct = p_pct
@@ -4050,9 +4092,9 @@ else:
                     for er in evo_rows:
                         evo_html += f"""
                         <tr>
-                            <td style='text-align: left; font-weight: 700; color: #f8fafc;'>{er['Week']}</td>
-                            <td style='text-align: center; color: #94a3b8; font-weight: 600;'>{er['Record Entering Wk']}</td>
-                            <td style='text-align: center; font-weight: 600;'>{er['Projected W-L']}</td>
+                            <td style='text-align: left; font-weight: 700; color: var(--text-primary);'>{er['Week']}</td>
+                            <td style='text-align: center; color: var(--text-secondary); font-weight: 600;'>{er['Record Entering Wk']}</td>
+                            <td style='text-align: center; font-weight: 600; color: var(--text-primary);'>{er['Projected W-L']}</td>
                             <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{er['Playoff Odds']}</span></td>
                             <td style='text-align: center;'><span class='rank-pill'>{er['Bye Odds']}</span></td>
                             <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{er['Champ Odds']}</span></td>
@@ -4195,11 +4237,21 @@ else:
             else:
                 st.caption("League-wide Positional Room Leaderboard (Single-Season ROS) • Starter-Weighted Lineup Utility (100% Starters, 50% Key Backups, 20% Depth, 5% Bloat Discount).")
 
-            room_data = build_positional_room_leaderboard(
-                all_team_profiles, 
-                use_redraft=use_redraft,
-                roster_positions=roster_pos
-            )
+            try:
+                room_data = build_positional_room_leaderboard(
+                    all_team_profiles, 
+                    use_redraft=use_redraft,
+                    roster_positions=roster_pos
+                )
+            except TypeError:
+                import importlib
+                import src.trade_engine as _fresh_te
+                importlib.reload(_fresh_te)
+                room_data = _fresh_te.build_positional_room_leaderboard(
+                    all_team_profiles, 
+                    use_redraft=use_redraft,
+                    roster_positions=roster_pos
+                )
 
             with col_sort:
                 if show_picks:
@@ -4366,12 +4418,12 @@ else:
                         dyn_ros_html = f"<span style='color: #38bdf8; font-weight: 600;'>{d_str}</span> <span style='color: #64748b;'>•</span> <span style='color: #fbbf24; font-weight: 600;'>{ros_str}</span>"
 
                     chips_html += f"""
-                    <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
+                    <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--chip-bg); border: 1px solid var(--chip-border); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
                         <div style='display: flex; align-items: center; gap: 10px; min-width: 0;'>
                             {icon_html}
                             <div style='min-width: 0;'>
-                                <div style='font-weight: 700; color: #f8fafc; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{name}</div>
-                                <div style='font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; align-items: center;'>
+                                <div style='font-weight: 700; color: var(--text-primary); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{name}</div>
+                                <div style='font-size: 0.72rem; color: var(--text-secondary); display: flex; gap: 6px; align-items: center;'>
                                     {pos_badge}
                                     <span>{team}</span>
                                 </div>
@@ -4398,49 +4450,49 @@ else:
 
             card_html = f"""
             <div class='card-container card-highlight' style='padding: 16px; margin-bottom: 16px;'>
-                <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;'>
+                <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;'>
                     <div>
                         <div style='display: flex; align-items: center; gap: 8px;'>
                             <span style='font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #38bdf8;'>Proposal #{idx}</span>
                             {tier_badge}
                         </div>
-                        <h4 style='margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 800; color: #f8fafc;'>{arch}</h4>
+                        <h4 style='margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 800; color: var(--text-primary);'>{arch}</h4>
                     </div>
                     <div style='display: flex; align-items: center; gap: 10px;'>
-                        <span style='font-size: 0.82rem; color: #94a3b8;'>Partner: <strong style='color: #e2e8f0;'>{partner}</strong></span>
+                        <span style='font-size: 0.82rem; color: var(--text-secondary);'>Partner: <strong style='color: var(--text-primary);'>{partner}</strong></span>
                         <span class='status-capsule' style='background: rgba(16, 185, 129, 0.12); color: {diff_color}; border: 1px solid {diff_color}55;'>{status_label}</span>
                     </div>
                 </div>
 
                 <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px;'>
-                    <div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; padding: 12px;'>
+                    <div style='background: var(--bg-card-subtle); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; padding: 12px;'>
                         <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
                             <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #fb7185; letter-spacing: 0.04em;'>YOU SEND</span>
-                            <span style='font-size: 0.78rem; font-weight: 700; color: #94a3b8;'>Total: <span style='color: #f8fafc;'>{give_raw:,.0f} pts</span></span>
+                            <span style='font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);'>Total: <span style='color: var(--text-primary);'>{give_raw:,.0f} pts</span></span>
                         </div>
                         {give_chips}
                     </div>
 
-                    <div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px;'>
+                    <div style='background: var(--bg-card-subtle); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px;'>
                         <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
                             <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #34d399; letter-spacing: 0.04em;'>YOU RECEIVE</span>
-                            <span style='font-size: 0.78rem; font-weight: 700; color: #94a3b8;'>Total: <span style='color: #f8fafc;'>{recv_raw:,.0f} pts</span></span>
+                            <span style='font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);'>Total: <span style='color: var(--text-primary);'>{recv_raw:,.0f} pts</span></span>
                         </div>
                         {recv_chips}
                     </div>
                 </div>
 
-                <div style='display: flex; justify-content: space-between; align-items: center; background: #0f172a; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;'>
-                    <div style='font-size: 0.82rem; color: #cbd5e1;'>
-                        <strong style='color: #94a3b8;'>Net Value Impact:</strong> <span style='font-weight: 800; color: {diff_color};'>{diff_sign}{net_diff:,.0f} pts</span>
+                <div style='display: flex; justify-content: space-between; align-items: center; background: var(--stat-cell-bg); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;'>
+                    <div style='font-size: 0.82rem; color: var(--text-secondary);'>
+                        <strong style='color: var(--text-secondary);'>Net Value Impact:</strong> <span style='font-weight: 800; color: {diff_color};'>{diff_sign}{net_diff:,.0f} pts</span>
                     </div>
-                    <div style='font-size: 0.78rem; color: #94a3b8;'>
+                    <div style='font-size: 0.78rem; color: var(--text-secondary);'>
                         Stud Adj (Send: {eff_give:,.0f} pts | Recv: {eff_recv:,.0f} pts)
                     </div>
                 </div>
 
-                <p style='margin: 0; font-size: 0.82rem; color: #94a3b8; line-height: 1.4;'>
-                    <strong style='color: #cbd5e1;'>Strategic Rationale:</strong> {why}
+                <p style='margin: 0; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;'>
+                    <strong style='color: var(--text-primary);'>Strategic Rationale:</strong> {why}
                 </p>
             </div>
             """
@@ -4786,9 +4838,9 @@ else:
                         st.rerun()
                 with c_p2:
                     st.markdown(
-                        f"<div style='text-align: center; color: #94a3b8; font-size: 0.85rem; font-weight: 600;'>"
-                        f"Page <strong style='color: #f8fafc;'>{cur_page}</strong> of <strong style='color: #f8fafc;'>{total_pages}</strong> "
-                        f"<span style='color: #64748b;'>• Showing {start_idx + 1}–{end_idx} of {total_items} assets</span>"
+                        f"<div style='text-align: center; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;'>"
+                        f"Page <strong style='color: var(--text-primary);'>{cur_page}</strong> of <strong style='color: var(--text-primary);'>{total_pages}</strong> "
+                        f"<span style='color: var(--text-secondary);'>• Showing {start_idx + 1}–{end_idx} of {total_items} assets</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
@@ -4806,7 +4858,7 @@ else:
             # SUBVIEW: PLAYER HEAD-TO-HEAD COMPARISON (2-3 PLAYERS)
             # =================================================================
             st.markdown(
-                "<div style='margin: 8px 0 16px 0; color: #94a3b8; font-size: 0.88rem;'>"
+                "<div style='margin: 8px 0 16px 0; color: var(--text-secondary); font-size: 0.88rem;'>"
                 "Compare 2 or 3 players or rookie draft picks side-by-side across consensus market values, "
                 "constituent platform models, and expert rankings."
                 "</div>",
@@ -4924,17 +4976,17 @@ else:
                 # Executive Advantage Banner
                 lead_title = "Single-Season Value Leader" if is_redraft else "Consensus Value Leader"
                 verdict_html = f"""
-                <div style='background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 16px 20px; margin: 16px 0 20px 0;'>
+                <div style='background: var(--league-card-bg); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 16px 20px; margin: 16px 0 20px 0;'>
                     <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;'>
                         <span style='font-size: 0.76rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>{lead_title}</span>
                         <span style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 0.8rem; font-weight: 800; border-radius: 9999px; padding: 3px 10px;'>
                             +{v_diff:,.0f} PTS (+{v_pct:.1f}%) ADVANTAGE
                         </span>
                     </div>
-                    <div style='font-size: 1.35rem; font-weight: 800; color: #ffffff;'>
-                        {p1['name']} <span style='font-size: 0.92rem; font-weight: 600; color: #94a3b8;'>leads {p2['name']} {age_delta_str}</span>
+                    <div style='font-size: 1.35rem; font-weight: 800; color: var(--text-primary);'>
+                        {p1['name']} <span style='font-size: 0.92rem; font-weight: 600; color: var(--text-secondary);'>leads {p2['name']} {age_delta_str}</span>
                     </div>
-                    {'<div style=\"margin-top: 10px; font-size: 0.84rem; color: #cbd5e1; line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;\">' + '<br/>'.join('• ' + s for s in sentiment_bullets) + '</div>' if sentiment_bullets else ''}
+                    {'<div style=\"margin-top: 10px; font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5; border-top: 1px solid var(--border-subtle); padding-top: 8px;\">' + '<br/>'.join('• ' + s for s in sentiment_bullets) + '</div>' if sentiment_bullets else ''}
                 </div>
                 """
                 st.html(verdict_html)
@@ -4973,57 +5025,57 @@ else:
                             pj_disp = f"{pj_val:.1f} PPG" if pj_val is not None else "—"
 
                             constituent_grid = f"""
-                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
+                            <div style='font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
                             <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;'>
                                 <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.64rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
-                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary);'>{fc_s}</div>
                                 </div>
                                 <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.64rem; color: #fbbf24; font-weight: 700;'>FantasyPros</div>
-                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fp_disp}</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary);'>{fp_disp}</div>
                                 </div>
                                 <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.64rem; color: #38bdf8; font-weight: 700;'>Projections</div>
-                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{pj_disp}</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary);'>{pj_disp}</div>
                                 </div>
                             </div>
                             """
                         else:
                             constituent_grid = f"""
-                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
+                            <div style='font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
                             <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
                                 <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.66rem; color: #38bdf8; font-weight: 700;'>KeepTradeCut</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{ktc_s}</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{ktc_s}</div>
                                 </div>
                                 <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{fc_s}</div>
                                 </div>
                                 <div style='background: rgba(168, 85, 247, 0.04); border: 1px solid rgba(168, 85, 247, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.66rem; color: #c084fc; font-weight: 700;'>DynastyProcess</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{dp_s}</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{dp_s}</div>
                                 </div>
                                 <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Consensus ECR</div>
-                                    <div style='font-size: 0.88rem; font-weight: 800; color: #ffffff;'>{asset['pos_ecr_str']}</div>
+                                    <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{asset['pos_ecr_str']}</div>
                                 </div>
                             </div>
                             """
 
                         card_html = f"""
-                        <div class='card-container' style='height: 100%; border: 1px solid {border_c}; background: rgba(15, 23, 42, 0.75); border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
+                        <div class='card-container' style='height: 100%; border: 1px solid {border_c}; background: var(--bg-card); border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
                             <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;'>
                                 <span class='status-capsule' style='background: {b_bg}; color: {b_color}; font-weight: 800; font-size: 0.74rem;'>{b_text}</span>
-                                <span style='color: #94a3b8; font-size: 0.76rem; font-weight: 700;'>{a_share:.1f}% Share</span>
+                                <span style='color: var(--text-secondary); font-size: 0.76rem; font-weight: 700;'>{a_share:.1f}% Share</span>
                             </div>
 
                             <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 14px;'>
                                 {avatar_html}
                                 <div>
-                                    <div style='font-size: 1.12rem; font-weight: 800; color: #ffffff; line-height: 1.2;'>{asset['name']}</div>
-                                    <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.78rem; color: #94a3b8;'>
+                                    <div style='font-size: 1.12rem; font-weight: 800; color: var(--text-primary); line-height: 1.2;'>{asset['name']}</div>
+                                    <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.78rem; color: var(--text-secondary);'>
                                         <span class='badge-pos {pos_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{asset['pos']}</span>
                                         <span>{asset['team']}</span>
                                         <span>• Age {asset['age']}</span>
@@ -5031,10 +5083,10 @@ else:
                                 </div>
                             </div>
 
-                            <div style='background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;'>
-                                <div style='font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;'>{val_card_title}</div>
+                            <div style='background: var(--bg-card-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;'>
+                                <div style='font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;'>{val_card_title}</div>
                                 <div style='display: flex; align-items: baseline; gap: 6px; margin-top: 2px;'>
-                                    <span style='font-size: 1.55rem; font-weight: 800; color: #f8fafc;'>{asset['val']:,.0f}</span>
+                                    <span style='font-size: 1.55rem; font-weight: 800; color: var(--text-primary);'>{asset['val']:,.0f}</span>
                                     <span style='color: #38bdf8; font-size: 0.8rem; font-weight: 700;'>PTS</span>
                                 </div>
                                 <div style='display: flex; gap: 6px; margin-top: 6px;'>
