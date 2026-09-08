@@ -228,7 +228,7 @@ ALLOWED_USERS = ["henriquefrz", "LucasFrazao"]
 LOGO_PATH = "assets/logo.jpg"
 LOGO_HORIZONTAL_PATH = "assets/logo_horizontal.png"
 ICON_F_YARDS_PATH = "assets/icon_f_yards.png"
-PAGE_ICON = ICON_F_YARDS_PATH if os.path.exists(ICON_F_YARDS_PATH) else (LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈")
+PAGE_ICON = LOGO_PATH if os.path.exists(LOGO_PATH) else "🏈"
 
 LOGO_HORIZONTAL_B64 = ""
 if os.path.exists(LOGO_HORIZONTAL_PATH):
@@ -492,26 +492,37 @@ st.markdown(
     div[data-testid="stMetric"] {
         background: var(--bg-card) !important;
         border: 1px solid var(--border-subtle) !important;
-        border-radius: 10px;
-        padding: 12px 16px;
-        box-shadow: var(--card-shadow);
+        border-radius: 10px !important;
+        padding: 12px 16px !important;
+        box-shadow: var(--card-shadow) !important;
         min-height: 108px !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: space-between !important;
     }
-    div[data-testid="stMetricValue"] {
+    div[data-testid="stMetricValue"],
+    div[data-testid="stMetricValue"] *,
+    div[data-testid="stMetricValue"] p,
+    div[data-testid="stMetricValue"] span {
         font-size: 1.45rem !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.01em;
+        font-weight: 800 !important;
+        letter-spacing: -0.01em !important;
         color: var(--text-primary) !important;
     }
-    div[data-testid="stMetricLabel"] {
+    div[data-testid="stMetricLabel"],
+    div[data-testid="stMetricLabel"] *,
+    div[data-testid="stMetricLabel"] p,
+    div[data-testid="stMetricLabel"] span {
         font-size: 0.78rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
         color: var(--text-secondary) !important;
+    }
+    div[data-testid="stMetricDelta"],
+    div[data-testid="stMetricDelta"] * {
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
     }
 
     /* Modern Tabs Bar */
@@ -533,9 +544,19 @@ st.markdown(
         min-height: 42px !important;
         color: var(--text-secondary) !important;
     }
+    div[data-baseweb="tab"] * {
+        color: var(--text-secondary) !important;
+    }
     div[data-baseweb="tab"][aria-selected="true"] {
         color: var(--text-primary) !important;
         font-weight: 700 !important;
+    }
+    div[data-baseweb="tab"][aria-selected="true"] * {
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
+    }
+    div[data-baseweb="tab-highlight"] {
+        background-color: var(--accent-cyan) !important;
     }
 
     /* Tables & DataFrames */
@@ -553,28 +574,131 @@ st.markdown(
         border-radius: 10px !important;
         box-shadow: var(--card-shadow) !important;
     }
-    div[data-testid="stExpander"] summary {
+    div[data-testid="stExpander"] summary,
+    div[data-testid="stExpander"] summary * {
         color: var(--text-primary) !important;
+        font-weight: 600 !important;
     }
     div[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
         color: var(--text-primary) !important;
     }
 
-    /* Streamlit Popovers & Selectboxes */
-    div[data-baseweb="popover"], div[data-baseweb="popover"] > div {
+    /* Streamlit Popovers, Menus & Selectboxes */
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] > div,
+    div[data-baseweb="menu"],
+    ul[role="listbox"] {
+        background-color: var(--bg-card) !important;
+        border: 1px solid var(--border-medium) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        box-shadow: var(--card-shadow) !important;
+    }
+    li[role="option"] {
         background-color: var(--bg-card) !important;
         color: var(--text-primary) !important;
+        font-weight: 600 !important;
+    }
+    li[role="option"]:hover,
+    li[role="option"][aria-selected="true"] {
+        background-color: var(--bg-card-subtle) !important;
+        color: var(--accent-cyan) !important;
+    }
+    li[role="option"] * {
+        background-color: transparent !important;
+        color: inherit !important;
+    }
+
+    div[data-baseweb="select"] {
+        background-color: transparent !important;
     }
     div[data-baseweb="select"] > div {
         background-color: var(--bg-card) !important;
+        border: 1px solid var(--border-medium) !important;
+        border-radius: 8px !important;
         color: var(--text-primary) !important;
-        border-color: var(--border-subtle) !important;
+        box-shadow: var(--card-shadow) !important;
+    }
+    div[data-baseweb="select"] * {
+        background-color: transparent !important;
+        color: var(--text-primary) !important;
+        font-weight: 600 !important;
+    }
+    div[data-baseweb="select"] svg {
+        fill: var(--text-secondary) !important;
+        color: var(--text-secondary) !important;
     }
     div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
         color: var(--text-primary) !important;
     }
-    div[data-testid="stRadio"] label {
+
+    /* Streamlit Popover Button & Secondary Buttons */
+    div[data-testid="stPopover"] > button,
+    button[data-testid="stPopoverButton"],
+    div[data-testid="stButton"] > button:not([kind="primary"]) {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-medium) !important;
+        border-radius: 8px !important;
         color: var(--text-primary) !important;
+        box-shadow: var(--card-shadow) !important;
+        transition: all 0.2s ease !important;
+    }
+    div[data-testid="stPopover"] > button *,
+    button[data-testid="stPopoverButton"] *,
+    div[data-testid="stButton"] > button:not([kind="primary"]) * {
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
+    }
+    div[data-testid="stPopover"] > button:hover,
+    button[data-testid="stPopoverButton"]:hover,
+    div[data-testid="stButton"] > button:not([kind="primary"]):hover {
+        background: var(--bg-card-subtle) !important;
+        border-color: var(--accent-cyan) !important;
+        color: var(--accent-cyan) !important;
+    }
+    div[data-testid="stPopover"] > button:hover *,
+    button[data-testid="stPopoverButton"]:hover *,
+    div[data-testid="stButton"] > button:not([kind="primary"]):hover * {
+        color: var(--accent-cyan) !important;
+    }
+
+    /* Streamlit Radio Buttons */
+    div[data-testid="stRadio"] label,
+    div[data-testid="stRadio"] label *,
+    div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+        color: var(--text-primary) !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stRadio"] > label,
+    div[data-testid="stRadio"] > label *,
+    div[data-testid="stRadio"] > label p {
+        color: var(--text-secondary) !important;
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+    }
+
+    /* Streamlit Text Inputs */
+    div[data-baseweb="input"],
+    div[data-baseweb="input"] > div {
+        background-color: var(--bg-card) !important;
+        border: 1px solid var(--border-medium) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+    }
+    div[data-baseweb="input"] input {
+        background-color: transparent !important;
+        color: var(--text-primary) !important;
+    }
+    div[data-baseweb="input"] input::placeholder {
+        color: var(--text-muted) !important;
+    }
+
+    /* Streamlit Captions & Typography */
+    div[data-testid="stCaptionContainer"],
+    div[data-testid="stCaptionContainer"] * {
+        color: var(--text-muted) !important;
     }
 
     /* Executive Roster Table with Responsive Touch Scrolling */
@@ -3010,6 +3134,16 @@ else:
         if rid == user_roster["roster_id"]:
             user_profile = prof
 
+    if is_dynasty and all_team_profiles:
+        dyn_res = compute_dynasty_power_rankings(all_team_profiles)
+        ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
+        dyn_rank_map = {d["roster_id"]: (idx, d["dynasty_score"]) for idx, d in enumerate(ranked_dyn, 1)}
+        for p in all_team_profiles:
+            r_id = p["roster_id"]
+            if r_id in dyn_rank_map:
+                p["dynasty_rank"] = dyn_rank_map[r_id][0]
+                p["dynasty_score"] = dyn_rank_map[r_id][1]
+
     format_badge = f"{'Dynasty' if is_dynasty else 'Redraft'} • {'Superflex' if is_superflex else '1QB'} • {len(rosters)} Teams"
     if tep_bonus > 0:
         format_badge += f" • +{tep_bonus:g} TEP"
@@ -3031,7 +3165,8 @@ else:
         st.metric("Franchise Trajectory", clean_status, trajectory_delta, delta_color="normal", help=team_status)
     with col_m3:
         if is_dynasty and user_profile:
-            dyn_rank_str = f"#{dynasty_pos} of {dynasty_total}" if dynasty_pos else "Pre-Draft"
+            dyn_pos_to_use = user_profile.get("dynasty_rank") or dynasty_pos
+            dyn_rank_str = f"#{dyn_pos_to_use} of {len(all_team_profiles)}" if dyn_pos_to_use else "Pre-Draft"
             st.metric("Dynasty Roster Rank", dyn_rank_str, f"{user_profile['total_value']:,.0f} pts")
         else:
             red_rank_str = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "Pre-Draft"
@@ -4279,9 +4414,16 @@ else:
                 )
                 sort_key = sort_options[chosen_sort]
 
-            sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
+            if sort_key == "total_val" and not use_redraft:
+                sorted_rooms = sorted(room_data, key=lambda x: (x.get("dynasty_score", 0.0), x.get("total_val", 0.0)), reverse=True)
+            else:
+                sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
+
             for idx, r in enumerate(sorted_rooms, 1):
-                r["disp_rank"] = idx
+                if sort_key == "total_val" and not use_redraft and r.get("dynasty_rank"):
+                    r["disp_rank"] = r["dynasty_rank"]
+                else:
+                    r["disp_rank"] = idx
 
             st.html(render_positional_room_table_html(sorted_rooms, user_roster["roster_id"], sort_col=sort_key, show_picks=show_picks))
 

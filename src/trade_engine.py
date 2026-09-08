@@ -764,6 +764,22 @@ def build_positional_room_leaderboard(
         s_wr = max((len(p.get("pos_starters", {}).get("WR", [])) for p in all_team_profiles), default=3)
         s_te = max((len(p.get("pos_starters", {}).get("TE", [])) for p in all_team_profiles), default=1)
 
+    dyn_ranks_map = {}
+    if not use_redraft and all_team_profiles:
+        missing_dyn = any("dynasty_score" not in p or "dynasty_rank" not in p for p in all_team_profiles)
+        if missing_dyn:
+            try:
+                from src.playoff_simulator import compute_dynasty_power_rankings
+                dyn_res = compute_dynasty_power_rankings(all_team_profiles)
+                ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
+                for idx, d in enumerate(ranked_dyn, 1):
+                    dyn_ranks_map[d["roster_id"]] = (idx, d["dynasty_score"])
+            except Exception:
+                pass
+        else:
+            for p in all_team_profiles:
+                dyn_ranks_map[p["roster_id"]] = (p.get("dynasty_rank", 0), p.get("dynasty_score", 0.0))
+
     room_data = []
     for p in all_team_profiles:
         rid = p["roster_id"]
@@ -779,7 +795,7 @@ def build_positional_room_leaderboard(
         rb_players = sorted([a for a in all_players if a.get("position") == "RB"], key=_get_val, reverse=True)
         wr_players = sorted([a for a in all_players if a.get("position") == "WR"], key=_get_val, reverse=True)
         te_players = sorted([a for a in all_players if a.get("position") == "TE"], key=_get_val, reverse=True)
-        picks = [] if use_redraft else p.get("pick_assets", [])
+        picks = [] if use_redraft else (p.get("pick_assets") or p.get("picks") or [])
 
         def _compute_room(players_sorted, s_req, pos_type):
             tier2_count = 1 if pos_type in ("QB", "TE") else 2
@@ -822,9 +838,14 @@ def build_positional_room_leaderboard(
         tot_val = qb_val + rb_val + wr_val + te_val + picks_val
         tot_raw_val = qb_raw + rb_raw + wr_raw + te_raw + picks_val
 
+        dyn_rank, dyn_score = dyn_ranks_map.get(rid, (0, 0.0)) if not use_redraft else (0, 0.0)
+
         room_data.append({
             "roster_id": rid,
             "manager_name": mgr,
+            # Dynasty power rankings alignment
+            "dynasty_rank": dyn_rank,
+            "dynasty_score": dyn_score,
             # Effective Starter-Weighted Values (used for room rankings)
             "qb_val": qb_val,
             "rb_val": rb_val,
@@ -858,7 +879,16 @@ def build_positional_room_leaderboard(
         for idx, item in enumerate(sorted_by_key, 1):
             item[rank_field] = idx
 
-    assign_ranks("total_val", "total_rank")
+    if not use_redraft and dyn_ranks_map:
+        for item in room_data:
+            r_id = item["roster_id"]
+            if r_id in dyn_ranks_map:
+                item["total_rank"] = dyn_ranks_map[r_id][0]
+            else:
+                item["total_rank"] = 1
+    else:
+        assign_ranks("total_val", "total_rank")
+
     assign_ranks("qb_val", "qb_rank")
     assign_ranks("rb_val", "rb_rank")
     assign_ranks("wr_val", "wr_rank")
