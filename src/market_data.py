@@ -91,10 +91,15 @@ def get_ktc_data_raw(is_superflex=True):
     """
     fmt = 2 if is_superflex else 1
     url = f"https://keeptradecut.com/dynasty-rankings?filters=QB|WR|RB|TE|RDP&format={fmt}"
-    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
     try:
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
+        # 1. Modern KTC structure: JSON inside <script id="ktc-players">
+        tag_match = re.search(r'<script[^>]*id=[\"\']ktc-players[\"\'][^>]*>(.*?)</script>', response.text, re.DOTALL)
+        if tag_match:
+            return json.loads(tag_match.group(1).strip())
+        # 2. Legacy KTC inline variable structure fallback
         matches = re.findall(r"var playersArray\s*=\s*(\[.*?\]);", response.text, re.DOTALL)
         if matches:
             return json.loads(matches[0])
