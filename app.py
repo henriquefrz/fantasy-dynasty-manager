@@ -253,15 +253,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-if "theme_mode" not in st.session_state:
+qp_theme = st.query_params.get("theme")
+if qp_theme in ("light", "dark"):
+    st.session_state["theme_mode"] = qp_theme
+elif "theme_mode" not in st.session_state:
     st.session_state["theme_mode"] = "dark"
 is_light = (st.session_state.get("theme_mode", "dark") == "light")
+st.query_params["theme"] = "light" if is_light else "dark"
 
 theme_tokens_css = f"""
 <style>
 :root {{
     --bg-main: {'#f8fafc' if is_light else '#0b0f19'};
-    --bg-header: {'rgba(255, 255, 255, 0.95)' if is_light else 'rgba(11, 15, 23, 0.95)'};
+    --bg-header: {'rgba(255, 255, 255, 0.96)' if is_light else 'rgba(11, 15, 23, 0.95)'};
     --bg-card: {'#ffffff' if is_light else '#111827'};
     --bg-card-subtle: {'#f1f5f9' if is_light else 'rgba(15, 23, 42, 0.75)'};
     --bg-table-header: {'#f1f5f9' if is_light else '#1a2234'};
@@ -269,33 +273,36 @@ theme_tokens_css = f"""
     --bg-table-row-hover: {'rgba(0, 0, 0, 0.03)' if is_light else 'rgba(255, 255, 255, 0.02)'};
     --bg-table-row-highlight: {'rgba(14, 165, 233, 0.10)' if is_light else 'rgba(14, 165, 233, 0.16)'};
     --text-primary: {'#0f172a' if is_light else '#f8fafc'};
-    --text-secondary: {'#475569' if is_light else '#94a3b8'};
+    --text-secondary: {'#334155' if is_light else '#94a3b8'};
     --text-muted: {'#64748b' if is_light else '#64748b'};
-    --border-subtle: {'rgba(0, 0, 0, 0.09)' if is_light else 'rgba(255, 255, 255, 0.08)'};
-    --border-medium: {'rgba(0, 0, 0, 0.16)' if is_light else 'rgba(255, 255, 255, 0.16)'};
-    --card-shadow: {'0 2px 10px -2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)' if is_light else '0 4px 14px -2px rgba(0, 0, 0, 0.35)'};
-    --topbar-bg: {'rgba(255, 255, 255, 0.95)' if is_light else 'rgba(15, 23, 42, 0.85)'};
+    --border-subtle: {'#e2e8f0' if is_light else 'rgba(255, 255, 255, 0.08)'};
+    --border-medium: {'#cbd5e1' if is_light else 'rgba(255, 255, 255, 0.16)'};
+    --border-color: {'#cbd5e1' if is_light else 'rgba(255, 255, 255, 0.12)'};
+    --card-shadow: {'0 2px 8px -1px rgba(0, 0, 0, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.04)' if is_light else '0 4px 14px -2px rgba(0, 0, 0, 0.35)'};
+    --shadow-sm: {'0 2px 6px -1px rgba(0, 0, 0, 0.08), 0 1px 3px -1px rgba(0, 0, 0, 0.04)' if is_light else '0 4px 12px -2px rgba(0, 0, 0, 0.35)'};
+    --topbar-bg: {'rgba(255, 255, 255, 0.96)' if is_light else 'rgba(15, 23, 42, 0.85)'};
     --brand-btn-bg: {'linear-gradient(135deg, rgba(14, 165, 233, 0.10) 0%, #ffffff 100%)' if is_light else 'linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%)'};
-    --brand-btn-border: {'rgba(14, 165, 233, 0.35)' if is_light else 'rgba(56, 189, 248, 0.35)'};
-    --arena-card-bg: {'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
+    --brand-btn-border: {'rgba(14, 165, 233, 0.45)' if is_light else 'rgba(56, 189, 248, 0.35)'};
+    --arena-card-bg: {'#ffffff' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
     --arena-card-border: {'rgba(14, 165, 233, 0.35)' if is_light else 'rgba(56, 189, 248, 0.25)'};
-    --start-sit-bg: {'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%)'};
+    --start-sit-bg: {'#ffffff' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.9) 100%)'};
     --start-sit-border: {'rgba(16, 185, 129, 0.35)' if is_light else 'rgba(16, 185, 129, 0.35)'};
-    --stat-cell-bg: {'#f1f5f9' if is_light else 'rgba(15, 23, 42, 0.7)'};
-    --stat-cell-border: {'rgba(0, 0, 0, 0.08)' if is_light else 'rgba(51, 65, 85, 0.5)'};
-    --league-card-bg: {'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
+    --stat-cell-bg: {'#f8fafc' if is_light else 'rgba(15, 23, 42, 0.7)'};
+    --stat-cell-border: {'#e2e8f0' if is_light else 'rgba(51, 65, 85, 0.5)'};
+    --league-card-bg: {'#ffffff' if is_light else 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%)'};
     --chip-bg: {'#ffffff' if is_light else 'rgba(15, 23, 42, 0.7)'};
-    --chip-border: {'rgba(0, 0, 0, 0.08)' if is_light else 'rgba(255, 255, 255, 0.08)'};
+    --chip-border: {'#e2e8f0' if is_light else 'rgba(255, 255, 255, 0.08)'};
     --pill-bg: {'rgba(0, 0, 0, 0.05)' if is_light else 'rgba(255, 255, 255, 0.06)'};
-    --pill-text: {'#475569' if is_light else '#94a3b8'};
+    --pill-text: {'#334155' if is_light else '#94a3b8'};
     --vs-badge-bg: {'#f1f5f9' if is_light else 'rgba(30, 41, 59, 0.9)'};
     --vs-badge-border: {'#cbd5e1' if is_light else 'rgba(51, 65, 85, 0.8)'};
-    --vs-badge-text: {'#475569' if is_light else '#94a3b8'};
+    --vs-badge-text: {'#334155' if is_light else '#94a3b8'};
     --accent-cyan: {'#0284c7' if is_light else '#38bdf8'};
-    --accent-green: {'#059669' if is_light else '#34d399'};
-    --accent-amber: {'#d97706' if is_light else '#fbbf24'};
-    --accent-purple: {'#7c3aed' if is_light else '#c084fc'};
-    --accent-rose: {'#e11d48' if is_light else '#fb7185'};
+    --accent-green: {'#047857' if is_light else '#34d399'};
+    --metric-delta-color: {'#047857' if is_light else '#34d399'};
+    --accent-amber: {'#b45309' if is_light else '#fbbf24'};
+    --accent-purple: {'#6d28d9' if is_light else '#c084fc'};
+    --accent-rose: {'#be123c' if is_light else '#fb7185'};
 }}
 </style>
 """
@@ -489,9 +496,10 @@ st.markdown(
     }
 
     /* Streamlit Native Metric Cards */
+    [data-testid="stMetric"],
     div[data-testid="stMetric"] {
         background: var(--bg-card) !important;
-        border: 1px solid var(--border-subtle) !important;
+        border: 1px solid var(--border-medium) !important;
         border-radius: 10px !important;
         padding: 12px 16px !important;
         box-shadow: var(--card-shadow) !important;
@@ -500,32 +508,42 @@ st.markdown(
         flex-direction: column !important;
         justify-content: space-between !important;
     }
-    div[data-testid="stMetricValue"],
-    div[data-testid="stMetricValue"] *,
-    div[data-testid="stMetricValue"] p,
-    div[data-testid="stMetricValue"] span {
-        font-size: 1.45rem !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.01em !important;
-        color: var(--text-primary) !important;
-    }
-    div[data-testid="stMetricLabel"],
-    div[data-testid="stMetricLabel"] *,
-    div[data-testid="stMetricLabel"] p,
-    div[data-testid="stMetricLabel"] span {
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricLabel"] *,
+    [data-testid="stMetricLabel"] p,
+    [data-testid="stMetricLabel"] span,
+    label[data-testid="stMetricLabel"] {
         font-size: 0.78rem !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.04em !important;
         color: var(--text-secondary) !important;
     }
-    div[data-testid="stMetricDelta"],
-    div[data-testid="stMetricDelta"] * {
+    [data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] *,
+    [data-testid="stMetricValue"] p,
+    [data-testid="stMetricValue"] span,
+    div[data-testid="stMetricValue"] {
+        font-size: 1.45rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.01em !important;
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stMetricDelta"],
+    [data-testid="stMetricDelta"] *,
+    [data-testid="stMetricDelta"] span,
+    div[data-testid="stMetricDelta"] {
         font-size: 0.82rem !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
+        color: var(--metric-delta-color) !important;
+    }
+    [data-testid="stMetricDelta"] svg {
+        fill: var(--metric-delta-color) !important;
+        color: var(--metric-delta-color) !important;
     }
 
     /* Modern Tabs Bar */
+    [data-baseweb="tab-list"],
     div[data-baseweb="tab-list"] {
         gap: 6px;
         overflow-x: auto;
@@ -535,6 +553,8 @@ st.markdown(
         padding-bottom: 6px;
         border-bottom: 1px solid var(--border-subtle);
     }
+    button[data-baseweb="tab"],
+    [data-baseweb="tab"],
     div[data-baseweb="tab"] {
         white-space: nowrap !important;
         font-size: 0.88rem !important;
@@ -542,24 +562,38 @@ st.markdown(
         padding: 8px 16px !important;
         border-radius: 6px !important;
         min-height: 42px !important;
+        background-color: transparent !important;
         color: var(--text-secondary) !important;
     }
+    button[data-baseweb="tab"] *,
+    [data-baseweb="tab"] *,
     div[data-baseweb="tab"] * {
         color: var(--text-secondary) !important;
+        font-weight: 600 !important;
     }
+    button[data-baseweb="tab"]:hover,
+    button[data-baseweb="tab"]:hover * {
+        color: var(--accent-cyan) !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"],
+    [data-baseweb="tab"][aria-selected="true"],
     div[data-baseweb="tab"][aria-selected="true"] {
         color: var(--text-primary) !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
     }
+    button[data-baseweb="tab"][aria-selected="true"] *,
+    [data-baseweb="tab"][aria-selected="true"] *,
     div[data-baseweb="tab"][aria-selected="true"] * {
         color: var(--text-primary) !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
     }
+    [data-baseweb="tab-highlight"],
     div[data-baseweb="tab-highlight"] {
         background-color: var(--accent-cyan) !important;
     }
 
     /* Tables & DataFrames */
+    [data-testid="stDataFrame"],
     div[data-testid="stDataFrame"] {
         border-radius: 10px;
         overflow: hidden;
@@ -568,50 +602,76 @@ st.markdown(
     }
 
     /* Streamlit Expander */
+    details[data-testid="stExpander"],
+    [data-testid="stExpander"],
     div[data-testid="stExpander"] {
         background: var(--bg-card) !important;
-        border: 1px solid var(--border-subtle) !important;
+        border: 1px solid var(--border-medium) !important;
         border-radius: 10px !important;
         box-shadow: var(--card-shadow) !important;
+        overflow: hidden !important;
     }
-    div[data-testid="stExpander"] summary,
-    div[data-testid="stExpander"] summary * {
+    details[data-testid="stExpander"] summary,
+    [data-testid="stExpander"] summary,
+    details[data-testid="stExpander"] > summary,
+    [data-testid="stExpander"] > summary {
+        background: var(--bg-card) !important;
         color: var(--text-primary) !important;
-        font-weight: 600 !important;
+        border-radius: 9px !important;
     }
-    div[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    details[data-testid="stExpander"] summary *,
+    [data-testid="stExpander"] summary * {
         color: var(--text-primary) !important;
+        font-weight: 700 !important;
+    }
+    details[data-testid="stExpander"] summary:hover,
+    details[data-testid="stExpander"] summary:focus,
+    details[data-testid="stExpander"] summary:active,
+    details[data-testid="stExpander"][open] summary,
+    details[data-testid="stExpander"][open] > summary,
+    [data-testid="stExpander"][open] > summary {
+        background: var(--bg-card-subtle) !important;
+        color: var(--text-primary) !important;
+    }
+    details[data-testid="stExpander"] summary:hover *,
+    details[data-testid="stExpander"] summary:focus *,
+    details[data-testid="stExpander"] summary:active *,
+    details[data-testid="stExpander"][open] summary *,
+    details[data-testid="stExpander"][open] > summary *,
+    [data-testid="stExpander"][open] > summary * {
+        color: var(--text-primary) !important;
+    }
+    details[data-testid="stExpander"] [data-testid="stExpanderDetails"],
+    [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+        background: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-top: 1px solid var(--border-subtle) !important;
+    }
+    details[data-testid="stExpander"] svg,
+    [data-testid="stExpander"] svg,
+    [data-testid="stExpanderIcon"],
+    [data-testid="stExpanderStepChevron"] {
+        fill: var(--text-secondary) !important;
+        color: var(--text-secondary) !important;
     }
 
-    /* Streamlit Popovers, Menus & Selectboxes */
-    div[data-baseweb="popover"],
-    div[data-baseweb="popover"] > div,
-    div[data-baseweb="menu"],
-    ul[role="listbox"] {
-        background-color: var(--bg-card) !important;
-        border: 1px solid var(--border-medium) !important;
-        border-radius: 8px !important;
-        color: var(--text-primary) !important;
-        box-shadow: var(--card-shadow) !important;
-    }
-    li[role="option"] {
-        background-color: var(--bg-card) !important;
-        color: var(--text-primary) !important;
-        font-weight: 600 !important;
-    }
-    li[role="option"]:hover,
-    li[role="option"][aria-selected="true"] {
-        background-color: var(--bg-card-subtle) !important;
-        color: var(--accent-cyan) !important;
-    }
-    li[role="option"] * {
+    /* Streamlit Selectboxes & BaseWeb Controls */
+    [data-testid="stSelectbox"] {
         background-color: transparent !important;
-        color: inherit !important;
     }
-
+    [data-testid="stSelectbox"] label,
+    [data-testid="stSelectbox"] label *,
+    [data-testid="stSelectbox"] label p {
+        color: var(--text-secondary) !important;
+        font-size: 0.84rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.02em !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"],
     div[data-baseweb="select"] {
         background-color: transparent !important;
     }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
     div[data-baseweb="select"] > div {
         background-color: var(--bg-card) !important;
         border: 1px solid var(--border-medium) !important;
@@ -619,23 +679,75 @@ st.markdown(
         color: var(--text-primary) !important;
         box-shadow: var(--card-shadow) !important;
     }
-    div[data-baseweb="select"] * {
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div:hover,
+    div[data-baseweb="select"] > div:hover {
+        border-color: var(--accent-cyan) !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    div[data-baseweb="select"] > div > div,
+    [data-testid="stSelectbox"] [data-baseweb="select"] div[role="combobox"],
+    div[data-baseweb="select"] div[role="combobox"] {
         background-color: transparent !important;
         color: var(--text-primary) !important;
-        font-weight: 600 !important;
     }
+    [data-testid="stSelectbox"] [data-baseweb="select"] *,
+    div[data-baseweb="select"] * {
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] svg,
     div[data-baseweb="select"] svg {
         fill: var(--text-secondary) !important;
         color: var(--text-secondary) !important;
     }
-    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+
+    /* Dropdown popover menu list options */
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] > div,
+    div[data-baseweb="popover"] div,
+    div[data-baseweb="menu"],
+    div[data-baseweb="menu"] > div,
+    ul[role="listbox"],
+    [data-testid="stSelectboxVirtualDropdown"] {
+        background-color: var(--bg-card) !important;
+        border: 1px solid var(--border-medium) !important;
+        border-radius: 8px !important;
         color: var(--text-primary) !important;
+        box-shadow: var(--card-shadow) !important;
+    }
+    div[data-baseweb="popover"] ul,
+    div[data-baseweb="menu"] ul {
+        background-color: var(--bg-card) !important;
+    }
+    li[role="option"],
+    li[role="option"] > div,
+    div[role="option"],
+    div[data-baseweb="popover"] li {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        font-weight: 600 !important;
+    }
+    li[role="option"]:hover,
+    li[role="option"]:hover > div,
+    div[role="option"]:hover,
+    div[data-baseweb="popover"] li:hover,
+    li[role="option"][aria-selected="true"],
+    li[role="option"][aria-selected="true"] > div,
+    div[role="option"][aria-selected="true"],
+    div[data-baseweb="popover"] li[aria-selected="true"] {
+        background-color: var(--bg-card-subtle) !important;
+        color: var(--accent-cyan) !important;
+    }
+    li[role="option"] *,
+    div[role="option"] *,
+    div[data-baseweb="popover"] li * {
+        color: inherit !important;
     }
 
     /* Streamlit Popover Button & Secondary Buttons */
     div[data-testid="stPopover"] > button,
     button[data-testid="stPopoverButton"],
-    div[data-testid="stButton"] > button:not([kind="primary"]) {
+    div[data-testid="stButton"] > button:not([kind="primary"]),
+    button[kind="secondary"] {
         background: var(--bg-card) !important;
         border: 1px solid var(--border-medium) !important;
         border-radius: 8px !important;
@@ -645,38 +757,71 @@ st.markdown(
     }
     div[data-testid="stPopover"] > button *,
     button[data-testid="stPopoverButton"] *,
-    div[data-testid="stButton"] > button:not([kind="primary"]) * {
+    div[data-testid="stButton"] > button:not([kind="primary"]) *,
+    button[kind="secondary"] * {
         color: var(--text-primary) !important;
         font-weight: 700 !important;
     }
     div[data-testid="stPopover"] > button:hover,
     button[data-testid="stPopoverButton"]:hover,
-    div[data-testid="stButton"] > button:not([kind="primary"]):hover {
+    div[data-testid="stButton"] > button:not([kind="primary"]):hover,
+    button[kind="secondary"]:hover {
         background: var(--bg-card-subtle) !important;
         border-color: var(--accent-cyan) !important;
         color: var(--accent-cyan) !important;
     }
     div[data-testid="stPopover"] > button:hover *,
     button[data-testid="stPopoverButton"]:hover *,
-    div[data-testid="stButton"] > button:not([kind="primary"]):hover * {
+    div[data-testid="stButton"] > button:not([kind="primary"]):hover *,
+    button[kind="secondary"]:hover * {
         color: var(--accent-cyan) !important;
     }
 
-    /* Streamlit Radio Buttons */
-    div[data-testid="stRadio"] label,
-    div[data-testid="stRadio"] label *,
-    div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+    /* Streamlit Radio Buttons & Radio Circles (Bubbles) */
+    [data-testid="stRadio"] label,
+    [data-testid="stRadio"] label *,
+    [data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
         color: var(--text-primary) !important;
         font-weight: 600 !important;
     }
-    div[data-testid="stRadio"] > label,
-    div[data-testid="stRadio"] > label *,
-    div[data-testid="stRadio"] > label p {
+    [data-testid="stRadio"] > label,
+    [data-testid="stRadio"] > label *,
+    [data-testid="stRadio"] > label p {
         color: var(--text-secondary) !important;
         font-size: 0.82rem !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.04em !important;
+    }
+    /* Outer radio circle / bubble */
+    [data-testid="stRadio"] [data-baseweb="radio"] > div,
+    [data-testid="stRadio"] [data-baseweb="radio"] > span,
+    [data-testid="stRadio"] label > div:first-child,
+    [data-testid="stRadio"] label > span:first-child {
+        background-color: var(--bg-card) !important;
+        border: 2px solid var(--border-medium) !important;
+    }
+    [data-testid="stRadio"] [data-baseweb="radio"]:hover > div,
+    [data-testid="stRadio"] [data-baseweb="radio"]:hover > span,
+    [data-testid="stRadio"] label:hover > div:first-child,
+    [data-testid="stRadio"] label:hover > span:first-child {
+        border-color: var(--accent-cyan) !important;
+    }
+    [data-testid="stRadio"] input[type="radio"]:checked + div,
+    [data-testid="stRadio"] input[type="radio"]:checked + span,
+    [data-testid="stRadio"] [aria-checked="true"] > div,
+    [data-testid="stRadio"] [aria-checked="true"] > span,
+    [data-testid="stRadio"] [data-checked="true"] > div,
+    [data-testid="stRadio"] [data-checked="true"] > span {
+        background-color: var(--bg-card) !important;
+        border-color: var(--accent-cyan) !important;
+    }
+    /* Inner dot of radio circle */
+    [data-testid="stRadio"] [data-baseweb="radio"] > div > div,
+    [data-testid="stRadio"] [data-baseweb="radio"] > span > span,
+    [data-testid="stRadio"] label > div:first-child > div,
+    [data-testid="stRadio"] label > span:first-child > span {
+        background-color: var(--accent-cyan) !important;
     }
 
     /* Streamlit Text Inputs */
@@ -858,21 +1003,21 @@ st.markdown(
     /* Glowing Posture Capsules */
     .status-glow-win, .status-glow-contender {
         background: rgba(14, 165, 233, 0.15) !important;
-        color: #38bdf8 !important;
-        border: 1px solid #38bdf8 !important;
-        box-shadow: 0 0 14px rgba(56, 189, 248, 0.35) !important;
+        color: var(--accent-cyan) !important;
+        border: 1px solid var(--accent-cyan) !important;
+        box-shadow: 0 0 10px rgba(14, 165, 233, 0.25) !important;
     }
     .status-glow-rebuild {
         background: rgba(16, 185, 129, 0.15) !important;
-        color: #34d399 !important;
-        border: 1px solid #34d399 !important;
-        box-shadow: 0 0 14px rgba(52, 211, 153, 0.35) !important;
+        color: var(--accent-green) !important;
+        border: 1px solid var(--accent-green) !important;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.25) !important;
     }
     .status-glow-neutral, .status-glow-bubble {
         background: rgba(245, 158, 11, 0.15) !important;
-        color: #fbbf24 !important;
-        border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 14px rgba(251, 191, 36, 0.35) !important;
+        color: var(--accent-amber) !important;
+        border: 1px solid var(--accent-amber) !important;
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.25) !important;
     }
 
     /* Dashboard Key Stats & Playoff Probability Cards */
@@ -884,7 +1029,7 @@ st.markdown(
     }
     .dash-stat-box {
         background: var(--bg-card);
-        border: 1px solid var(--border-subtle);
+        border: 1px solid var(--border-medium);
         border-radius: 10px;
         padding: 12px 14px;
         box-shadow: var(--card-shadow);
@@ -910,7 +1055,7 @@ st.markdown(
     }
     .prob-card-container {
         background: var(--bg-card);
-        border: 1px solid var(--border-subtle);
+        border: 1px solid var(--border-medium);
         border-radius: 10px;
         padding: 14px 16px;
         box-shadow: var(--card-shadow);
@@ -1858,24 +2003,24 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
 
         if status_code == "CLINCHED":
             badge_bg = "rgba(16, 185, 129, 0.15)"
-            badge_border = "rgba(52, 211, 153, 0.35)"
-            badge_text = "#34d399"
+            badge_border = "rgba(16, 185, 129, 0.35)"
+            badge_text = "var(--accent-green)"
         elif status_code == "ELIMINATED":
             badge_bg = "rgba(244, 63, 94, 0.15)"
-            badge_border = "rgba(251, 113, 133, 0.35)"
-            badge_text = "#fb7185"
+            badge_border = "rgba(244, 63, 94, 0.35)"
+            badge_text = "var(--accent-rose)"
         elif status_code == "DANGER":
             badge_bg = "rgba(245, 158, 11, 0.15)"
-            badge_border = "rgba(251, 191, 36, 0.35)"
-            badge_text = "#fbbf24"
+            badge_border = "rgba(245, 158, 11, 0.35)"
+            badge_text = "var(--accent-amber)"
         elif status_code == "CONTENDER":
             badge_bg = "rgba(6, 182, 212, 0.15)"
-            badge_border = "rgba(56, 189, 248, 0.35)"
-            badge_text = "#38bdf8"
+            badge_border = "rgba(14, 165, 233, 0.35)"
+            badge_text = "var(--accent-cyan)"
         else:
             badge_bg = "rgba(59, 130, 246, 0.15)"
-            badge_border = "rgba(96, 165, 250, 0.35)"
-            badge_text = "#60a5fa"
+            badge_border = "rgba(59, 130, 246, 0.35)"
+            badge_text = "var(--accent-cyan)"
 
         status_pill = f"<span class='rank-pill' style='background: {badge_bg}; color: {badge_text}; border: 1px solid {badge_border}; font-weight: 700; white-space: nowrap;'>{badge_icon} {status_label}</span>"
 
@@ -1992,15 +2137,15 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
         theme_is_light = (st.session_state.get("theme_mode", "dark") == "light")
         if rank_val <= 3:
             bg = "rgba(16, 185, 129, 0.15)"
-            color = "#059669" if theme_is_light else "#34d399"
+            color = "var(--accent-green)"
             border = "rgba(16, 185, 129, 0.4)"
         elif rank_val <= 6:
             bg = "rgba(14, 165, 233, 0.15)"
-            color = "#0284c7" if theme_is_light else "#38bdf8"
+            color = "var(--accent-cyan)"
             border = "rgba(14, 165, 233, 0.4)"
         else:
             bg = "rgba(100, 116, 139, 0.12)" if theme_is_light else "rgba(148, 163, 184, 0.10)"
-            color = "#475569" if theme_is_light else "#94a3b8"
+            color = "var(--text-secondary)"
             border = "rgba(100, 116, 139, 0.25)" if theme_is_light else "rgba(148, 163, 184, 0.25)"
         hl_style = "border: 1px solid var(--accent-cyan); font-weight: 800;" if is_active_col else f"border: 1px solid {border};"
         return f"<span style='background: {bg}; color: {color}; {hl_style} border-radius: 4px; padding: 1px 6px; font-size: 0.70rem; font-weight: 700; margin-left: 4px;'>#{rank_val}</span>"
@@ -2582,6 +2727,7 @@ else:
 def set_active_workspace(lid):
     st.session_state["selected_league_id"] = lid
     st.query_params["user"] = st.session_state.get("active_user_handle", DEFAULT_USERNAME)
+    st.query_params["theme"] = st.session_state.get("theme_mode", "dark")
     if lid is None:
         if "league" in st.query_params:
             del st.query_params["league"]
@@ -2607,10 +2753,11 @@ with st.container(key="topbar_nav_container"):
     )
 
     with top_col_brand:
+        curr_theme_val = "light" if is_light else "dark"
         if ICON_F_YARDS_B64:
             st.html(
                 f"""
-                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
+                <a href="?user={active_user_handle}&theme={curr_theme_val}" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
                     <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
                     <span style="font-weight: 900; font-size: 1.25rem; color: var(--text-primary); letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
                 </a>
@@ -2619,7 +2766,7 @@ with st.container(key="topbar_nav_container"):
         elif LOGO_HORIZONTAL_B64:
             st.html(
                 f"""
-                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
+                <a href="?user={active_user_handle}&theme={curr_theme_val}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
                     <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
                 </a>
                 """
@@ -2627,7 +2774,7 @@ with st.container(key="topbar_nav_container"):
         else:
             st.html(
                 f"""
-                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
+                <a href="?user={active_user_handle}&theme={curr_theme_val}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
                     <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
                     <span style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); letter-spacing: -0.01em;">Fantasy Analytics</span>
                 </a>
@@ -2667,7 +2814,9 @@ with st.container(key="topbar_nav_container"):
         btn_txt = "☀️ Light" if cur_t == "dark" else "🌙 Dark"
         btn_tip = "Switch to Light Mode" if cur_t == "dark" else "Switch to Dark Mode"
         if st.button(btn_txt, key="btn_top_theme_toggle", help=btn_tip, use_container_width=True):
-            st.session_state["theme_mode"] = "light" if cur_t == "dark" else "dark"
+            new_t = "light" if cur_t == "dark" else "dark"
+            st.session_state["theme_mode"] = new_t
+            st.query_params["theme"] = new_t
             st.rerun()
 
     with top_col_cfg:
@@ -2683,6 +2832,7 @@ with st.container(key="topbar_nav_container"):
             desired_t = "light" if "Light" in theme_choice else "dark"
             if desired_t != st.session_state.get("theme_mode", "dark"):
                 st.session_state["theme_mode"] = desired_t
+                st.query_params["theme"] = desired_t
                 st.rerun()
 
             st.markdown("---")
@@ -2728,6 +2878,7 @@ with st.container(key="topbar_nav_container"):
         if selected_u != st.session_state.get("active_user_handle"):
             st.session_state["active_user_handle"] = selected_u
             st.query_params["user"] = selected_u
+            st.query_params["theme"] = st.session_state.get("theme_mode", "dark")
             st.session_state["selected_league_id"] = None
             if "league" in st.query_params:
                 del st.query_params["league"]
@@ -2906,7 +3057,7 @@ if st.session_state.get("selected_league_id") is None:
                 {season_cell}
             </div>
 
-            <a href='?league={lid}&user={active_user_handle}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25); transition: all 0.2s ease;'>
+            <a href='?league={lid}&user={active_user_handle}&theme={"light" if is_light else "dark"}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25); transition: all 0.2s ease;'>
                 Open Workspace →
             </a>
         </div>
@@ -2934,6 +3085,7 @@ else:
             if "league" in st.query_params:
                 del st.query_params["league"]
             st.query_params["user"] = st.session_state.get("active_user_handle", DEFAULT_USERNAME)
+            st.query_params["theme"] = st.session_state.get("theme_mode", "dark")
             st.rerun()
 
     with st.spinner(f"Loading Workspace: {selected_league_name}..."):
@@ -3238,9 +3390,9 @@ else:
         # 1. Team Identity Hero Banner
         st.markdown(
             f"""
-            <div style='display: flex; align-items: center; justify-content: space-between; background: var(--league-card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 22px; margin-bottom: 18px; box-shadow: var(--shadow-sm);'>
+            <div style='display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 12px; padding: 16px 22px; margin-bottom: 18px; box-shadow: var(--card-shadow);'>
                 <div style='display: flex; align-items: center; gap: 16px;'>
-                    <img src='{team_avatar}' style='width: 50px; height: 50px; border-radius: 50%; border: 2px solid #38bdf8; object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                    <img src='{team_avatar}' style='width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--accent-cyan); object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                     <div>
                         <div style='font-size: 1.35rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;'>{team_name}</div>
                         <div style='font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;'>{format_badge}</div>
@@ -3315,7 +3467,7 @@ else:
                         <div class='prob-labels'><span>Championship</span><span style='color: #c084fc; font-weight: 700;'>{champion_prob:.0f}%</span></div>
                         <div class='prob-track'><div class='prob-fill' style='width: {champion_prob}%; background: linear-gradient(90deg, #8b5cf6, #c084fc);'></div></div>
                     </div>
-                    <div style='margin-top: 10px; font-size: 0.74rem; color: #64748b; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; display: flex; justify-content: space-between;'>
+                    <div style='margin-top: 10px; font-size: 0.74rem; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 6px; display: flex; justify-content: space-between;'>
                         <span><b>Dynasty:</b> {dyn_pos_txt}</span>
                         <span><b>Starters:</b> {starter_val_txt}</span>
                         <span><b>Bench:</b> {bench_val_txt}</span>
@@ -3621,8 +3773,8 @@ else:
                 f"""
                 <div style='background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;'>
                     <div>
-                        <strong style='color: #38bdf8;'>⚡ Lineup Optimization Available:</strong>
-                        <span style='color: var(--text-secondary); font-size: 0.86rem; margin-left: 6px;'>You can gain <strong style='color: #34d399;'>+{audit['points_differential']:.1f} pts</strong> with optimal starter swaps.</span>
+                        <strong style='color: var(--accent-cyan);'>⚡ Lineup Optimization Available:</strong>
+                        <span style='color: var(--text-secondary); font-size: 0.86rem; margin-left: 6px;'>You can gain <strong style='color: var(--accent-green);'>+{audit['points_differential']:.1f} pts</strong> with optimal starter swaps.</span>
                     </div>
                 </div>
                 """,
@@ -3634,7 +3786,7 @@ else:
             st.markdown(
                 f"""
                 <div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;'>
-                    <strong style='color: #34d399;'>⭐ Optimal Lineup Configured:</strong>
+                    <strong style='color: var(--accent-green);'>⭐ Optimal Lineup Configured:</strong>
                     <span style='color: var(--text-secondary); font-size: 0.86rem; margin-left: 6px;'>Your active starting lineup maximizes projected points for Week {active_week}.</span>
                 </div>
                 """,
@@ -3664,10 +3816,10 @@ else:
                     p_avatar = get_player_avatar_url(pivot[0].get("player_id"), pivot[0].get("position"), pivot[0].get("team"))
                     pivot_html = f"""
                     <div style='display: flex; align-items: center; gap: 8px;'>
-                        <span style='color: #38bdf8; font-size: 0.8rem; font-weight: 700;'>➔ Recommended Pivot:</span>
+                        <span style='color: var(--accent-cyan); font-size: 0.8rem; font-weight: 700;'>➔ Recommended Pivot:</span>
                         <img src='{p_avatar}' class='player-avatar-44' style='width: 32px; height: 32px;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                         <span style='font-weight: 700; color: var(--text-primary); font-size: 0.85rem;'>{pname}</span>
-                        <span style='color: #34d399; font-weight: 700; font-size: 0.8rem;'>({pproj:.1f} pts)</span>
+                        <span style='color: var(--accent-green); font-weight: 700; font-size: 0.8rem;'>({pproj:.1f} pts)</span>
                     </div>
                     """
                 else:
@@ -3803,7 +3955,7 @@ else:
             disp_text = ""
             if is_starter and disp_p:
                 d_name = disp_p.get("full_name") or disp_p.get("player_id")
-                disp_text = f"<div style='margin-top: 8px; font-size: 0.82rem; color: #38bdf8;'>↳ Displaces <b>{d_name}</b> in starting lineup</div>"
+                disp_text = f"<div style='margin-top: 8px; font-size: 0.82rem; color: var(--accent-cyan);'>↳ Displaces <b>{d_name}</b> in starting lineup</div>"
 
             alt_drops_html = ""
             viable_drops = s.get("all_drop_candidates", [])
@@ -3825,7 +3977,7 @@ else:
                         f"<span style='color: var(--text-primary); font-weight: 600;'>{c_name}</span>"
                         f"<span class='badge-pos {c_pos_cls}' style='font-size: 0.65rem; padding: 1px 4px;'>{c_pos}</span>"
                         f"<span style='color: var(--text-secondary);'>({c_val:,.0f} pts)</span>"
-                        f"<span style='color: #34d399; font-weight: 700;'>+{c_gain:,.0f} pts</span>"
+                        f"<span style='color: var(--accent-green); font-weight: 700;'>+{c_gain:,.0f} pts</span>"
                         f"</div>"
                     )
                 alt_drops_html = f"""
@@ -3849,7 +4001,7 @@ else:
                 <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;'>
                     <!-- TARGET ADD PLAYER -->
                     <div style='background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px;'>
-                        <div style='font-size: 0.72rem; font-weight: 800; color: #34d399; letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase;'>TARGET ADD</div>
+                        <div style='font-size: 0.72rem; font-weight: 800; color: var(--accent-green); letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase;'>TARGET ADD</div>
                         <div style='display: flex; gap: 12px; align-items: center;'>
                             <img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
                             <div>
@@ -4182,9 +4334,9 @@ else:
                         if prev_playoff_pct is not None:
                             diff = p_pct - prev_playoff_pct
                             if diff > 0.5:
-                                trend_badge = f"<span style='color: #34d399; font-weight: 700;'>+{diff:.1f}% ↑</span>"
+                                trend_badge = f"<span style='color: var(--accent-green); font-weight: 700;'>+{diff:.1f}% ↑</span>"
                             elif diff < -0.5:
-                                trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{diff:.1f}% ↓</span>"
+                                trend_badge = f"<span style='color: var(--accent-rose); font-weight: 700;'>{diff:.1f}% ↓</span>"
                             else:
                                 trend_badge = "<span style='color: var(--text-secondary);'>— 0.0%</span>"
                         else:
@@ -4527,7 +4679,7 @@ else:
             net_diff = eval_res.get("net_diff", recv_raw - give_raw)
             diff_sign = "+" if net_diff >= 0 else ""
             status_label = str(eval_res.get("status", "Balanced")).upper()
-            diff_color = "#10b981" if net_diff >= 0 else "#f43f5e"
+            diff_color = "var(--accent-green)" if net_diff >= 0 else "var(--accent-rose)"
 
             def render_asset_chips(assets):
                 chips_html = ""
@@ -4541,7 +4693,7 @@ else:
                     if a.get("type") == "pick" or not pid or str(pid).startswith("pick_"):
                         icon_html = "<div style='width: 38px; height: 38px; border-radius: 50%; background: #1e1b4b; border: 1.5px solid #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;'>🎯</div>"
                         pos_badge = "<span class='badge-pos badge-pick' style='font-size: 0.65rem; padding: 1px 5px;'>PICK</span>"
-                        dyn_ros_html = "<span style='color: #c084fc; font-weight: 600;'>Future Draft Capital</span>"
+                        dyn_ros_html = "<span style='color: var(--accent-purple); font-weight: 600;'>Future Draft Capital</span>"
                     else:
                         avatar_url = get_player_avatar_url(pid, pos, team)
                         icon_html = f"<img src='{avatar_url}' style='width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #475569; flex-shrink: 0;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
@@ -4557,7 +4709,7 @@ else:
 
                         d_str = f"Dyn: #{int(d_o)} ({pos}{int(d_p)})" if (d_p and d_p < 900) else "Dyn: —"
                         ros_str = f"ROS: #{int(r_o)} ({pos}{int(r_p)})" if (r_p and r_p < 900) else "ROS: —"
-                        dyn_ros_html = f"<span style='color: #38bdf8; font-weight: 600;'>{d_str}</span> <span style='color: #64748b;'>•</span> <span style='color: #fbbf24; font-weight: 600;'>{ros_str}</span>"
+                        dyn_ros_html = f"<span style='color: var(--accent-cyan); font-weight: 600;'>{d_str}</span> <span style='color: var(--text-muted);'>•</span> <span style='color: var(--accent-amber); font-weight: 600;'>{ros_str}</span>"
 
                     chips_html += f"""
                     <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--chip-bg); border: 1px solid var(--chip-border); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
@@ -4574,7 +4726,7 @@ else:
                                 </div>
                             </div>
                         </div>
-                        <div style='font-weight: 800; font-size: 0.9rem; color: #38bdf8; text-align: right; white-space: nowrap;'>{val:,.0f} pts</div>
+                        <div style='font-weight: 800; font-size: 0.9rem; color: var(--accent-cyan); text-align: right; white-space: nowrap;'>{val:,.0f} pts</div>
                     </div>
                     """
                 return chips_html
@@ -4586,16 +4738,16 @@ else:
             if tier == "Blockbuster":
                 tier_badge = "<span class='status-capsule' style='background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);'>⭐ BLOCKBUSTER</span>"
             elif tier == "Starter Upgrade":
-                tier_badge = "<span class='status-capsule' style='background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);'>🏆 STARTER UPGRADE</span>"
+                tier_badge = "<span class='status-capsule' style='background: rgba(14, 165, 233, 0.15); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.4);'>🏆 STARTER UPGRADE</span>"
             else:
-                tier_badge = "<span class='status-capsule' style='background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);'>🌱 DEPTH & CAPITAL</span>"
+                tier_badge = "<span class='status-capsule' style='background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.4);'>🌱 DEPTH & CAPITAL</span>"
 
             card_html = f"""
             <div class='card-container card-highlight' style='padding: 16px; margin-bottom: 16px;'>
                 <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;'>
                     <div>
                         <div style='display: flex; align-items: center; gap: 8px;'>
-                            <span style='font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #38bdf8;'>Proposal #{idx}</span>
+                            <span style='font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--accent-cyan);'>Proposal #{idx}</span>
                             {tier_badge}
                         </div>
                         <h4 style='margin: 4px 0 0 0; font-size: 1.05rem; font-weight: 800; color: var(--text-primary);'>{arch}</h4>
@@ -4609,7 +4761,7 @@ else:
                 <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px;'>
                     <div style='background: var(--bg-card-subtle); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; padding: 12px;'>
                         <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
-                            <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #fb7185; letter-spacing: 0.04em;'>YOU SEND</span>
+                            <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--accent-rose); letter-spacing: 0.04em;'>YOU SEND</span>
                             <span style='font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);'>Total: <span style='color: var(--text-primary);'>{give_raw:,.0f} pts</span></span>
                         </div>
                         {give_chips}
@@ -4617,7 +4769,7 @@ else:
 
                     <div style='background: var(--bg-card-subtle); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px;'>
                         <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
-                            <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #34d399; letter-spacing: 0.04em;'>YOU RECEIVE</span>
+                            <span style='font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--accent-green); letter-spacing: 0.04em;'>YOU RECEIVE</span>
                             <span style='font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);'>Total: <span style='color: var(--text-primary);'>{recv_raw:,.0f} pts</span></span>
                         </div>
                         {recv_chips}
@@ -5076,32 +5228,32 @@ else:
                     if p1.get("ktc_val") and p2.get("ktc_val"):
                         k_diff = float(p1["ktc_val"]) - float(p2["ktc_val"])
                         if k_diff > 0:
-                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p1['name']}</b> (+{k_diff:,.0f} pts).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p1['name']}</b> (+{k_diff:,.0f} pts).")
                         elif k_diff < 0:
-                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p2['name']}</b> (+{abs(k_diff):,.0f} pts).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p2['name']}</b> (+{abs(k_diff):,.0f} pts).")
 
                 if p1.get("fc_val") and p2.get("fc_val"):
                     f_diff = float(p1["fc_val"]) - float(p2["fc_val"])
                     source_title = "FantasyCalc Redraft" if is_redraft else "FantasyCalc"
                     if f_diff > 0:
-                        sentiment_bullets.append(f"<span style='color: #34d399;'>{source_title}</span> real trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
+                        sentiment_bullets.append(f"<span style='color: var(--accent-green);'>{source_title}</span> real trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
                     elif f_diff < 0:
-                        sentiment_bullets.append(f"<span style='color: #34d399;'>{source_title}</span> real trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
+                        sentiment_bullets.append(f"<span style='color: var(--accent-green);'>{source_title}</span> real trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
 
                 if not is_redraft:
                     if p1.get("dp_val") and p2.get("dp_val"):
                         d_diff = float(p1["dp_val"]) - float(p2["dp_val"])
                         if d_diff > 0:
-                            sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p1['name']}</b> (+{d_diff:,.0f} pts).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-purple);'>DynastyProcess</span> expert consensus favors <b>{p1['name']}</b> (+{d_diff:,.0f} pts).")
                         elif d_diff < 0:
-                            sentiment_bullets.append(f"<span style='color: #c084fc;'>DynastyProcess</span> expert consensus favors <b>{p2['name']}</b> (+{abs(d_diff):,.0f} pts).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-purple);'>DynastyProcess</span> expert consensus favors <b>{p2['name']}</b> (+{abs(d_diff):,.0f} pts).")
                 else:
                     if p1.get("proj_ppg") and p2.get("proj_ppg"):
                         p_diff = float(p1["proj_ppg"]) - float(p2["proj_ppg"])
                         if p_diff > 0:
-                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>Sleeper Projections</span> model projects <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG, +{p_diff:.1f} PPG).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>Sleeper Projections</span> model projects <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG, +{p_diff:.1f} PPG).")
                         elif p_diff < 0:
-                            sentiment_bullets.append(f"<span style='color: #38bdf8;'>Sleeper Projections</span> model projects <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG, +{abs(p_diff):.1f} PPG).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>Sleeper Projections</span> model projects <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG, +{abs(p_diff):.1f} PPG).")
 
                     if p1.get("fp_ecr_overall") and p2.get("fp_ecr_overall"):
                         try:
@@ -5109,9 +5261,9 @@ else:
                             fp2 = float(p2["fp_ecr_overall"])
                             if fp1 < 500 and fp2 < 500:
                                 if fp1 < fp2:
-                                    sentiment_bullets.append(f"<span style='color: #fbbf24;'>FantasyPros ECR</span> consensus favors <b>{p1['name']}</b> (#{int(fp1)} vs #{int(fp2)}).")
+                                    sentiment_bullets.append(f"<span style='color: var(--accent-amber);'>FantasyPros ECR</span> consensus favors <b>{p1['name']}</b> (#{int(fp1)} vs #{int(fp2)}).")
                                 elif fp2 < fp1:
-                                    sentiment_bullets.append(f"<span style='color: #fbbf24;'>FantasyPros ECR</span> consensus favors <b>{p2['name']}</b> (#{int(fp2)} vs #{int(fp1)}).")
+                                    sentiment_bullets.append(f"<span style='color: var(--accent-amber);'>FantasyPros ECR</span> consensus favors <b>{p2['name']}</b> (#{int(fp2)} vs #{int(fp1)}).")
                         except (ValueError, TypeError):
                             pass
 
@@ -5120,8 +5272,8 @@ else:
                 verdict_html = f"""
                 <div style='background: var(--league-card-bg); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 16px 20px; margin: 16px 0 20px 0;'>
                     <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;'>
-                        <span style='font-size: 0.76rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>{lead_title}</span>
-                        <span style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 0.8rem; font-weight: 800; border-radius: 9999px; padding: 3px 10px;'>
+                        <span style='font-size: 0.76rem; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em;'>{lead_title}</span>
+                        <span style='background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--accent-green); font-size: 0.8rem; font-weight: 800; border-radius: 9999px; padding: 3px 10px;'>
                             +{v_diff:,.0f} PTS (+{v_pct:.1f}%) ADVANTAGE
                         </span>
                     </div>
@@ -5138,9 +5290,9 @@ else:
                 total_val_sum = sum(a.get("val", 0.0) for a in selected_assets) or 1.0
 
                 rank_badges = [
-                    ("#1 IN COMPARISON", "rgba(16, 185, 129, 0.15)", "#34d399", "rgba(16, 185, 129, 0.3)"),
-                    ("#2 IN COMPARISON", "rgba(56, 189, 248, 0.15)", "#38bdf8", "rgba(56, 189, 248, 0.3)"),
-                    ("#3 IN COMPARISON", "rgba(168, 85, 247, 0.15)", "#c084fc", "rgba(168, 85, 247, 0.3)"),
+                    ("#1 IN COMPARISON", "rgba(16, 185, 129, 0.15)", "var(--accent-green)", "rgba(16, 185, 129, 0.3)"),
+                    ("#2 IN COMPARISON", "rgba(56, 189, 248, 0.15)", "var(--accent-cyan)", "rgba(56, 189, 248, 0.3)"),
+                    ("#3 IN COMPARISON", "rgba(168, 85, 247, 0.15)", "var(--accent-purple)", "rgba(168, 85, 247, 0.3)"),
                 ]
 
                 for col, asset, b_info in zip(cmp_cols, selected_assets, rank_badges):
@@ -5170,15 +5322,15 @@ else:
                             <div style='font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
                             <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;'>
                                 <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.64rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
+                                    <div style='font-size: 0.64rem; color: var(--accent-green); font-weight: 700;'>FantasyCalc</div>
                                     <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary);'>{fc_s}</div>
                                 </div>
                                 <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.64rem; color: #fbbf24; font-weight: 700;'>FantasyPros</div>
+                                    <div style='font-size: 0.64rem; color: var(--accent-amber); font-weight: 700;'>FantasyPros</div>
                                     <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary);'>{fp_disp}</div>
                                 </div>
                                 <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.64rem; color: #38bdf8; font-weight: 700;'>Projections</div>
+                                    <div style='font-size: 0.64rem; color: var(--accent-cyan); font-weight: 700;'>Projections</div>
                                     <div style='font-size: 0.85rem; font-weight: 800; color: var(--text-primary);'>{pj_disp}</div>
                                 </div>
                             </div>
@@ -5188,19 +5340,19 @@ else:
                             <div style='font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
                             <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 6px;'>
                                 <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #38bdf8; font-weight: 700;'>KeepTradeCut</div>
+                                    <div style='font-size: 0.66rem; color: var(--accent-cyan); font-weight: 700;'>KeepTradeCut</div>
                                     <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{ktc_s}</div>
                                 </div>
                                 <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
+                                    <div style='font-size: 0.66rem; color: var(--accent-green); font-weight: 700;'>FantasyCalc</div>
                                     <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{fc_s}</div>
                                 </div>
                                 <div style='background: rgba(168, 85, 247, 0.04); border: 1px solid rgba(168, 85, 247, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #c084fc; font-weight: 700;'>DynastyProcess</div>
+                                    <div style='font-size: 0.66rem; color: var(--accent-purple); font-weight: 700;'>DynastyProcess</div>
                                     <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{dp_s}</div>
                                 </div>
                                 <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.66rem; color: #fbbf24; font-weight: 700;'>Consensus ECR</div>
+                                    <div style='font-size: 0.66rem; color: var(--accent-amber); font-weight: 700;'>Consensus ECR</div>
                                     <div style='font-size: 0.88rem; font-weight: 800; color: var(--text-primary);'>{asset['pos_ecr_str']}</div>
                                 </div>
                             </div>
