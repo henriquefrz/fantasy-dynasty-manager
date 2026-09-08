@@ -141,7 +141,11 @@ def simulate_optimal_weekly_lineup(
     available = []
     for p in roster_players:
         pid = p.get("player_id")
-        proj_pts = projections_lookup.get(pid, 0.0)
+        raw_proj = projections_lookup.get(pid, 0.0)
+        if isinstance(raw_proj, dict):
+            proj_pts = float(raw_proj.get("consensus_ppg", 0.0) or 0.0)
+        else:
+            proj_pts = float(raw_proj or 0.0)
         available.append((p, proj_pts))
 
     # Sort descending by projected points
@@ -232,7 +236,8 @@ def audit_weekly_lineup(
             break
         slot = active_slots[idx]
         p_obj = player_db.get(pid, {"player_id": pid, "full_name": pid, "position": slot})
-        pts = projections_lookup.get(pid, 0.0)
+        raw_val = projections_lookup.get(pid, 0.0)
+        pts = float(raw_val.get("consensus_ppg", 0.0) if isinstance(raw_val, dict) else (raw_val or 0.0))
         active_starter_objs.append((p_obj, pts, slot))
         active_points_total += pts
 

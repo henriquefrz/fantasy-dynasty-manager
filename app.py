@@ -84,6 +84,7 @@ from src.market_data import (
     get_market_data_freshness,
     VALUATION_MODES,
 )
+from src.projections_consensus import build_tri_source_projections
 
 # Robust import with hot-reload for Streamlit Cloud daemon processes
 try:
@@ -2491,7 +2492,15 @@ def fetch_market_database(_cache_version="v17_tri_factor_ros_engine"):
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
-    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft, projections_raw=projections_raw)
+    tri_projections = build_tri_source_projections(
+        season=season,
+        week=week,
+        sleeper_projections=projections_raw,
+        scoring_settings={"rec": 0.5, "pass_td": 4.0, "pass_yd": 0.04, "rush_yd": 0.1, "rec_yd": 0.1, "rush_td": 6.0, "rec_td": 6.0},
+        player_lookup=base_redraft,
+        player_ids_raw=player_ids,
+    )
+    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft, projections_raw=tri_projections)
 
     # Raw pick bundles for instant mode switching
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
@@ -2511,6 +2520,7 @@ def fetch_market_database(_cache_version="v17_tri_factor_ros_engine"):
         "fc_1qb": fc_1qb,
         "fc_redraft": fc_redraft,
         "projections_raw": projections_raw,
+        "tri_projections": tri_projections,
         "dynasty_sf_lookup": base_dynasty_sf,
         "dynasty_1qb_lookup": base_dynasty_1qb,
         "redraft_lookup": base_redraft,
@@ -2995,7 +3005,7 @@ if st.session_state.get("selected_league_id") is None:
     st.markdown("### League Workspaces")
     st.caption("Select any franchise to enter its dedicated analytical suite (Franchise Hub, Matchups & Start/Sit, Waivers, Power Rankings, Trade Center).")
 
-    weekly_proj_all = get_weekly_projections(active_season, active_week)
+    weekly_proj_all = market_db.get("tri_projections") or get_weekly_projections(active_season, active_week)
 
     # League Cards Grid (2-column responsive layout)
     grid_cols = st.columns(2)
@@ -3207,6 +3217,16 @@ else:
         label = f"@{dname}" + (f" ({tname})" if tname else "")
         user_map[uid] = label
 
+    # Build league-tailored Tri-Source Consensus Projections (Sleeper scoring + FantasyPros + ESPN)
+    tri_projections = build_tri_source_projections(
+        season=active_season,
+        week=active_week,
+        sleeper_projections=weekly_projections,
+        scoring_settings=scoring,
+        player_lookup=primary_lookup,
+        player_ids_raw=market_db.get("player_ids"),
+    )
+
     # Live Season Simulation & Playoff Elimination Detection (Unified across Tabs)
     playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
     season_length = max(1, playoff_start - 1)
@@ -3216,7 +3236,7 @@ else:
         team_expectations[rid] = compute_team_lineup_expectation(
             roster=r,
             roster_players=all_rosters_players.get(rid, []),
-            weekly_projections=weekly_projections,
+            weekly_projections=tri_projections,
             scoring_settings=scoring,
             roster_positions=roster_pos,
         )
@@ -3775,13 +3795,18 @@ else:
     # =========================================================================
     with tab_start_sit:
         st.subheader(f"Week {active_week} Matchup & Starting Lineup Audit")
+        st.caption("🔬 **Projections Engine:** 3-Source Consensus (Sleeper Custom Scoring + FantasyPros ECP + ESPN Mike Clay Analytics)")
 
         roster_players = get_roster_players(user_roster, players)
         proj_lookup = {}
         for p in roster_players:
             pid = p.get("player_id")
-            raw = weekly_projections.get(pid)
-            proj_lookup[pid] = calculate_weekly_projected_points(pid, raw, scoring, p)
+            tri_item = tri_projections.get(pid)
+            if tri_item and tri_item.get("consensus_ppg", 0) > 0:
+                proj_lookup[pid] = tri_item["consensus_ppg"]
+            else:
+                raw = weekly_projections.get(pid)
+                proj_lookup[pid] = calculate_weekly_projected_points(pid, raw, scoring, p)
 
         audit = audit_weekly_lineup(
             user_roster=user_roster,
@@ -3821,7 +3846,11 @@ else:
                 slot_name = roster_pos[s_idx] if s_idx < len(roster_pos) else "FLEX"
                 if pid and pid != "0":
                     p = players.get(pid, {})
-                    p_proj = calculate_weekly_projected_points(pid, weekly_projections.get(pid), scoring, p)
+                    tri_item = tri_projections.get(pid)
+                    if tri_item and tri_item.get("consensus_ppg", 0) > 0:
+                        p_proj = tri_item["consensus_ppg"]
+                    else:
+                        p_proj = calculate_weekly_projected_points(pid, weekly_projections.get(pid), scoring, p)
                     opp_proj += p_proj
                     opp_lineup_rows.append({
                         "Avatar": get_player_avatar_url(pid, p.get("position"), p.get("team")),
@@ -4292,6 +4321,7 @@ else:
     # =========================================================================
     with tab_power:
         st.subheader("League Power Rankings & Playoff Simulations")
+        st.caption("🔬 **Projections Engine:** 3-Source Consensus (Sleeper Custom Scoring + FantasyPros ECP + ESPN Mike Clay Analytics)")
 
         def render_simulation_view():
             playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
@@ -4301,7 +4331,7 @@ else:
                 team_expectations[rid] = compute_team_lineup_expectation(
                     roster=r,
                     roster_players=all_rosters_players.get(rid, []),
-                    weekly_projections=weekly_projections,
+                    weekly_projections=tri_projections,
                     scoring_settings=scoring,
                     roster_positions=roster_pos,
                 )
@@ -5071,6 +5101,10 @@ else:
             fc_v = p_data.get("fc_val")
             dp_v = p_data.get("dp_val")
             proj_ppg = p_data.get("proj_ppg")
+            proj_slp = p_data.get("proj_sleeper")
+            proj_fp = p_data.get("proj_fp")
+            proj_espn = p_data.get("proj_espn")
+            proj_src_cnt = p_data.get("proj_sources_count", 0)
             fp_o = p_data.get("fp_ecr_overall")
             fp_p = p_data.get("fp_ecr_pos")
 
@@ -5110,8 +5144,15 @@ else:
                 "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
                 "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
                 "FantasyPros ECR": f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500) else "—",
-                "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
+                "Consensus Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
+                "Sleeper Proj PPG": f"{proj_slp:.1f} PPG" if proj_slp is not None else "—",
+                "FantasyPros Proj PPG": f"{proj_fp:.1f} PPG" if proj_fp is not None else "—",
+                "ESPN Proj PPG": f"{proj_espn:.1f} PPG" if proj_espn is not None else "—",
                 "proj_ppg": proj_ppg,
+                "proj_sleeper": proj_slp,
+                "proj_fp": proj_fp,
+                "proj_espn": proj_espn,
+                "proj_sources_count": proj_src_cnt,
                 "fp_ecr_overall": fp_o,
                 "fp_ecr_pos": fp_p,
                 "_proj_ppg": float(proj_ppg or 0.0),
@@ -5341,9 +5382,9 @@ else:
                     if p1.get("proj_ppg") and p2.get("proj_ppg"):
                         p_diff = float(p1["proj_ppg"]) - float(p2["proj_ppg"])
                         if p_diff > 0:
-                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>Sleeper Projections</span> model projects <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG, +{p_diff:.1f} PPG).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>3-Source Consensus Projections</span> (Sleeper + FP + ESPN) projects <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG, +{p_diff:.1f} PPG).")
                         elif p_diff < 0:
-                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>Sleeper Projections</span> model projects <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG, +{abs(p_diff):.1f} PPG).")
+                            sentiment_bullets.append(f"<span style='color: var(--accent-cyan);'>3-Source Consensus Projections</span> (Sleeper + FP + ESPN) projects <b>{p2['name']}</b> ({p2['proj_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['proj_ppg']:.1f} PPG, +{abs(p_diff):.1f} PPG).")
 
                     if p1.get("fp_ecr_overall") and p2.get("fp_ecr_overall"):
                         try:

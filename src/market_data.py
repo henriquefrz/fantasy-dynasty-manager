@@ -674,6 +674,7 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
     Computes statistical projected weekly points (PPG), positional ranks,
     and VORP-based overall ranks for all players in projections_raw.
     Acts as Pillar 3 in the Tri-Factor Redraft / ROS Consensus Engine.
+    Supports both Tri-Source Consensus projections and raw Sleeper projections.
     """
     from src.start_sit import calculate_weekly_projected_points
 
@@ -698,20 +699,43 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
         if not raw_proj:
             continue
         p_data = lookup.get(str(pid)) or {}
-        pos = str(p_data.get("position") or raw_proj.get("pos") or "").upper()
-        name = p_data.get("player_name") or raw_proj.get("player_name") or str(pid)
+        pos = str(p_data.get("position") or (raw_proj.get("pos") if isinstance(raw_proj, dict) else "") or "").upper()
+        name = p_data.get("player_name") or (raw_proj.get("name") or raw_proj.get("player_name") if isinstance(raw_proj, dict) else "") or str(pid)
 
         if pos not in ("QB", "RB", "WR", "TE", "K", "DEF", "DST"):
             continue
 
-        player_obj = {"position": pos, "full_name": name, "player_id": str(pid)}
-        pts = calculate_weekly_projected_points(str(pid), raw_proj, active_scoring, player_obj)
+        sleeper_ppg = None
+        fp_ppg = None
+        espn_ppg = None
+        sources_count = 1
+        sources_used = ["Sleeper"]
+
+        if isinstance(raw_proj, dict) and "consensus_ppg" in raw_proj:
+            pts = float(raw_proj.get("consensus_ppg") or 0.0)
+            sleeper_ppg = raw_proj.get("sleeper_ppg")
+            fp_ppg = raw_proj.get("fp_ppg")
+            espn_ppg = raw_proj.get("espn_ppg")
+            sources_count = raw_proj.get("sources_count", 1)
+            sources_used = raw_proj.get("sources_used", ["Consensus"])
+        elif isinstance(raw_proj, (int, float)):
+            pts = float(raw_proj)
+        else:
+            player_obj = {"position": pos, "full_name": name, "player_id": str(pid)}
+            pts = calculate_weekly_projected_points(str(pid), raw_proj, active_scoring, player_obj)
+            sleeper_ppg = pts
+
         if pts > 0.0:
             scored_players.append({
                 "pid": str(pid),
                 "name": name,
                 "pos": pos,
                 "pts": pts,
+                "sleeper_ppg": sleeper_ppg,
+                "fp_ppg": fp_ppg,
+                "espn_ppg": espn_ppg,
+                "sources_count": sources_count,
+                "sources_used": sources_used,
             })
 
     # 1. Compute Positional Ranks (1 to N within each position)
@@ -762,6 +786,11 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
             "ppg": round(p["pts"], 1),
             "pos_rank": p["pos_rank"],
             "overall_rank": p["overall_rank"],
+            "sleeper_ppg": p["sleeper_ppg"],
+            "fp_ppg": p["fp_ppg"],
+            "espn_ppg": p["espn_ppg"],
+            "sources_count": p["sources_count"],
+            "sources_used": p["sources_used"],
         }
         for p in scored_players
     }
@@ -839,6 +868,11 @@ def enrich_lookup_with_redraft_values(
         p_data["proj_ppg"] = proj_ppg
         p_data["proj_overall_rank"] = proj_o
         p_data["proj_pos_rank"] = proj_p
+        p_data["proj_sleeper"] = p_proj.get("sleeper_ppg") if p_proj else None
+        p_data["proj_fp"] = p_proj.get("fp_ppg") if p_proj else None
+        p_data["proj_espn"] = p_proj.get("espn_ppg") if p_proj else None
+        p_data["proj_sources_count"] = p_proj.get("sources_count", 0) if p_proj else 0
+        p_data["proj_sources_used"] = p_proj.get("sources_used", []) if p_proj else []
 
         # Kickers and DSTs
         if pos in ("K", "DST", "DEF"):
