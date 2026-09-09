@@ -8,6 +8,7 @@ and real head-to-head league schedules from Sleeper.
 """
 
 import random
+import hashlib
 from typing import Dict, List, Tuple, Any, Optional
 from src.start_sit import calculate_weekly_projected_points, simulate_optimal_weekly_lineup
 
@@ -237,6 +238,11 @@ def run_monte_carlo_simulation(
     """
     playoff_teams_count = league.get("settings", {}).get("playoff_teams", 6)
     roster_ids = [r["roster_id"] for r in rosters]
+
+    # Deterministic simulation seed derived from hash(league_id) + week * 1000 to eliminate UI rerun jitter
+    league_id_str = str(league.get("league_id", 0))
+    league_hash = int(hashlib.md5(league_id_str.encode("utf-8")).hexdigest()[:8], 16)
+    random.seed(league_hash + int(current_week) * 1000)
 
     # Initial records (if season has already started or custom historical records provided)
     initial_records = {}

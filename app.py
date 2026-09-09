@@ -2875,6 +2875,37 @@ else:
         if rid == user_roster["roster_id"]:
             user_profile = prof
 
+    # Map dynasty power rankings alignment
+    dyn_rank_map = {}
+    if is_dynasty:
+        try:
+            from src.playoff_simulator import compute_dynasty_power_rankings
+            dyn_res = compute_dynasty_power_rankings(all_team_profiles)
+            ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
+            dyn_rank_map = {d["roster_id"]: (idx, d["dynasty_score"]) for idx, d in enumerate(ranked_dyn, 1)}
+            for p in all_team_profiles:
+                r_id = p["roster_id"]
+                if r_id in dyn_rank_map:
+                    p["dynasty_rank"] = dyn_rank_map[r_id][0]
+                    p["dynasty_score"] = dyn_rank_map[r_id][1]
+        except Exception:
+            pass
+
+    # Map in-season simulation power rankings for Redraft & Contender alignment
+    sim_rank_map = {}
+    if live_sim_results:
+        ranked_sim = sorted(live_sim_results.values(), key=lambda t: t.get("power_score", 0.0), reverse=True)
+        sim_rank_map = {t["roster_id"]: (idx, t.get("power_score", 0.0)) for idx, t in enumerate(ranked_sim, 1)}
+
+    for p in all_team_profiles:
+        r_id = p["roster_id"]
+        if r_id in sim_rank_map:
+            p["in_season_rank"] = sim_rank_map[r_id][0]
+            p["in_season_power_score"] = sim_rank_map[r_id][1]
+        else:
+            p["in_season_rank"] = redraft_pos
+            p["in_season_power_score"] = 0.0
+
     format_badge = f"{'Dynasty' if is_dynasty else 'Redraft'} • {'Superflex' if is_superflex else '1QB'} • {len(rosters)} Teams"
     if tep_bonus > 0:
         format_badge += f" • +{tep_bonus:g} TEP"
@@ -2896,14 +2927,21 @@ else:
         st.metric("Franchise Trajectory", clean_status, trajectory_delta, delta_color="normal", help=team_status)
     with col_m3:
         if is_dynasty and user_profile:
-            dyn_rank_str = f"#{dynasty_pos} of {dynasty_total}" if dynasty_pos else "Pre-Draft"
+            dyn_pos_to_use = user_profile.get("dynasty_rank") if user_profile else dynasty_pos
+            dyn_rank_str = f"#{dyn_pos_to_use} of {len(all_team_profiles)}" if dyn_pos_to_use else "Pre-Draft"
             st.metric("Dynasty Roster Rank", dyn_rank_str, f"{user_profile['total_value']:,.0f} pts")
         else:
-            red_rank_str = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "Pre-Draft"
-            st.metric("In-Season Rank", red_rank_str)
+            user_in_season_pos = user_profile.get("in_season_rank") if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0])
+            user_in_season_pos_to_use = user_in_season_pos or redraft_pos
+            user_in_season_score = user_profile.get("in_season_power_score", 0.0) if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[1])
+            red_rank_str = f"#{user_in_season_pos_to_use} of {len(all_team_profiles)}" if user_in_season_pos_to_use else "Pre-Draft"
+            score_delta = f"Power Score: {user_in_season_score:.1f}" if user_in_season_score > 0 else "Active Season"
+            st.metric("In-Season Rank", red_rank_str, score_delta)
     with col_m4:
         if is_dynasty and user_profile:
-            red_rank_str = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "Pre-Draft"
+            user_in_season_pos = user_profile.get("in_season_rank") if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0])
+            user_in_season_pos_to_use = user_in_season_pos or redraft_pos
+            red_rank_str = f"#{user_in_season_pos_to_use} of {len(all_team_profiles)}" if user_in_season_pos_to_use else "Pre-Draft"
             st.metric("In-Season Contender Rank", red_rank_str, f"Starters: {user_profile['starter_value']:,.0f} pts")
         else:
             fpts = user_roster.get("settings", {}).get("fpts", 0.0)
@@ -4102,7 +4140,7 @@ else:
             else:
                 st.caption("League-wide Positional Room Leaderboard (evaluated on 3-Pillar Single-Season / ROS values).")
 
-            room_data = build_positional_room_leaderboard(all_team_profiles, use_redraft=use_redraft)
+            room_data = build_positional_room_leaderboard(all_team_profiles, use_redraft=use_redraft, roster_positions=roster_pos)
 
             with col_sort:
                 if show_picks:
@@ -4130,9 +4168,24 @@ else:
                 )
                 sort_key = sort_options[chosen_sort]
 
-            sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
+            if sort_key == "total_val":
+                if not use_redraft:
+                    sorted_rooms = sorted(room_data, key=lambda x: (x.get("dynasty_score", 0.0), x.get("total_val", 0.0)), reverse=True)
+                else:
+                    sorted_rooms = sorted(room_data, key=lambda x: (x.get("in_season_power_score", 0.0), x.get("total_val", 0.0)), reverse=True)
+            else:
+                sorted_rooms = sorted(room_data, key=lambda x: x[sort_key], reverse=True)
+
             for idx, r in enumerate(sorted_rooms, 1):
-                r["disp_rank"] = idx
+                if sort_key == "total_val":
+                    if not use_redraft and r.get("dynasty_rank"):
+                        r["disp_rank"] = r["dynasty_rank"]
+                    elif use_redraft and r.get("in_season_rank"):
+                        r["disp_rank"] = r["in_season_rank"]
+                    else:
+                        r["disp_rank"] = idx
+                else:
+                    r["disp_rank"] = idx
 
             st.html(render_positional_room_table_html(sorted_rooms, user_roster["roster_id"], sort_col=sort_key, show_picks=show_picks))
 

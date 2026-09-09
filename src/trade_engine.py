@@ -728,14 +728,56 @@ def format_asset_str(asset: Dict[str, Any]) -> str:
     return f"{name} ({pos} — {val:,.0f} pts{redraft_str})"
 
 
-def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]], use_redraft: bool = False) -> List[Dict[str, Any]]:
+def build_positional_room_leaderboard(
+    all_team_profiles: List[Dict[str, Any]], 
+    use_redraft: bool = False,
+    roster_positions: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
     """
     Ranks all teams side-by-side across QB Room, RB Room, WR Room, TE Room, and Draft Capital.
-    Computes room valuations, starter vs total splits, and ordinal ranks (1 to N) for each category.
+    Computes room valuations using a Starter-Weighted Diminishing Utility Curve to reflect
+    true lineup utility and eliminate roster bloat / hoarding distortions.
+
+    Curve structure based on starting requirements S:
+      - Tier 1: Starters (slots 1 to S) -> 100% weight (matchup scoring drivers)
+      - Tier 2: Primary Backups (next 1-2 slots) -> 50% weight (bye week / injury flex)
+      - Tier 3: Developmental Depth (next 1-2 slots) -> 20% weight (stashes & handcuffs)
+      - Tier 4: Roster Bloat / Hoard (beyond depth) -> 5% weight (anti-hoarding discount)
+
     When use_redraft=True:
       - Uses 3-pillar Redraft / ROS consensus values for players
       - Excludes draft capital (future picks have 0 single-season ROS value)
     """
+    # Determine starter requirements per position
+    if roster_positions:
+        is_sf = ("SUPER_FLEX" in roster_positions) or (roster_positions.count("QB") >= 2)
+        s_qb = 2 if is_sf else max(1, roster_positions.count("QB"))
+        s_rb = max(2, roster_positions.count("RB"))
+        s_wr = max(3, roster_positions.count("WR"))
+        s_te = max(1, roster_positions.count("TE"))
+    else:
+        max_qb_st = max((len(p.get("pos_starters", {}).get("QB", [])) for p in all_team_profiles), default=2)
+        s_qb = max(1, max_qb_st)
+        s_rb = max((len(p.get("pos_starters", {}).get("RB", [])) for p in all_team_profiles), default=2)
+        s_wr = max((len(p.get("pos_starters", {}).get("WR", [])) for p in all_team_profiles), default=3)
+        s_te = max((len(p.get("pos_starters", {}).get("TE", [])) for p in all_team_profiles), default=1)
+
+    dyn_ranks_map = {}
+    if not use_redraft and all_team_profiles:
+        missing_dyn = any("dynasty_score" not in p or "dynasty_rank" not in p for p in all_team_profiles)
+        if missing_dyn:
+            try:
+                from src.playoff_simulator import compute_dynasty_power_rankings
+                dyn_res = compute_dynasty_power_rankings(all_team_profiles)
+                ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
+                for idx, d in enumerate(ranked_dyn, 1):
+                    dyn_ranks_map[d["roster_id"]] = (idx, d["dynasty_score"])
+            except Exception:
+                pass
+        else:
+            for p in all_team_profiles:
+                dyn_ranks_map[p["roster_id"]] = (p.get("dynasty_rank", 0), p.get("dynasty_score", 0.0))
+
     room_data = []
     for p in all_team_profiles:
         rid = p["roster_id"]
@@ -751,24 +793,83 @@ def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]], u
         rb_players = sorted([a for a in all_players if a.get("position") == "RB"], key=_get_val, reverse=True)
         wr_players = sorted([a for a in all_players if a.get("position") == "WR"], key=_get_val, reverse=True)
         te_players = sorted([a for a in all_players if a.get("position") == "TE"], key=_get_val, reverse=True)
-        picks = [] if use_redraft else p.get("pick_assets", [])
+        picks = [] if use_redraft else (p.get("pick_assets") or p.get("picks") or [])
 
-        qb_val = sum(_get_val(a) for a in qb_players)
-        rb_val = sum(_get_val(a) for a in rb_players)
-        wr_val = sum(_get_val(a) for a in wr_players)
-        te_val = sum(_get_val(a) for a in te_players)
+        def _compute_room(players_sorted, s_req, pos_type):
+            tier2_count = 1 if pos_type in ("QB", "TE") else 2
+            tier3_count = 1 if pos_type in ("QB", "TE") else 2
+            t1_cutoff = s_req
+            t2_cutoff = s_req + tier2_count
+            t3_cutoff = t2_cutoff + tier3_count
+
+            eff_val = 0.0
+            raw_val = 0.0
+            starter_val = 0.0
+            bench_eff_val = 0.0
+
+            for idx, player in enumerate(players_sorted):
+                v = _get_val(player)
+                raw_val += v
+                if idx < t1_cutoff:
+                    weight = 1.00
+                    starter_val += v
+                elif idx < t2_cutoff:
+                    weight = 0.50
+                elif idx < t3_cutoff:
+                    weight = 0.20
+                else:
+                    weight = 0.05
+
+                w_contrib = v * weight
+                eff_val += w_contrib
+                if idx >= t1_cutoff:
+                    bench_eff_val += w_contrib
+
+            return eff_val, raw_val, starter_val, bench_eff_val
+
+        qb_val, qb_raw, qb_st, qb_bn = _compute_room(qb_players, s_qb, "QB")
+        rb_val, rb_raw, rb_st, rb_bn = _compute_room(rb_players, s_rb, "RB")
+        wr_val, wr_raw, wr_st, wr_bn = _compute_room(wr_players, s_wr, "WR")
+        te_val, te_raw, te_st, te_bn = _compute_room(te_players, s_te, "TE")
+
         picks_val = sum(float(pk.get("market_value", 0.0)) for pk in picks) if not use_redraft else 0.0
         tot_val = qb_val + rb_val + wr_val + te_val + picks_val
+        tot_raw_val = qb_raw + rb_raw + wr_raw + te_raw + picks_val
+
+        dyn_rank, dyn_score = dyn_ranks_map.get(rid, (0, 0.0)) if not use_redraft else (0, 0.0)
+        in_season_rank = p.get("in_season_rank", 0)
+        in_season_power_score = p.get("in_season_power_score", 0.0)
 
         room_data.append({
             "roster_id": rid,
             "manager_name": mgr,
+            # Dynasty power rankings alignment
+            "dynasty_rank": dyn_rank,
+            "dynasty_score": dyn_score,
+            # In-season power rankings alignment
+            "in_season_rank": in_season_rank,
+            "in_season_power_score": in_season_power_score,
+            # Effective Starter-Weighted Values (used for room rankings)
             "qb_val": qb_val,
             "rb_val": rb_val,
             "wr_val": wr_val,
             "te_val": te_val,
             "picks_val": picks_val,
             "total_val": tot_val,
+            # Raw and starter breakdown metrics for transparency
+            "qb_raw_val": qb_raw,
+            "rb_raw_val": rb_raw,
+            "wr_raw_val": wr_raw,
+            "te_raw_val": te_raw,
+            "raw_total_val": tot_raw_val,
+            "qb_starter_val": qb_st,
+            "rb_starter_val": rb_st,
+            "wr_starter_val": wr_st,
+            "te_starter_val": te_st,
+            "qb_bench_eff": qb_bn,
+            "rb_bench_eff": rb_bn,
+            "wr_bench_eff": wr_bn,
+            "te_bench_eff": te_bn,
             "top_qbs": [a.get("name", "") for a in qb_players[:3]],
             "top_rbs": [a.get("name", "") for a in rb_players[:3]],
             "top_wrs": [a.get("name", "") for a in wr_players[:3]],
@@ -781,7 +882,20 @@ def build_positional_room_leaderboard(all_team_profiles: List[Dict[str, Any]], u
         for idx, item in enumerate(sorted_by_key, 1):
             item[rank_field] = idx
 
-    assign_ranks("total_val", "total_rank")
+    if not use_redraft and dyn_ranks_map:
+        for item in room_data:
+            r_id = item["roster_id"]
+            if r_id in dyn_ranks_map:
+                item["total_rank"] = dyn_ranks_map[r_id][0]
+            else:
+                item["total_rank"] = 1
+    elif use_redraft and any(p.get("in_season_rank") for p in all_team_profiles):
+        for item in room_data:
+            r_id = item["roster_id"]
+            item["total_rank"] = item.get("in_season_rank") or 1
+    else:
+        assign_ranks("total_val", "total_rank")
+
     assign_ranks("qb_val", "qb_rank")
     assign_ranks("rb_val", "rb_rank")
     assign_ranks("wr_val", "wr_rank")
