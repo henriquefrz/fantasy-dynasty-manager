@@ -2208,7 +2208,7 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _pr
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _redraft_lookup, _players, _picks_lookup=None, _weekly_proj=None, league_obj=None):
+def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _redraft_lookup, _players, _picks_lookup=None, _weekly_proj=None, league_obj=None, current_week: int = 1, _cache_version: str = "v3_synchronized_ranks"):
     """Accurately calculates franchise status, category, record, and synchronized rank across leagues."""
     try:
         rosters = get_league_rosters(lid)
@@ -2228,20 +2228,43 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
             for r in rosters if r.get("players")
         }
 
-        # 1. Season rank based on starting lineup scoring projection expectation (matches Tab 4)
+        # Compute redraft_ranked and team_tiers exactly as done in the workspace
+        redraft_ranked = rank_teams_in_league(all_rosters_players, _redraft_lookup, roster_pos, is_dynasty=False)
+        team_tiers = {}
+        for pos_idx, item in enumerate(redraft_ranked, start=1):
+            team_tiers[item[0]] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
+
+        # 1. Season rank based on live Monte Carlo simulation if schedule available, or lineup expectations
+        scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
+        playoff_start = league_obj.get("settings", {}).get("playoff_week_start", 15) if league_obj else 15
+        season_length = max(1, playoff_start - 1)
+        schedule = get_league_schedule(lid, 1, season_length) if league_obj else {}
+
         if _weekly_proj:
-            scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
             expectations = {
                 r["roster_id"]: compute_team_lineup_expectation(
                     r, all_rosters_players.get(r["roster_id"], []), _weekly_proj, scoring, roster_pos
                 )
                 for r in rosters if r["roster_id"] in all_rosters_players
             }
-            ranked_pts = sorted(expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
-            redraft_pos = next((i for i, x in enumerate(ranked_pts, 1) if x["roster_id"] == my_r["roster_id"]), 0)
-            redraft_total = tot_rosters
+            if schedule:
+                sim_res = run_monte_carlo_simulation(
+                    league=league_obj,
+                    rosters=rosters,
+                    schedule=schedule,
+                    team_expectations=expectations,
+                    current_week=current_week,
+                    playoff_week_start=playoff_start,
+                    num_simulations=1000,
+                )
+                ranked_sim = sorted(sim_res.values(), key=lambda x: x.get("power_score", 0.0), reverse=True)
+                redraft_pos = next((i for i, x in enumerate(ranked_sim, 1) if x["roster_id"] == my_r["roster_id"]), 0)
+                redraft_total = tot_rosters
+            else:
+                ranked_pts = sorted(expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
+                redraft_pos = next((i for i, x in enumerate(ranked_pts, 1) if x["roster_id"] == my_r["roster_id"]), 0)
+                redraft_total = tot_rosters
         else:
-            redraft_ranked = rank_teams_in_league(all_rosters_players, _redraft_lookup, roster_pos, is_dynasty=False)
             _, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
 
         current_tier, _ = get_current_strength_tier(my_r, rosters, redraft_pos, redraft_total)
@@ -2258,7 +2281,7 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
                 prof = analyze_team_profile(
                     roster=r, roster_players=rp, owned_picks=pks,
                     primary_lookup=_lookup, redraft_lookup=_redraft_lookup, picks_lookup=_picks_lookup or {},
-                    team_tiers={}, roster_positions=roster_pos, is_dynasty=True,
+                    team_tiers=team_tiers, roster_positions=roster_pos, is_dynasty=True,
                     status="Active", category="neutral", manager_name=f"Team {rid}",
                     total_rosters=tot_rosters
                 )
@@ -2536,16 +2559,19 @@ if st.session_state.get("selected_league_id") is None:
         total_rosters = lg.get("total_rosters", 12)
         roster_pos = lg.get("roster_positions", [])
         is_sf = any(pos in ("SUPER_FLEX", "QB") for pos in roster_pos if roster_pos.count("QB") > 1 or pos == "SUPER_FLEX")
-        tep_b = settings.get("tep_bonus", 0.0)
+        scoring = lg.get("scoring_settings", {})
+        tep_b = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0) or settings.get("tep_bonus", 0.0)
 
         # Accurately compute quick status, category, record, and synchronized ranks
         league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
         league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else market_db["redraft_lookup"]
+        if tep_b > 0 and is_dyn:
+            league_lookup = apply_te_premium(league_lookup, bonus_rec_te=tep_b)
         league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
         league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
         t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
             lid, user["user_id"], is_dyn, roster_pos, league_lookup, market_db["redraft_lookup"], players,
-            _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg
+            _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg, current_week=active_week
         )
 
         # Trajectory badge
