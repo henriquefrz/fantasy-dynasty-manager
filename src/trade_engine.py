@@ -243,21 +243,25 @@ def analyze_team_profile(
 
         min_needed = 2 if (pos == "QB" and is_superflex) else max(1, req_counts.get(pos, 1))
 
-        # Critical Deficit: cannot even fill starters, or bench has ZERO viable starter replacements
-        if st_count < min_needed or len(viable_bench) == 0:
+        # Critical Deficit: cannot even fill base starting slots, or starting player is sub-replacement tier
+        if st_count < min_needed or (st_count >= min_needed and st_min_val < 1000.0):
             critical_deficits.append(pos)
             deficits.append(pos)
-        elif st_min_val < 1500.0:
+        elif st_min_val < 1800.0 or (st_count == min_needed and len(viable_bench) == 0):
             deficits.append(pos)
 
-        # Surplus: has required starters AND startable bench depth
+        # Surplus: starts extra players at this position in FLEX spots (st_count > base_req)
+        # OR has required starters plus startable bench depth
+        base_req = req_counts.get(pos, 1)
         if pos == "QB":
-            if is_superflex and len(viable_bench) >= 1 and st_count >= 2:
+            if is_superflex and (st_count > 2 or (st_count >= 2 and len(viable_bench) >= 1)):
                 surpluses.append(pos)
             elif not is_superflex and len(viable_bench) >= 1:
                 surpluses.append(pos)
         elif pos in ("RB", "WR", "TE"):
-            if len(viable_bench) >= 1 and pos not in critical_deficits and bn_val >= 2500.0:
+            if st_count > base_req and st_min_val >= 1800.0:
+                surpluses.append(pos)
+            elif len(viable_bench) >= 1 and pos not in critical_deficits and bn_val >= 2500.0:
                 surpluses.append(pos)
 
     # Distinguish veterans (age >= 27 with high redraft scoring) vs young assets (age <= 24)

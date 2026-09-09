@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import math
+import os
 import re
 import requests
 
@@ -36,16 +37,33 @@ VALUATION_MODES = {
     "dp": "DynastyProcess Only (100% DynastyProcess)",
 }
 
+CSV_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache_data", "market_csvs")
+
 
 def _download_csv(url):
+    filename = url.split("/")[-1]
+    cache_path = os.path.join(CSV_CACHE_DIR, filename)
     try:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         csv_text = response.text
+        try:
+            os.makedirs(CSV_CACHE_DIR, exist_ok=True)
+            with open(cache_path, "w", encoding="utf-8") as f:
+                f.write(csv_text)
+        except Exception:
+            pass
         reader = csv.DictReader(io.StringIO(csv_text))
         return list(reader)
     except Exception as e:
         print(f"Warning: Failed to download CSV from {url}: {e}")
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print(f"Info: Successfully loaded cached backup for {filename}")
+                    return list(csv.DictReader(f))
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached CSV {cache_path}: {cache_err}")
         return []
 
 
@@ -81,20 +99,23 @@ def get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True):
     except Exception as e:
         print(f"Warning: Failed to fetch FantasyCalc data: {e}")
         return []
-        print(f"Warning: Failed to fetch FantasyCalc data: {e}")
-        return []
 
 
 def get_ktc_data_raw(is_superflex=True):
     """
     Fetches live market values from KeepTradeCut (KTC) crowdsourced rankings.
+    Extracts structured JSON from <script type="application/json" id="ktc-players">,
+    with backward-compatible fallback to inline playersArray.
     """
     fmt = 2 if is_superflex else 1
     url = f"https://keeptradecut.com/dynasty-rankings?filters=QB|WR|RB|TE|RDP&format={fmt}"
-    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"}
     try:
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
+        script_match = re.search(r'<script[^>]*id=["\']ktc-players["\'][^>]*>(.*?)</script>', response.text, re.DOTALL)
+        if script_match:
+            return json.loads(script_match.group(1))
         matches = re.findall(r"var playersArray\s*=\s*(\[.*?\]);", response.text, re.DOTALL)
         if matches:
             return json.loads(matches[0])

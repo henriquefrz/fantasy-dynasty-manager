@@ -6,3 +6,4 @@ scratch/
 reports/
 .agents/
 *.log
+.cache_data/
