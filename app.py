@@ -27,8 +27,11 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-# Invalidate import caches so Streamlit daemon processes always load fresh src modules
+# Invalidate import caches and evict cached src modules so Streamlit daemon processes always load fresh src code
 importlib.invalidate_caches()
+for _mod in list(sys.modules.keys()):
+    if _mod.startswith("src.") or _mod == "src":
+        del sys.modules[_mod]
 try:
     from src.sleeper_api import (
         get_user,

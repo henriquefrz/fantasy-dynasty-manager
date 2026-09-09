@@ -31,14 +31,16 @@ def compute_team_lineup_expectation(
     proj_lookup = {}
     for p in roster_players:
         pid = p.get("player_id")
-        raw = weekly_projections.get(pid)
+        pid_str = str(pid) if pid is not None else ""
+        raw = weekly_projections.get(pid) if pid in weekly_projections else weekly_projections.get(pid_str)
         if isinstance(raw, dict) and "consensus_ppg" in raw:
             pts = float(raw.get("consensus_ppg") or 0.0)
         elif isinstance(raw, (int, float)):
             pts = float(raw)
         else:
-            pts = calculate_weekly_projected_points(pid, raw, scoring_settings, p)
+            pts = calculate_weekly_projected_points(pid_str, raw, scoring_settings, p)
         proj_lookup[pid] = pts
+        proj_lookup[pid_str] = pts
 
     starters, bench = simulate_optimal_weekly_lineup(
         roster_players=roster_players,

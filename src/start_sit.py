@@ -31,6 +31,9 @@ def calculate_weekly_projected_points(
     if not raw_proj:
         return 0.0
 
+    if isinstance(raw_proj, dict) and "consensus_ppg" in raw_proj:
+        return round(float(raw_proj.get("consensus_ppg") or 0.0), 2)
+
     pos = (player_obj.get("position") if player_obj else None) or ""
 
     # Check if raw_proj already has pre-computed points
