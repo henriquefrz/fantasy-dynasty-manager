@@ -27,6 +27,14 @@ _ESPN_PROJECTIONS_CACHE: Dict[Tuple[int, int], Dict[str, Any]] = {}
 _TRI_CONSENSUS_CACHE: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 
+ESPN_TEAM_ID_TO_ABBR = {
+    1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN", 8: "DET",
+    9: "GB", 10: "TEN", 11: "IND", 12: "KC", 13: "LV", 14: "LAR", 15: "MIA", 16: "MIN",
+    17: "NE", 18: "NO", 19: "NYG", 20: "NYJ", 21: "PHI", 22: "ARI", 23: "PIT", 24: "LAC",
+    25: "SF", 26: "SEA", 27: "TB", 28: "WAS", 29: "CAR", 30: "JAX", 33: "BAL", 34: "HOU",
+}
+
+
 def _normalize_name(name: str) -> str:
     """Removes special characters, suffixes (Jr, III), and lowercases for fuzzy match fallback."""
     if not name:
@@ -85,11 +93,20 @@ def fetch_fantasypros_weekly_projections(
                 fp_id = str(row.get("fantasypros_id") or "")
                 p_name = row.get("player_name") or ""
                 pos = row.get("pos") or row.get("page_pos") or ""
+                page = row.get("page") or ""
                 team = row.get("team") or ""
 
                 sleeper_id = fp_to_sleeper.get(fp_id)
                 if not sleeper_id and p_name:
                     sleeper_id = name_to_sleeper.get(_normalize_name(p_name))
+
+                # Team Defense (DST) mapping
+                if not sleeper_id and (pos.upper() == "DST" or page.lower() == "dst"):
+                    dst_team = team.upper().strip()
+                    if dst_team == "JAC":
+                        dst_team = "JAX"
+                    if dst_team:
+                        sleeper_id = dst_team
 
                 if sleeper_id:
                     result[sleeper_id] = {
@@ -161,6 +178,11 @@ def fetch_espn_weekly_projections(
                 sleeper_id = espn_to_sleeper.get(e_id)
                 if not sleeper_id and p_name:
                     sleeper_id = name_to_sleeper.get(_normalize_name(p_name))
+
+                # Handle ESPN D/ST defenses
+                if not sleeper_id and (p_info.get("defaultPositionId") == 16 or "D/ST" in p_name):
+                    pro_team_id = p_info.get("proTeamId")
+                    sleeper_id = ESPN_TEAM_ID_TO_ABBR.get(pro_team_id)
 
                 if not sleeper_id:
                     continue

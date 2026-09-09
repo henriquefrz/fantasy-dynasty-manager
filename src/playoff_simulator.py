@@ -52,13 +52,16 @@ def compute_team_lineup_expectation(
     if optimal_pts <= 10.0:
         optimal_pts = 105.0
 
+    # Team-level standard deviation scaled dynamically with baseline scoring (CV ~ 6.2%, clamped 6.5 - 10.0)
+    team_std_dev = round(max(6.5, min(10.0, optimal_pts * 0.062)), 1)
+
     # Calculate bench depth score (top 4 bench players' projected points)
     top_bench_pts = sum(pts for _, pts in bench[:4])
 
     return {
         "roster_id": roster["roster_id"],
         "expected_pts": round(optimal_pts, 1),
-        "std_dev": DEFAULT_WEEKLY_STD_DEV,
+        "std_dev": team_std_dev,
         "bench_depth_pts": round(top_bench_pts, 1),
     }
 
@@ -463,14 +466,22 @@ def run_monte_carlo_simulation(
         f"{int(w_odds*100)}% Playoff Odds + {int(w_bench*100)}% Bench Depth"
     )
 
+    min_pts = min(t["expected_pts"] for t in team_results.values()) if team_results else 0.0
     max_pts = max(t["expected_pts"] for t in team_results.values()) if team_results else 100.0
+    span_pts = max(1.0, max_pts - min_pts)
+
+    min_wins = min(t["avg_wins"] for t in team_results.values()) if team_results else 0.0
     max_wins = max(t["avg_wins"] for t in team_results.values()) if team_results else 10.0
+    span_wins = max(0.5, max_wins - min_wins)
+
+    min_bench = min(t["bench_depth_pts"] for t in team_results.values()) if team_results else 0.0
     max_bench = max(t["bench_depth_pts"] for t in team_results.values()) if team_results else 30.0
+    span_bench = max(1.0, max_bench - min_bench)
 
     for rid, stats in team_results.items():
-        pts_norm = (stats["expected_pts"] / max_pts) * 100.0 if max_pts > 0 else 50.0
-        win_norm = (stats["avg_wins"] / max_wins) * 100.0 if max_wins > 0 else 50.0
-        bench_norm = (stats["bench_depth_pts"] / max_bench) * 100.0 if max_bench > 0 else 50.0
+        pts_norm = ((stats["expected_pts"] - min_pts) / span_pts) * 75.0 + 25.0
+        win_norm = ((stats["avg_wins"] - min_wins) / span_wins) * 75.0 + 25.0
+        bench_norm = ((stats["bench_depth_pts"] - min_bench) / span_bench) * 75.0 + 25.0
         playoff_norm = stats["playoff_pct"]
 
         power_score = (w_lineup * pts_norm) + (w_wins * win_norm) + (w_odds * playoff_norm) + (w_bench * bench_norm)
