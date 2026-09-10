@@ -2367,6 +2367,21 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
                 ranked_sim = sorted(sim_res.values(), key=lambda x: x.get("power_score", 0.0), reverse=True)
                 redraft_pos = next((i for i, x in enumerate(ranked_sim, 1) if x["roster_id"] == my_r["roster_id"]), 0)
                 redraft_total = tot_rosters
+
+                # Calibrate team_tiers using simulation-backed strength for draft capital projection
+                for r in rosters:
+                    rid = r["roster_id"]
+                    r_sim = sim_res.get(rid, {})
+                    r_playoff_pct = r_sim.get("playoff_pct")
+                    r_is_elim = r_sim.get("is_eliminated", False)
+                    r_sim_pos = next((i for i, x in enumerate(ranked_sim, 1) if x["roster_id"] == rid), 0)
+                    c_tier, _ = get_current_strength_tier(
+                        r, rosters, r_sim_pos, tot_rosters,
+                        season_length=season_length,
+                        playoff_pct=r_playoff_pct,
+                        is_eliminated=r_is_elim,
+                    )
+                    team_tiers[rid] = c_tier
             else:
                 ranked_pts = sorted(expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
                 redraft_pos = next((i for i, x in enumerate(ranked_pts, 1) if x["roster_id"] == my_r["roster_id"]), 0)
@@ -2922,9 +2937,20 @@ else:
         team_status, team_cat = classify_dynasty_team(current_tier, dynasty_tier)
 
         team_tiers = {}
-        for pos_idx, item in enumerate(redraft_ranked, start=1):
-            rid = item[0]
-            team_tiers[rid] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
+        for r in rosters:
+            rid = r["roster_id"]
+            r_sim = live_sim_results.get(rid, {})
+            r_playoff_pct = r_sim.get("playoff_pct")
+            r_is_elim = r_sim.get("is_eliminated", False)
+            _, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
+            r_sim_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0] if sim_rank_map else r_pos
+            c_tier, _ = get_current_strength_tier(
+                r, rosters, r_sim_pos, r_tot or len(rosters),
+                season_length=season_length,
+                playoff_pct=r_playoff_pct,
+                is_eliminated=r_is_elim,
+            )
+            team_tiers[rid] = c_tier
 
         picks_ownership = build_picks_ownership(selected_league, traded_picks)
     else:
