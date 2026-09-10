@@ -182,6 +182,7 @@ try:
         analyze_team_profile,
         generate_trade_suggestions,
         build_positional_room_leaderboard,
+        evaluate_trade_fairness,
     )
 except ImportError:
     import src.trade_engine as _te
@@ -189,6 +190,7 @@ except ImportError:
     analyze_team_profile = getattr(_te, "analyze_team_profile")
     generate_trade_suggestions = getattr(_te, "generate_trade_suggestions")
     build_positional_room_leaderboard = getattr(_te, "build_positional_room_leaderboard")
+    evaluate_trade_fairness = getattr(_te, "evaluate_trade_fairness")
 
 try:
     from src.team_strength import (
