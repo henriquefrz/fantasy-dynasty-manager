@@ -568,6 +568,50 @@ def compute_dynasty_power_rankings(
     return dynasty_results
 
 
+def compute_ros_power_rankings(
+    team_profiles: List[Dict[str, Any]],
+    weight_starters: float = 0.70,
+    weight_bench: float = 0.30,
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Computes Rest-of-Season (ROS) Asset Power Rankings based on 3-source consensus redraft valuations:
+    - 70% Starters Value: Optimal starting lineup market value for single-season impact.
+    - 30% Bench Depth: Active bench market value for injury resilience and bye-week protection.
+    (Draft capital is 0% as future picks do not generate points in the current season).
+    """
+    ros_results = {}
+    for prof in team_profiles:
+        rid = prof["roster_id"]
+        starters_val = sum(a.get("market_value", 0.0) for a in prof.get("starter_assets", []))
+        bench_val = sum(a.get("market_value", 0.0) for a in prof.get("bench_assets", []))
+        total_val = starters_val + bench_val
+
+        ros_results[rid] = {
+            "roster_id": rid,
+            "manager_name": prof.get("manager_name", f"Team {rid}"),
+            "status": prof.get("status", "Active"),
+            "category": prof.get("category", "neutral"),
+            "total_val": round(total_val, 1),
+            "starters_val": round(starters_val, 1),
+            "bench_val": round(bench_val, 1),
+        }
+
+    max_starters = max((t["starters_val"] for t in ros_results.values()), default=1.0) or 1.0
+    max_bench = max((t["bench_val"] for t in ros_results.values()), default=1.0) or 1.0
+
+    for rid, t in ros_results.items():
+        norm_starters = (t["starters_val"] / max_starters) * 100.0 if max_starters > 0 else 50.0
+        norm_bench = (t["bench_val"] / max_bench) * 100.0 if max_bench > 0 else 50.0
+
+        ros_score = (
+            (weight_starters * norm_starters)
+            + (weight_bench * norm_bench)
+        )
+        t["ros_score"] = round(ros_score, 1)
+
+    return ros_results
+
+
 def format_power_rankings_table(
     sim_results: Dict[int, Dict[str, Any]],
     user_roster_id: int,

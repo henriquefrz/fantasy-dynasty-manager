@@ -230,6 +230,7 @@ try:
         compute_team_lineup_expectation,
         run_monte_carlo_simulation,
         compute_dynasty_power_rankings,
+        compute_ros_power_rankings,
         run_historical_simulation_snapshot,
         compute_weekly_evolution_history,
         compute_elimination_and_clinch_status,
@@ -240,6 +241,7 @@ except ImportError:
     compute_team_lineup_expectation = getattr(_ps, "compute_team_lineup_expectation")
     run_monte_carlo_simulation = getattr(_ps, "run_monte_carlo_simulation")
     compute_dynasty_power_rankings = getattr(_ps, "compute_dynasty_power_rankings")
+    compute_ros_power_rankings = getattr(_ps, "compute_ros_power_rankings")
     run_historical_simulation_snapshot = getattr(_ps, "run_historical_simulation_snapshot")
     compute_weekly_evolution_history = getattr(_ps, "compute_weekly_evolution_history")
     compute_elimination_and_clinch_status = getattr(_ps, "compute_elimination_and_clinch_status")
@@ -1746,6 +1748,53 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_ros_power_table_html(ros_rows, user_roster_id):
+    """
+    Renders Rest-of-Season (ROS) Asset Power Rankings table with subtle cyan highlighting
+    for the user's franchise row, displaying 70% Starters + 30% Bench consensus values.
+    """
+    html = """
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
+        <thead>
+            <tr>
+                <th style='width: 70px; text-align: center;'>Rank</th>
+                <th style='width: 26%; text-align: left;'>Manager / Team</th>
+                <th style='width: 15%; text-align: center;'>ROS Score</th>
+                <th style='width: 15%; text-align: center;'>Starters (70%)</th>
+                <th style='width: 15%; text-align: center;'>Bench (30%)</th>
+                <th style='width: 15%; text-align: center;'>Total ROS Value</th>
+                <th style='width: 14%; text-align: center;'>Tier</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for r in ros_rows:
+        is_me = (r.get("roster_id") == user_roster_id)
+        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
+        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        tier = r.get("Competitive Tier", "Active")
+        tier_cls = "status-contender" if "Contender" in tier else ("status-rebuild" if "Rebuild" in tier else "status-bubble")
+        html += f"""
+        <tr style='{row_style}'>
+            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
+            <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
+            <td class='val-pill' style='text-align: center; color: #38bdf8;'>{r['ROS Score']}</td>
+            <td style='text-align: center;'>{r['Starters Val (70%)']}</td>
+            <td style='text-align: center; color: #94a3b8;'>{r['Bench Val (30%)']}</td>
+            <td style='text-align: center; color: #38bdf8; font-weight: 600;'>{r['Total ROS Value']}</td>
+            <td style='text-align: center;'><span class='status-capsule {tier_cls}'>{tier}</span></td>
+        </tr>
+        """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
 def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val", show_picks: bool = True):
     """
     Renders the League-Wide Positional Room Leaderboard table.
@@ -2979,7 +3028,9 @@ else:
     )
 
     all_team_profiles = []
+    all_ros_team_profiles = []
     user_profile = None
+    user_ros_profile = None
 
     for r in rosters:
         rid = r["roster_id"]
@@ -3045,6 +3096,41 @@ else:
         all_team_profiles.append(prof)
         if rid == user_roster["roster_id"]:
             user_profile = prof
+
+        # Dedicated ROS single-season profile (optimized for 3-source redraft consensus starters + bench)
+        if is_dynasty:
+            ros_prof = analyze_team_profile(
+                roster=r,
+                roster_players=all_rosters_players[rid],
+                owned_picks=[],
+                primary_lookup=redraft_lookup,
+                redraft_lookup=redraft_lookup,
+                picks_lookup={},
+                team_tiers={},
+                roster_positions=roster_pos,
+                is_dynasty=False,
+                status=t_status,
+                category=t_cat,
+                manager_name=manager_label,
+                total_rosters=selected_league.get("total_rosters", len(rosters)),
+            )
+            ros_prof["starter_value"] = sum(a.get("market_value", 0.0) for a in ros_prof.get("starter_assets", []))
+            ros_prof["bench_value"] = sum(a.get("market_value", 0.0) for a in ros_prof.get("bench_assets", []))
+            ros_prof["picks_value"] = 0.0
+            ros_prof["total_value"] = ros_prof["starter_value"] + ros_prof["bench_value"]
+            ros_prof["starters"] = ros_prof["starter_assets"]
+            ros_prof["bench"] = ros_prof["bench_assets"]
+            ros_prof["picks"] = []
+            ros_prof["playoff_pct"] = r_playoff_pct if r_playoff_pct is not None else 0.0
+            ros_prof["is_eliminated"] = r_is_elim
+            ros_prof["clinch_status"] = r_sim.get("status_code", "HUNT")
+            all_ros_team_profiles.append(ros_prof)
+            if rid == user_roster["roster_id"]:
+                user_ros_profile = ros_prof
+        else:
+            all_ros_team_profiles.append(prof)
+            if rid == user_roster["roster_id"]:
+                user_ros_profile = prof
 
     # Map dynasty power rankings alignment
     dyn_rank_map = {}
@@ -4178,6 +4264,93 @@ else:
                     """
                     st.html(evo_html)
 
+        def render_ros_power_view():
+            st.caption("ROS Asset Power Formula: 70% Starters Value + 30% Bench Depth (Tri-Source Consensus: FantasyCalc Trades + FantasyPros ECR + Sleeper Quant Projections). Purely consultative.")
+            ros_res = compute_ros_power_rankings(all_ros_team_profiles, weight_starters=0.70, weight_bench=0.30)
+            ranked_ros = sorted(ros_res.values(), key=lambda x: x["ros_score"], reverse=True)
+
+            ros_data = []
+            for rank_idx, t in enumerate(ranked_ros, 1):
+                rid = t["roster_id"]
+                ros_data.append({
+                    "roster_id": rid,
+                    "Rank": f"#{rank_idx}",
+                    "Manager / Team": t["manager_name"],
+                    "ROS Score": f"{t['ros_score']:.1f} / 100",
+                    "Starters Val (70%)": f"{t['starters_val']:,.0f} pts",
+                    "Bench Val (30%)": f"{t['bench_val']:,.0f} pts",
+                    "Total ROS Value": f"{t['total_val']:,.0f} pts",
+                    "Competitive Tier": t["status"].split("(")[0].strip() if t.get("status") else "Active",
+                })
+
+            st.html(render_ros_power_table_html(ros_data, user_roster["roster_id"]))
+
+            with st.expander("View Complete ROS Lineup & Bench Breakdown", expanded=False):
+                inspect_mgr = st.selectbox("Select Team to Inspect (ROS):", [t["manager_name"] for t in ranked_ros], key=f"inspect_ros_team_{selected_league_id}")
+                selected_prof = next(p for p in all_ros_team_profiles if p["manager_name"] == inspect_mgr)
+                tot_val = selected_prof.get("total_value", 0.0)
+
+                insp_sub_starters, insp_sub_bench = st.tabs([
+                    f"ROS Starters ({len(selected_prof['starters'])})",
+                    f"ROS Bench ({len(selected_prof['bench'])})",
+                ])
+
+                with insp_sub_starters:
+                    st.caption(f"ROS Starting Lineup Valuation: **{selected_prof.get('starter_value', 0):,.0f} pts**")
+                    st_rows = []
+                    for idx, a in enumerate(selected_prof["starters"]):
+                        pid = a.get("player_id")
+                        pos = a.get("position") or "UTIL"
+                        team = a.get("team") or "FA"
+                        m_val = float(a.get("market_value") or 0.0)
+                        p_data = redraft_lookup.get(pid, {})
+                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
+                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
+                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
+                        st_rows.append({
+                            "Slot": roster_pos[idx] if idx < len(roster_pos) else "FLEX",
+                            "Player": a.get("name", "Unknown"),
+                            "Pos": pos,
+                            "NFL Team": team,
+                            "Age": a.get("age") or "—",
+                            "Avatar": get_player_avatar_url(pid, pos, team),
+                            "Overall ECR": overall_ecr_str,
+                            "Pos ECR": pos_ecr_str,
+                            "Consensus Value": f"{m_val:,.0f} pts",
+                            "Equity Share": eq_str,
+                        })
+                    st.html(render_player_table_html(st_rows, show_equity=True))
+
+                with insp_sub_bench:
+                    st.caption(f"ROS Bench Depth Valuation: **{selected_prof.get('bench_value', 0):,.0f} pts**")
+                    bn_rows = []
+                    for a in selected_prof["bench"]:
+                        pid = a.get("player_id")
+                        pos = a.get("position") or "UTIL"
+                        team = a.get("team") or "FA"
+                        m_val = float(a.get("market_value") or 0.0)
+                        p_data = redraft_lookup.get(pid, {})
+                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
+                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
+                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
+                        bn_rows.append({
+                            "Slot": "BN",
+                            "Player": a.get("name", "Unknown"),
+                            "Pos": pos,
+                            "NFL Team": team,
+                            "Age": a.get("age") or "—",
+                            "Avatar": get_player_avatar_url(pid, pos, team),
+                            "Overall ECR": overall_ecr_str,
+                            "Pos ECR": pos_ecr_str,
+                            "Consensus Value": f"{m_val:,.0f} pts",
+                            "Equity Share": eq_str,
+                        })
+                    st.html(render_player_table_html(bn_rows, show_equity=True))
+
         def render_dynasty_power_view():
             st.caption("Dynasty Power Formula: 50% Starters Value + 30% Bench Depth + 20% Future Draft Capital (Industry Standard).")
             dynasty_res = compute_dynasty_power_rankings(all_team_profiles)
@@ -4392,24 +4565,30 @@ else:
                             st.caption(f"• {name}")
 
         if is_dynasty:
-            sub_mc, sub_dyn, sub_rooms = st.tabs([
+            sub_mc, sub_ros, sub_dyn, sub_rooms = st.tabs([
                 "Season Standings & Playoff Simulation (Monte Carlo)",
+                "ROS Asset Power Rankings (70/30)",
                 "Dynasty Asset Power Rankings (50/30/20)",
                 "Positional Room & Draft Capital Leaderboard",
             ])
             with sub_mc:
                 render_simulation_view()
+            with sub_ros:
+                render_ros_power_view()
             with sub_dyn:
                 render_dynasty_power_view()
             with sub_rooms:
                 render_positional_room_view()
         else:
-            sub_mc, sub_rooms = st.tabs([
+            sub_mc, sub_ros, sub_rooms = st.tabs([
                 "Season Standings & Playoff Simulation (Monte Carlo)",
+                "ROS Asset Power Rankings (70/30)",
                 "Positional Room Leaderboard",
             ])
             with sub_mc:
                 render_simulation_view()
+            with sub_ros:
+                render_ros_power_view()
             with sub_rooms:
                 render_positional_room_view()
 
