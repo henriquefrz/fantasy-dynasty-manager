@@ -203,6 +203,7 @@ try:
         score_to_tier,
         calculate_dynamic_record_weight,
         get_rebuild_ceiling_meta,
+        simulate_optimal_lineup,
     )
 except ImportError:
     import src.team_strength as _ts
@@ -216,6 +217,7 @@ except ImportError:
     score_to_tier = getattr(_ts, "score_to_tier")
     calculate_dynamic_record_weight = getattr(_ts, "calculate_dynamic_record_weight")
     get_rebuild_ceiling_meta = getattr(_ts, "get_rebuild_ceiling_meta")
+    simulate_optimal_lineup = getattr(_ts, "simulate_optimal_lineup")
 
 from src.draft_picks import (
     build_picks_ownership,
@@ -2889,6 +2891,11 @@ else:
         num_simulations=1000,
     )
 
+    sim_rank_map = {}
+    if live_sim_results:
+        ranked_sim = sorted(live_sim_results.values(), key=lambda t: t.get("power_score", 0.0), reverse=True)
+        sim_rank_map = {t["roster_id"]: (idx, t.get("power_score", 0.0)) for idx, t in enumerate(ranked_sim, 1)}
+
     user_rid = user_roster["roster_id"]
     user_sim = live_sim_results.get(user_rid, {})
     user_playoff_pct = user_sim.get("playoff_pct")
@@ -2900,9 +2907,10 @@ else:
         dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_ranked)
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-        if redraft_total and redraft_pos:
+        user_sim_pos = sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
+        if redraft_total and user_sim_pos:
             current_tier, games_played = get_current_strength_tier(
-                user_roster, rosters, redraft_pos, redraft_total,
+                user_roster, rosters, user_sim_pos, redraft_total,
                 season_length=season_length,
                 playoff_pct=user_playoff_pct,
                 is_eliminated=user_is_elim,
@@ -2920,9 +2928,10 @@ else:
     else:
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-        if redraft_total and redraft_pos:
+        user_sim_pos = sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
+        if redraft_total and user_sim_pos:
             current_tier, games_played = get_current_strength_tier(
-                user_roster, rosters, redraft_pos, redraft_total,
+                user_roster, rosters, user_sim_pos, redraft_total,
                 season_length=season_length,
                 playoff_pct=user_playoff_pct,
                 is_eliminated=user_is_elim,
@@ -2957,8 +2966,9 @@ else:
         if is_dynasty:
             d_tier, _, _ = get_strength_tier(rid, dynasty_ranked)
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
+            r_sim_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0]
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_pos, r_tot,
+                r, rosters, r_sim_pos, r_tot,
                 season_length=season_length,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
@@ -2967,8 +2977,9 @@ else:
             owned_picks = get_picks_for_roster(picks_ownership, rid)
         else:
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
+            r_sim_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0]
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_pos, r_tot,
+                r, rosters, r_sim_pos, r_tot,
                 season_length=season_length,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
@@ -3023,12 +3034,6 @@ else:
         except Exception:
             pass
 
-    # Map in-season simulation power rankings for Redraft & Contender alignment
-    sim_rank_map = {}
-    if live_sim_results:
-        ranked_sim = sorted(live_sim_results.values(), key=lambda t: t.get("power_score", 0.0), reverse=True)
-        sim_rank_map = {t["roster_id"]: (idx, t.get("power_score", 0.0)) for idx, t in enumerate(ranked_sim, 1)}
-
     for p in all_team_profiles:
         r_id = p["roster_id"]
         if r_id in sim_rank_map:
@@ -3037,6 +3042,11 @@ else:
         else:
             p["in_season_rank"] = redraft_pos
             p["in_season_power_score"] = 0.0
+
+    user_in_season_pos = user_profile.get("in_season_rank") if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0])
+    user_in_season_pos_to_use = user_in_season_pos or redraft_pos
+    user_in_season_score = user_profile.get("in_season_power_score", 0.0) if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[1])
+    dyn_pos_to_use = user_profile.get("dynasty_rank") if user_profile else dynasty_pos
 
     format_badge = f"{'Dynasty' if is_dynasty else 'Redraft'} • {'Superflex' if is_superflex else '1QB'} • {len(rosters)} Teams"
     if tep_bonus > 0:
@@ -3059,20 +3069,14 @@ else:
         st.metric("Franchise Trajectory", clean_status, trajectory_delta, delta_color="normal", help=team_status)
     with col_m3:
         if is_dynasty and user_profile:
-            dyn_pos_to_use = user_profile.get("dynasty_rank") if user_profile else dynasty_pos
             dyn_rank_str = f"#{dyn_pos_to_use} of {len(all_team_profiles)}" if dyn_pos_to_use else "Pre-Draft"
             st.metric("Dynasty Roster Rank", dyn_rank_str, f"{user_profile['total_value']:,.0f} pts")
         else:
-            user_in_season_pos = user_profile.get("in_season_rank") if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0])
-            user_in_season_pos_to_use = user_in_season_pos or redraft_pos
-            user_in_season_score = user_profile.get("in_season_power_score", 0.0) if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[1])
             red_rank_str = f"#{user_in_season_pos_to_use} of {len(all_team_profiles)}" if user_in_season_pos_to_use else "Pre-Draft"
             score_delta = f"Power Score: {user_in_season_score:.1f}" if user_in_season_score > 0 else "Active Season"
             st.metric("In-Season Rank", red_rank_str, score_delta)
     with col_m4:
         if is_dynasty and user_profile:
-            user_in_season_pos = user_profile.get("in_season_rank") if user_profile else (sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0])
-            user_in_season_pos_to_use = user_in_season_pos or redraft_pos
             red_rank_str = f"#{user_in_season_pos_to_use} of {len(all_team_profiles)}" if user_in_season_pos_to_use else "Pre-Draft"
             st.metric("In-Season Contender Rank", red_rank_str, f"Starters: {user_profile['starter_value']:,.0f} pts")
         else:
@@ -3175,7 +3179,7 @@ else:
                     <div class='dash-stat-box'>
                         <div class='dash-stat-label'>SCORING RANK</div>
                         <div class='dash-stat-value'>#{scoring_rank} <span style='font-size: 0.8rem; font-weight: 500; color: #64748b;'>of {len(rosters)}</span></div>
-                        <div class='dash-stat-sub'>Differential: {'+' if diff >= 0 else ''}{diff:,.1f}</div>
+                        <div class='dash-stat-sub'>Season PF • {'+' if diff >= 0 else ''}{diff:,.1f} net</div>
                     </div>
                     <div class='dash-stat-box'>
                         <div class='dash-stat-label'>SEASON RECORD</div>
@@ -3184,8 +3188,8 @@ else:
                     </div>
                     <div class='dash-stat-box'>
                         <div class='dash-stat-label'>PROJ. FINISH</div>
-                        <div class='dash-stat-value text-gold'>#{redraft_pos if redraft_pos else '—'}</div>
-                        <div class='dash-stat-sub'>Tier: {team_status}</div>
+                        <div class='dash-stat-value text-gold'>#{user_in_season_pos_to_use if user_in_season_pos_to_use else '—'}</div>
+                        <div class='dash-stat-sub'>Sim Rank • {clean_status}</div>
                     </div>
                 </div>
                 """,
@@ -3193,8 +3197,8 @@ else:
             )
 
         with col_dash_right:
-            dyn_pos_txt = f"#{dynasty_pos} of {dynasty_total}" if (is_dynasty and dynasty_pos) else "—"
-            red_pos_txt = f"#{redraft_pos} of {redraft_total}" if redraft_pos else "—"
+            dyn_pos_txt = f"#{dyn_pos_to_use} of {len(all_team_profiles)}" if (is_dynasty and dyn_pos_to_use) else "—"
+            red_pos_txt = f"#{user_in_season_pos_to_use} of {len(rosters)}" if user_in_season_pos_to_use else "—"
             tot_val_txt = f"{user_profile['total_value']:,.0f} pts" if user_profile else "—"
             starter_val_txt = f"{user_profile['starter_value']:,.0f} pts" if user_profile else "—"
             bench_val_txt = f"{user_profile['bench_value']:,.0f} pts" if user_profile else "—"
@@ -4404,6 +4408,58 @@ else:
             else:
                 return "Depth & Capital"
 
+        def render_asset_chips(assets):
+            if not assets:
+                return "<div style='color: #64748b; font-size: 0.8rem; font-style: italic;'>No assets selected</div>"
+            chips_html = ""
+            for a in assets:
+                name = a.get("name", "Asset")
+                val = float(a.get("market_value") or 0.0)
+                pos = a.get("position") or "PICK"
+                team = a.get("team") or ""
+                pid = a.get("player_id")
+
+                if a.get("type") == "pick" or not pid or str(pid).startswith("pick_"):
+                    icon_html = "<div style='width: 38px; height: 38px; border-radius: 50%; background: #1e1b4b; border: 1.5px solid #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;'>🎯</div>"
+                    pos_badge = "<span class='badge-pos badge-pick' style='font-size: 0.65rem; padding: 1px 5px;'>PICK</span>"
+                    dyn_ros_html = "<span style='color: #c084fc; font-weight: 600;'>Future Draft Capital</span>"
+                else:
+                    avatar_url = get_player_avatar_url(pid, pos, team)
+                    icon_html = f"<img src='{avatar_url}' style='width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #475569; flex-shrink: 0;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
+                    badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
+                    pos_badge = f"<span class='badge-pos {badge_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{pos}</span>"
+
+                    p_data = primary_lookup.get(pid, {}) or primary_lookup.get(str(pid), {})
+                    r_data = redraft_lookup.get(pid, {}) or redraft_lookup.get(str(pid), {})
+                    d_o = p_data.get("rank_ecr_overall", 999.0)
+                    d_p = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
+                    r_o = r_data.get("rank_ecr_overall", 999.0)
+                    r_p = r_data.get("rank_ecr_pos", r_data.get("rank_ecr", 999.0))
+
+                    d_str = f"Dyn: #{int(d_o)} ({pos}{int(d_p)})" if (d_p and d_p < 900) else "Dyn: —"
+                    ros_str = f"ROS: #{int(r_o)} ({pos}{int(r_p)})" if (r_p and r_p < 900) else "ROS: —"
+                    dyn_ros_html = f"<span style='color: #38bdf8; font-weight: 600;'>{d_str}</span> <span style='color: #64748b;'>•</span> <span style='color: #fbbf24; font-weight: 600;'>{ros_str}</span>"
+
+                chips_html += f"""
+                <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
+                    <div style='display: flex; align-items: center; gap: 10px; min-width: 0;'>
+                        {icon_html}
+                        <div style='min-width: 0;'>
+                            <div style='font-weight: 700; color: #f8fafc; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{name}</div>
+                            <div style='font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; align-items: center;'>
+                                {pos_badge}
+                                <span>{team}</span>
+                            </div>
+                            <div style='font-size: 0.68rem; margin-top: 2px;'>
+                                {dyn_ros_html}
+                            </div>
+                        </div>
+                    </div>
+                    <div style='font-weight: 800; font-size: 0.9rem; color: #38bdf8; text-align: right; white-space: nowrap;'>{val:,.0f} pts</div>
+                </div>
+                """
+            return chips_html
+
         def render_trade_proposal_card(idx: int, prop: dict, show_chat_message: bool = True):
             arch = prop.get("archetype") or prop.get("structure") or "Balanced Trade Proposal"
             partner = prop.get("partner_name") or prop.get("partner_profile", {}).get("manager_name") or "Trade Partner"
@@ -4420,56 +4476,6 @@ else:
             diff_sign = "+" if net_diff >= 0 else ""
             status_label = str(eval_res.get("status", "Balanced")).upper()
             diff_color = "#10b981" if net_diff >= 0 else "#f43f5e"
-
-            def render_asset_chips(assets):
-                chips_html = ""
-                for a in assets:
-                    name = a.get("name", "Asset")
-                    val = float(a.get("market_value") or 0.0)
-                    pos = a.get("position") or "PICK"
-                    team = a.get("team") or ""
-                    pid = a.get("player_id")
-
-                    if a.get("type") == "pick" or not pid or str(pid).startswith("pick_"):
-                        icon_html = "<div style='width: 38px; height: 38px; border-radius: 50%; background: #1e1b4b; border: 1.5px solid #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;'>🎯</div>"
-                        pos_badge = "<span class='badge-pos badge-pick' style='font-size: 0.65rem; padding: 1px 5px;'>PICK</span>"
-                        dyn_ros_html = "<span style='color: #c084fc; font-weight: 600;'>Future Draft Capital</span>"
-                    else:
-                        avatar_url = get_player_avatar_url(pid, pos, team)
-                        icon_html = f"<img src='{avatar_url}' style='width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #475569; flex-shrink: 0;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
-                        badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
-                        pos_badge = f"<span class='badge-pos {badge_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{pos}</span>"
-
-                        p_data = primary_lookup.get(pid, {})
-                        r_data = redraft_lookup.get(pid, {})
-                        d_o = p_data.get("rank_ecr_overall", 999.0)
-                        d_p = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
-                        r_o = r_data.get("rank_ecr_overall", 999.0)
-                        r_p = r_data.get("rank_ecr_pos", r_data.get("rank_ecr", 999.0))
-
-                        d_str = f"Dyn: #{int(d_o)} ({pos}{int(d_p)})" if (d_p and d_p < 900) else "Dyn: —"
-                        ros_str = f"ROS: #{int(r_o)} ({pos}{int(r_p)})" if (r_p and r_p < 900) else "ROS: —"
-                        dyn_ros_html = f"<span style='color: #38bdf8; font-weight: 600;'>{d_str}</span> <span style='color: #64748b;'>•</span> <span style='color: #fbbf24; font-weight: 600;'>{ros_str}</span>"
-
-                    chips_html += f"""
-                    <div style='display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;'>
-                        <div style='display: flex; align-items: center; gap: 10px; min-width: 0;'>
-                            {icon_html}
-                            <div style='min-width: 0;'>
-                                <div style='font-weight: 700; color: #f8fafc; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{name}</div>
-                                <div style='font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; align-items: center;'>
-                                    {pos_badge}
-                                    <span>{team}</span>
-                                </div>
-                                <div style='font-size: 0.68rem; margin-top: 2px;'>
-                                    {dyn_ros_html}
-                                </div>
-                            </div>
-                        </div>
-                        <div style='font-weight: 800; font-size: 0.9rem; color: #38bdf8; text-align: right; white-space: nowrap;'>{val:,.0f} pts</div>
-                    </div>
-                    """
-                return chips_html
 
             give_chips = render_asset_chips(gives)
             recv_chips = render_asset_chips(recvs)
