@@ -29,6 +29,25 @@ if PROJECT_ROOT not in sys.path:
 
 # Invalidate import caches so Streamlit daemon processes always load fresh src modules
 importlib.invalidate_caches()
+for _mod_name in [
+    "src.sleeper_api",
+    "src.market_data",
+    "src.matching",
+    "src.team_strength",
+    "src.analysis_engine",
+    "src.trade_engine",
+    "src.playoff_simulator",
+    "src.start_sit",
+    "src.trade_finder",
+    "src.draft_picks",
+    "src.league_classifier",
+]:
+    if _mod_name in sys.modules:
+        try:
+            importlib.reload(sys.modules[_mod_name])
+        except Exception:
+            pass
+
 try:
     from src.sleeper_api import (
         get_user,
@@ -2014,7 +2033,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v20_live_ktc_and_disk_cache"):
+def fetch_market_database(_cache_version="v21_calibrated_waiver_drops"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -3593,6 +3612,7 @@ else:
                         "Rest of Season (ROS / Win-Now Starting Points)",
                     ],
                     horizontal=True,
+                    key=f"waiver_perspective_{selected_league_id}",
                     help="Dynasty horizon optimizes for long-term player trade capital. ROS horizon optimizes for immediate starting points."
                 )
                 eval_dynasty = "Dynasty" in waiver_perspective
@@ -3604,6 +3624,7 @@ else:
             protection_choice = st.selectbox(
                 "Drop Protection Level:",
                 ["Injured Stars Protected", "Unrestricted (Show All Drops)"],
+                key=f"waiver_protection_{selected_league_id}",
                 help="Protects injured NFL starters (IR/DNR/PUP) from being recommended as cuts."
             )
             protect_injured = "Injured Stars" in protection_choice
