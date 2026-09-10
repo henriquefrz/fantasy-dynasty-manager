@@ -2773,6 +2773,7 @@ if st.session_state.get("selected_league_id") is None:
 else:
     active_lid = st.session_state["selected_league_id"]
     selected_league = next((l for l in sorted_leagues if l["league_id"] == active_lid), sorted_leagues[0])
+    selected_league_id = selected_league["league_id"]
     selected_league_name = selected_league["name"]
 
     # Top Breadcrumb Navigation & Return to Portal Button
@@ -3783,14 +3784,14 @@ else:
         starter_upgrades = waivers.get("starter_upgrades", [])
         if starter_upgrades:
             st.markdown("### Starting Lineup Upgrades")
-            for s in starter_upgrades[:3]:
+            for s in starter_upgrades[:6]:
                 st.html(render_waiver_upgrade_card(s, is_starter=True))
 
         # Bench Upgrades
         cross_upgrades = waivers.get("cross_pos_upgrades", [])
         if cross_upgrades:
             st.markdown("### Top Bench Upgrades")
-            for s in cross_upgrades[:3]:
+            for s in cross_upgrades[:6]:
                 st.html(render_waiver_upgrade_card(s, is_starter=False))
 
         # Empty state notification if no waiver suggestions found

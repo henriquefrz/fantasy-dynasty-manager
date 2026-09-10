@@ -23,7 +23,8 @@ def is_protected_dynasty_drop(player_obj, ranking_data, is_dynasty=True, protect
        experience (years_exp >= 1 or market_value >= 200.0) is recognized as a temporarily 
        injured NFL contributor (e.g. Brandon Aiyuk) and protected from being cut for free agents.
     2. Elite Rank Floor:
-       Top-tier consensus players (rank_ecr <= 80.0) are core assets protected from casual drops.
+       Top-tier consensus players (overall ECR <= 40 or high market value) are core assets
+       protected from being casually dropped on waivers.
     """
     if not player_obj:
         return False
@@ -31,7 +32,7 @@ def is_protected_dynasty_drop(player_obj, ranking_data, is_dynasty=True, protect
         return False
 
     val = (ranking_data or {}).get("market_value", 0.0)
-    ecr = (ranking_data or {}).get("rank_ecr", 999.0)
+    o_ecr = (ranking_data or {}).get("rank_ecr_overall", 999.0)
 
     status = str(player_obj.get("status") or "").upper()
     inj_status = str(player_obj.get("injury_status") or "").upper()
@@ -46,8 +47,19 @@ def is_protected_dynasty_drop(player_obj, ranking_data, is_dynasty=True, protect
     if is_injured_or_inactive and (years_exp >= 1 or val >= 200.0):
         return True
 
-    if ecr <= 80.0:
-        return True
+    # Elite Rank Floor: Protect core top-tier assets from accidental drops
+    # (Uses overall rank and market value, NEVER positional rank <= 80!)
+    try:
+        raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
+    except (ValueError, TypeError):
+        raw_o_ecr = 9999.0
+
+    if is_dynasty:
+        if val >= 3500.0 or raw_o_ecr <= 40.0:
+            return True
+    else:
+        if val >= 2500.0 or raw_o_ecr <= 40.0:
+            return True
 
     return False
 
@@ -375,9 +387,9 @@ def build_intelligent_waiver_suggestions(
     taxi_swaps.sort(key=lambda s: -s["market_value_gain"])
 
     return {
-        "starter_upgrades": starter_upgrades[:3],
-        "cross_pos_upgrades": cross_pos_upgrades[:3],
-        "taxi_swaps": taxi_swaps[:2],
+        "starter_upgrades": starter_upgrades[:6],
+        "cross_pos_upgrades": cross_pos_upgrades[:8],
+        "taxi_swaps": taxi_swaps[:4],
         "positional_options": positional_options,
     }
 

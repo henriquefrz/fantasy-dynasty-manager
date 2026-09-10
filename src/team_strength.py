@@ -41,18 +41,14 @@ def simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty
         return [], []
 
     # Sort players by priority:
-    # In Dynasty: market_value descending (tie-break by rank_ecr ascending)
-    # In Redraft: rank_ecr ascending (tie-break by market_value descending)
-    if is_dynasty:
-        sorted_players = sorted(
-            matched,
-            key=lambda item: (-item[1].get("market_value", 0.0), item[1].get("rank_ecr", 999.0))
+    # Uses market_value descending (cross-positional value), with overall ECR as tie-breaker.
+    sorted_players = sorted(
+        matched,
+        key=lambda item: (
+            -item[1].get("market_value", 0.0),
+            item[1].get("rank_ecr_overall", item[1].get("rank_ecr", 999.0))
         )
-    else:
-        sorted_players = sorted(
-            matched,
-            key=lambda item: (item[1].get("rank_ecr", 999.0), -item[1].get("market_value", 0.0))
-        )
+    )
 
     assigned_player_ids = set()
     starters = []
