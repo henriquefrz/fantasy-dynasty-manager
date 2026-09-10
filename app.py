@@ -2076,6 +2076,90 @@ def fetch_market_database(_cache_version="v20_live_ktc_and_disk_cache"):
     }
 
 
+def build_market_assets_list(active_lookup, players_db, is_redraft=False):
+    """
+    Builds an enriched, sorted list of market assets (players & draft picks)
+    for use in market exploration, player head-to-head, and the trade calculator.
+    """
+    assets = []
+    for pid, p_data in active_lookup.items():
+        p_obj = players_db.get(str(pid), {})
+        pname = p_obj.get("full_name") or p_data.get("player_name") or str(pid)
+        raw_pos = p_obj.get("position") or p_data.get("position") or "UTIL"
+        is_pick_asset = False if is_redraft else is_draft_pick_asset(pid, pname, raw_pos)
+
+        pos = "PICK" if is_pick_asset else raw_pos
+        team = "DRAFT" if is_pick_asset else (p_obj.get("team") or "FA")
+        age = p_obj.get("age", "—")
+        val = p_data.get("market_value", 0.0)
+        ecr = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
+        o_ecr = p_data.get("rank_ecr_overall", 999.0)
+        ktc_v = p_data.get("ktc_val")
+        fc_v = p_data.get("fc_val")
+        dp_v = p_data.get("dp_val")
+        proj_ppg = p_data.get("proj_ppg")
+        fp_o = p_data.get("fp_ecr_overall")
+        fp_p = p_data.get("fp_ecr_pos")
+
+        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+
+        try:
+            raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
+        except (ValueError, TypeError):
+            raw_o_ecr = 9999.0
+
+        try:
+            raw_p_ecr = float(ecr) if (ecr is not None and float(ecr) < 900) else 9999.0
+        except (ValueError, TypeError):
+            raw_p_ecr = 9999.0
+
+        assets.append({
+            "pid": str(pid),
+            "Avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
+            "avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
+            "Player": pname,
+            "name": pname,
+            "Pos": pos,
+            "pos": pos,
+            "NFL Team": team,
+            "team": team,
+            "age": age,
+            "Consensus Value": f"{val:,.0f} pts",
+            "Overall ECR": overall_ecr_str,
+            "Pos ECR": pos_ecr_str,
+            "val": val,
+            "o_ecr": raw_o_ecr,
+            "p_ecr": raw_p_ecr,
+            "o_ecr_str": overall_ecr_str,
+            "pos_ecr_str": pos_ecr_str,
+            "KeepTradeCut": f"{ktc_v:,.0f}" if ktc_v is not None else "—",
+            "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
+            "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
+            "FantasyPros ECR": f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500) else "—",
+            "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
+            "proj_ppg": proj_ppg,
+            "fp_ecr_overall": fp_o,
+            "fp_ecr_pos": fp_p,
+            "_proj_ppg": float(proj_ppg or 0.0),
+            "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
+            "ktc_val": ktc_v,
+            "fc_val": fc_v,
+            "dp_val": dp_v,
+            "is_pick": is_pick_asset,
+            "_val": val,
+            "_overall_ecr": raw_o_ecr,
+            "_pos_ecr": raw_p_ecr,
+            "_ktc": float(ktc_v) if (ktc_v is not None and str(ktc_v).replace(".", "", 1).isdigit()) else 0.0,
+            "_fc": float(fc_v) if (fc_v is not None and str(fc_v).replace(".", "", 1).isdigit()) else 0.0,
+            "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
+            "_name": pname.lower(),
+            "label": f"{pname} ({pos} - {team}) • #{int(o_ecr) if (o_ecr and o_ecr < 900) else '—'} • {val:,.0f} pts",
+        })
+    assets.sort(key=lambda x: x["_val"], reverse=True)
+    return assets
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_user_and_leagues(username):
     user = get_user(username)
@@ -2983,7 +3067,7 @@ else:
         "Matchups & Start/Sit",
         "Add/Drops & Waivers",
         "Power Rankings & Playoff Odds",
-        "Trade Center & Targeted Finder",
+        "Trade Center & Calculator",
         "Market Rankings & Database",
         "Multi-League Portfolio",
     ])
@@ -4425,12 +4509,468 @@ else:
             st.html(card_html)
 
         trade_view = st.radio(
-            "Trade Mode:",
-            ["Targeted Asset Finder (Buy or Sell Specific Assets)", "League-Wide Trade Scanner"],
+            "Trade Center Mode:",
+            [
+                "🧮 Interactive Trade Calculator",
+                "🎯 Targeted Asset Finder (Buy or Sell Specific Assets)",
+                "📡 League-Wide Trade Scanner",
+            ],
             horizontal=True,
+            key=f"trade_center_mode_{selected_league_id}",
         )
 
-        if "Targeted Asset Finder" in trade_view:
+        if "Interactive Trade Calculator" in trade_view:
+            st.markdown(
+                "<div style='margin: 4px 0 16px 0; color: #94a3b8; font-size: 0.9rem;'>"
+                "Evaluate custom trades across any league teams or arbitrary market assets. "
+                "Calculates Model 3 Stud Multipliers (+15%), package dilution weights, and starting lineup impacts."
+                "</div>",
+                unsafe_allow_html=True
+            )
+
+            c_calc_s1, c_calc_s2 = st.columns([1.8, 1.2], vertical_alignment="center")
+            with c_calc_s1:
+                calc_scope = st.radio(
+                    "Calculator Valuation Scope:",
+                    ["🏆 Dynasty Consensus Values", "⚡ Single-Season (ROS) Projections"],
+                    horizontal=True,
+                    key=f"trade_calc_scope_{selected_league_id}",
+                )
+            is_calc_redraft = ("Single-Season" in calc_scope)
+            active_calc_lookup = redraft_lookup if is_calc_redraft else primary_lookup
+            calc_market_assets = build_market_assets_list(active_calc_lookup, players, is_redraft=is_calc_redraft)
+            calc_asset_by_label = {a["label"]: a for a in calc_market_assets}
+
+            with c_calc_s2:
+                tep_bonus_val = (
+                    scoring.get("bonus_rec_te", 0.0)
+                    or scoring.get("te_bonus", 0.0)
+                    or selected_league.get("settings", {}).get("tep_bonus", 0.0)
+                )
+                if not is_calc_redraft and tep_bonus_val > 0:
+                    st.info(f"✨ Tight-End Premium Active (+{tep_bonus_val:.1f} TEP Boost included)")
+                else:
+                    st.caption("Model 3 Active: +15% Stud Premium & Package Diminishing Returns applied automatically.")
+
+            # Team / Context dropdowns
+            team_options = [f"⭐ {team_name} (My Roster)"]
+            for p in all_team_profiles:
+                if p["roster_id"] != user_roster["roster_id"]:
+                    team_options.append(f"👤 {p['manager_name']}")
+            team_options.append("🌐 Freeform / Custom (Universal Market)")
+
+            c_ta, c_tb = st.columns(2)
+            with c_ta:
+                team_a_choice = st.selectbox(
+                    "Side A (Team A / Send):",
+                    team_options,
+                    index=0,
+                    key=f"calc_team_a_select_{selected_league_id}",
+                )
+            with c_tb:
+                team_b_choice = st.selectbox(
+                    "Side B (Team B / Receive):",
+                    team_options,
+                    index=1 if len(team_options) > 1 else 0,
+                    key=f"calc_team_b_select_{selected_league_id}",
+                )
+
+            def get_profile_from_choice(choice_str):
+                if choice_str.startswith("⭐"):
+                    return user_profile
+                for p in all_team_profiles:
+                    if p["manager_name"] in choice_str:
+                        return p
+                return None
+
+            prof_a = get_profile_from_choice(team_a_choice)
+            prof_b = get_profile_from_choice(team_b_choice)
+
+            # Asset Selection Side A
+            selected_assets_a = []
+            with c_ta:
+                if prof_a:
+                    owned_labels_a = []
+                    owned_map_a = {}
+                    for p in prof_a["starters"] + prof_a["bench"]:
+                        pid = str(p.get("player_id"))
+                        p_data = active_calc_lookup.get(pid, {})
+                        val = p_data.get("market_value", p.get("market_value", 0.0))
+                        pos = p.get("position", "UTIL")
+                        team = p.get("team", "FA")
+                        lbl = f"{p['name']} ({pos} - {team}) • {val:,.0f} pts"
+                        owned_labels_a.append(lbl)
+                        owned_map_a[lbl] = {
+                            "player_id": pid,
+                            "name": p["name"],
+                            "position": pos,
+                            "team": team,
+                            "market_value": val,
+                            "type": "player",
+                            "player_obj": p.get("player_obj") or p,
+                            "ktc_val": p_data.get("ktc_val"),
+                            "fc_val": p_data.get("fc_val"),
+                            "dp_val": p_data.get("dp_val"),
+                            "proj_ppg": p_data.get("proj_ppg"),
+                        }
+                    if not is_calc_redraft and is_dynasty:
+                        for pk in prof_a.get("picks", []):
+                            pk_val = pk.get("market_value", 1000.0)
+                            lbl = f"{pk['name']} • {pk_val:,.0f} pts"
+                            owned_labels_a.append(lbl)
+                            owned_map_a[lbl] = {
+                                "player_id": pk.get("pick_id") or pk.get("name"),
+                                "name": pk["name"],
+                                "position": "PICK",
+                                "team": "DRAFT",
+                                "market_value": pk_val,
+                                "type": "pick",
+                                "season": pk.get("season", "2027"),
+                                "round": pk.get("round", 1),
+                                "original_owner": pk.get("original_owner", 1),
+                            }
+
+                    chosen_roster_a = st.multiselect(
+                        f"Select Assets from {prof_a['manager_name']}'s Roster:",
+                        options=owned_labels_a,
+                        key=f"calc_roster_a_select_{selected_league_id}",
+                        placeholder="Click or search to select players or picks from this roster...",
+                    )
+                    for lbl in chosen_roster_a:
+                        if lbl in owned_map_a:
+                            selected_assets_a.append(owned_map_a[lbl])
+
+                    chosen_extra_a = st.multiselect(
+                        "Add External / Custom Asset to Side A:",
+                        options=[a["label"] for a in calc_market_assets],
+                        key=f"calc_extra_a_select_{selected_league_id}",
+                        placeholder="Search any player or pick in database...",
+                        help="Add any player from another team, free agent, or rookie pick to Side A."
+                    )
+                    for lbl in chosen_extra_a:
+                        m_asset = calc_asset_by_label.get(lbl)
+                        if m_asset:
+                            selected_assets_a.append({
+                                "player_id": m_asset["pid"],
+                                "name": m_asset["name"],
+                                "position": m_asset["pos"],
+                                "team": m_asset["team"],
+                                "market_value": m_asset["val"],
+                                "type": "pick" if m_asset["is_pick"] else "player",
+                                "ktc_val": m_asset["ktc_val"],
+                                "fc_val": m_asset["fc_val"],
+                                "dp_val": m_asset["dp_val"],
+                                "proj_ppg": m_asset["proj_ppg"],
+                                "player_obj": players.get(str(m_asset["pid"])),
+                            })
+                else:
+                    chosen_free_a = st.multiselect(
+                        "Select Players or Picks for Side A:",
+                        options=[a["label"] for a in calc_market_assets],
+                        key=f"calc_free_a_select_{selected_league_id}",
+                        placeholder="Search any player or pick in database...",
+                    )
+                    for lbl in chosen_free_a:
+                        m_asset = calc_asset_by_label.get(lbl)
+                        if m_asset:
+                            selected_assets_a.append({
+                                "player_id": m_asset["pid"],
+                                "name": m_asset["name"],
+                                "position": m_asset["pos"],
+                                "team": m_asset["team"],
+                                "market_value": m_asset["val"],
+                                "type": "pick" if m_asset["is_pick"] else "player",
+                                "ktc_val": m_asset["ktc_val"],
+                                "fc_val": m_asset["fc_val"],
+                                "dp_val": m_asset["dp_val"],
+                                "proj_ppg": m_asset["proj_ppg"],
+                                "player_obj": players.get(str(m_asset["pid"])),
+                            })
+
+            # Asset Selection Side B
+            selected_assets_b = []
+            with c_tb:
+                if prof_b:
+                    owned_labels_b = []
+                    owned_map_b = {}
+                    for p in prof_b["starters"] + prof_b["bench"]:
+                        pid = str(p.get("player_id"))
+                        p_data = active_calc_lookup.get(pid, {})
+                        val = p_data.get("market_value", p.get("market_value", 0.0))
+                        pos = p.get("position", "UTIL")
+                        team = p.get("team", "FA")
+                        lbl = f"{p['name']} ({pos} - {team}) • {val:,.0f} pts"
+                        owned_labels_b.append(lbl)
+                        owned_map_b[lbl] = {
+                            "player_id": pid,
+                            "name": p["name"],
+                            "position": pos,
+                            "team": team,
+                            "market_value": val,
+                            "type": "player",
+                            "player_obj": p.get("player_obj") or p,
+                            "ktc_val": p_data.get("ktc_val"),
+                            "fc_val": p_data.get("fc_val"),
+                            "dp_val": p_data.get("dp_val"),
+                            "proj_ppg": p_data.get("proj_ppg"),
+                        }
+                    if not is_calc_redraft and is_dynasty:
+                        for pk in prof_b.get("picks", []):
+                            pk_val = pk.get("market_value", 1000.0)
+                            lbl = f"{pk['name']} • {pk_val:,.0f} pts"
+                            owned_labels_b.append(lbl)
+                            owned_map_b[lbl] = {
+                                "player_id": pk.get("pick_id") or pk.get("name"),
+                                "name": pk["name"],
+                                "position": "PICK",
+                                "team": "DRAFT",
+                                "market_value": pk_val,
+                                "type": "pick",
+                                "season": pk.get("season", "2027"),
+                                "round": pk.get("round", 1),
+                                "original_owner": pk.get("original_owner", 1),
+                            }
+
+                    chosen_roster_b = st.multiselect(
+                        f"Select Assets from {prof_b['manager_name']}'s Roster:",
+                        options=owned_labels_b,
+                        key=f"calc_roster_b_select_{selected_league_id}",
+                        placeholder="Click or search to select players or picks from this roster...",
+                    )
+                    for lbl in chosen_roster_b:
+                        if lbl in owned_map_b:
+                            selected_assets_b.append(owned_map_b[lbl])
+
+                    chosen_extra_b = st.multiselect(
+                        "Add External / Custom Asset to Side B:",
+                        options=[a["label"] for a in calc_market_assets],
+                        key=f"calc_extra_b_select_{selected_league_id}",
+                        placeholder="Search any player or pick in database...",
+                        help="Add any player from another team, free agent, or rookie pick to Side B."
+                    )
+                    for lbl in chosen_extra_b:
+                        m_asset = calc_asset_by_label.get(lbl)
+                        if m_asset:
+                            selected_assets_b.append({
+                                "player_id": m_asset["pid"],
+                                "name": m_asset["name"],
+                                "position": m_asset["pos"],
+                                "team": m_asset["team"],
+                                "market_value": m_asset["val"],
+                                "type": "pick" if m_asset["is_pick"] else "player",
+                                "ktc_val": m_asset["ktc_val"],
+                                "fc_val": m_asset["fc_val"],
+                                "dp_val": m_asset["dp_val"],
+                                "proj_ppg": m_asset["proj_ppg"],
+                                "player_obj": players.get(str(m_asset["pid"])),
+                            })
+                else:
+                    chosen_free_b = st.multiselect(
+                        "Select Players or Picks for Side B:",
+                        options=[a["label"] for a in calc_market_assets],
+                        key=f"calc_free_b_select_{selected_league_id}",
+                        placeholder="Search any player or pick in database...",
+                    )
+                    for lbl in chosen_free_b:
+                        m_asset = calc_asset_by_label.get(lbl)
+                        if m_asset:
+                            selected_assets_b.append({
+                                "player_id": m_asset["pid"],
+                                "name": m_asset["name"],
+                                "position": m_asset["pos"],
+                                "team": m_asset["team"],
+                                "market_value": m_asset["val"],
+                                "type": "pick" if m_asset["is_pick"] else "player",
+                                "ktc_val": m_asset["ktc_val"],
+                                "fc_val": m_asset["fc_val"],
+                                "dp_val": m_asset["dp_val"],
+                                "proj_ppg": m_asset["proj_ppg"],
+                                "player_obj": players.get(str(m_asset["pid"])),
+                            })
+
+            st.markdown("---")
+
+            # Evaluation and Display
+            if not selected_assets_a and not selected_assets_b:
+                st.info("👈 Select players or draft picks above for Side A and Side B to calculate trade value and evaluate fairness.")
+            elif not selected_assets_a or not selected_assets_b:
+                has_side = "Side A" if selected_assets_a else "Side B"
+                st.warning(f"👆 You have selected assets for **{has_side}**. Please add at least one asset to the other side to compute the trade comparison.")
+            else:
+                eval_res = evaluate_trade_fairness(selected_assets_a, selected_assets_b)
+                raw_give = eval_res["raw_give"]
+                raw_receive = eval_res["raw_receive"]
+                eff_give = eval_res["eff_give"]
+                eff_receive = eval_res["eff_receive"]
+                net_diff = eval_res["net_diff"]
+                fairness_ratio = eval_res["fairness_ratio"]
+                stud_asset = eval_res["stud_asset"]
+                stud_side = eval_res["stud_side"]
+
+                tot_eff = eff_give + eff_receive
+                pct_a = (eff_give / tot_eff * 100.0) if tot_eff > 0 else 50.0
+                pct_b = (eff_receive / tot_eff * 100.0) if tot_eff > 0 else 50.0
+
+                if abs(net_diff) <= 400 or (0.95 <= fairness_ratio <= 1.05):
+                    verdict_text = "⚖️ EVEN & BALANCED"
+                    verdict_color = "#10b981"
+                    verdict_bg = "rgba(16, 185, 129, 0.15)"
+                    verdict_border = "rgba(16, 185, 129, 0.4)"
+                    verdict_desc = f"Both sides exchange comparable effective trade value (Net difference: {net_diff:+,.0f} pts, ratio: {fairness_ratio:.2f})."
+                elif net_diff > 400:
+                    verdict_text = "🟢 FAVORS SIDE B"
+                    verdict_color = "#34d399"
+                    verdict_bg = "rgba(52, 211, 153, 0.15)"
+                    verdict_border = "rgba(52, 211, 153, 0.4)"
+                    verdict_desc = f"Side B gains a +{net_diff:,.0f} pt effective advantage (+{(pct_b - pct_a):.1f}% surplus)."
+                else:
+                    verdict_text = "🔵 FAVORS SIDE A"
+                    verdict_color = "#38bdf8"
+                    verdict_bg = "rgba(56, 189, 248, 0.15)"
+                    verdict_border = "rgba(56, 189, 248, 0.4)"
+                    verdict_desc = f"Side A gains a +{abs(net_diff):,.0f} pt effective advantage (+{(pct_a - pct_b):.1f}% surplus)."
+
+                # Balance meter HTML
+                stud_html = ""
+                if stud_asset:
+                    s_side_label = "Side A" if stud_side == "give" else "Side B"
+                    stud_html = f"""
+                    <div style='margin-top: 10px; padding: 8px 12px; background: rgba(30, 27, 75, 0.5); border: 1px solid rgba(129, 140, 248, 0.3); border-radius: 6px; font-size: 0.8rem; color: #cbd5e1; display: flex; align-items: center; gap: 8px;'>
+                        <span style='font-size: 1rem;'>⭐</span>
+                        <span><strong>The Stud:</strong> <span style='color: #f8fafc; font-weight: 700;'>{stud_asset['name']}</span> ({stud_asset.get('market_value', 0):,.0f} pts) earns a <strong>+15% Stud Multiplier</strong> on <strong>{s_side_label}</strong>.</span>
+                    </div>
+                    """
+
+                meter_html = f"""
+                <div style='background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 16px; margin-bottom: 20px;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;'>
+                        <div style='font-weight: 800; color: #38bdf8; font-size: 1.05rem;'>
+                            Side A: {pct_a:.1f}% <span style='font-size: 0.82rem; font-weight: 500; color: #94a3b8;'>({eff_give:,.0f} effective pts)</span>
+                        </div>
+                        <div style='font-weight: 800; color: {verdict_color}; background: {verdict_bg}; border: 1px solid {verdict_border}; border-radius: 20px; padding: 4px 14px; font-size: 0.88rem; letter-spacing: 0.02em;'>
+                            {verdict_text}
+                        </div>
+                        <div style='font-weight: 800; color: #34d399; font-size: 1.05rem;'>
+                            Side B: {pct_b:.1f}% <span style='font-size: 0.82rem; font-weight: 500; color: #94a3b8;'>({eff_receive:,.0f} effective pts)</span>
+                        </div>
+                    </div>
+                    <div style='width: 100%; height: 14px; background: #334155; border-radius: 7px; overflow: hidden; display: flex;'>
+                        <div style='width: {pct_a}%; height: 100%; background: #38bdf8; transition: width 0.3s ease;'></div>
+                        <div style='width: {pct_b}%; height: 100%; background: #34d399; transition: width 0.3s ease;'></div>
+                    </div>
+                    <div style='display: flex; justify-content: space-between; font-size: 0.76rem; color: #94a3b8; margin-top: 8px; flex-wrap: wrap; gap: 6px;'>
+                        <span>Raw Total: <strong style='color: #f8fafc;'>{raw_give:,.0f} pts</strong></span>
+                        <span style='color: #cbd5e1;'>{verdict_desc}</span>
+                        <span>Raw Total: <strong style='color: #f8fafc;'>{raw_receive:,.0f} pts</strong></span>
+                    </div>
+                    {stud_html}
+                </div>
+                """
+                st.html(meter_html)
+
+                # Two-column detailed cards
+                c_card_a, c_card_b = st.columns(2)
+                with c_card_a:
+                    st.markdown(f"#### Side A Package ({len(selected_assets_a)} assets)")
+                    chips_a_html = render_asset_chips(selected_assets_a)
+                    st.html(f"<div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;'>{chips_a_html}</div>")
+
+                with c_card_b:
+                    st.markdown(f"#### Side B Package ({len(selected_assets_b)} assets)")
+                    chips_b_html = render_asset_chips(selected_assets_b)
+                    st.html(f"<div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(52, 211, 153, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;'>{chips_b_html}</div>")
+
+                # Multi-Model Platform Breakdown
+                st.markdown("#### Constituent Platform Trade Verdicts")
+                st.caption("How each underlying source model scores this trade proposal side-by-side:")
+
+                fc_a = sum(float(a.get("fc_val") or 0.0) for a in selected_assets_a if a.get("fc_val"))
+                fc_b = sum(float(b.get("fc_val") or 0.0) for b in selected_assets_b if b.get("fc_val"))
+
+                if not is_calc_redraft:
+                    ktc_a = sum(float(a.get("ktc_val") or 0.0) for a in selected_assets_a if a.get("ktc_val"))
+                    ktc_b = sum(float(b.get("ktc_val") or 0.0) for b in selected_assets_b if b.get("ktc_val"))
+                    dp_a = sum(float(a.get("dp_val") or 0.0) for a in selected_assets_a if a.get("dp_val"))
+                    dp_b = sum(float(b.get("dp_val") or 0.0) for b in selected_assets_b if b.get("dp_val"))
+
+                    def model_verdict_str(va, vb):
+                        if abs(vb - va) <= 300:
+                            return "⚖️ Even"
+                        elif vb > va:
+                            return f"🟢 Favors Side B (+{vb - va:,.0f})"
+                        else:
+                            return f"🔵 Favors Side A (+{va - vb:,.0f})"
+
+                    platform_data = [
+                        {"Platform Model": "KeepTradeCut (Crowdsourced)", "Side A Total": f"{ktc_a:,.0f} pts", "Side B Total": f"{ktc_b:,.0f} pts", "Model Verdict": model_verdict_str(ktc_a, ktc_b)},
+                        {"Platform Model": "FantasyCalc (Real Trades)", "Side A Total": f"{fc_a:,.0f} pts", "Side B Total": f"{fc_b:,.0f} pts", "Model Verdict": model_verdict_str(fc_a, fc_b)},
+                        {"Platform Model": "DynastyProcess (Expert Model)", "Side A Total": f"{dp_a:,.0f} pts", "Side B Total": f"{dp_b:,.0f} pts", "Model Verdict": model_verdict_str(dp_a, dp_b)},
+                    ]
+                else:
+                    ppg_a = sum(float(a.get("proj_ppg") or 0.0) for a in selected_assets_a if a.get("proj_ppg"))
+                    ppg_b = sum(float(b.get("proj_ppg") or 0.0) for b in selected_assets_b if b.get("proj_ppg"))
+                    def model_verdict_redraft(va, vb, unit="pts"):
+                        if abs(vb - va) <= (0.5 if unit == "PPG" else 250):
+                            return "⚖️ Even"
+                        elif vb > va:
+                            return f"🟢 Favors Side B (+{vb - va:.1f} {unit})"
+                        else:
+                            return f"🔵 Favors Side A (+{va - vb:.1f} {unit})"
+
+                    platform_data = [
+                        {"Platform Model": "FantasyCalc Redraft", "Side A Total": f"{fc_a:,.0f} pts", "Side B Total": f"{fc_b:,.0f} pts", "Model Verdict": model_verdict_redraft(fc_a, fc_b, "pts")},
+                        {"Platform Model": "Sleeper Projections", "Side A Total": f"{ppg_a:.1f} PPG", "Side B Total": f"{ppg_b:.1f} PPG", "Model Verdict": model_verdict_redraft(ppg_a, ppg_b, "PPG")},
+                    ]
+
+                st.dataframe(pd.DataFrame(platform_data), hide_index=True, use_container_width=True)
+
+                # Lineup Impact for League Rosters
+                if (prof_a or prof_b) and roster_pos:
+                    st.markdown("#### Starting Lineup Impact Analysis")
+                    c_imp_a, c_imp_b = st.columns(2)
+                    with c_imp_a:
+                        if prof_a:
+                            cur_p_objs = [a.get("player_obj") for a in prof_a["starters"] + prof_a["bench"] if a.get("player_obj")]
+                            give_pids = {ga["player_id"] for ga in selected_assets_a if ga.get("type") == "player"}
+                            recv_p_objs = [rb.get("player_obj") for rb in selected_assets_b if rb.get("type") == "player" and rb.get("player_obj")]
+                            new_p_objs = [p for p in cur_p_objs if str(p.get("player_id")) not in give_pids] + recv_p_objs
+
+                            old_st, _ = simulate_optimal_lineup(cur_p_objs, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
+                            new_st, _ = simulate_optimal_lineup(new_p_objs, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
+
+                            old_st_val = sum(r.get("market_value", 0.0) for _, r in old_st)
+                            new_st_val = sum(r.get("market_value", 0.0) for _, r in new_st)
+                            st_delta = new_st_val - old_st_val
+                            st.metric(
+                                f"{prof_a['manager_name']} Lineup Impact",
+                                f"{new_st_val:,.0f} pts",
+                                f"{st_delta:+,.0f} pts (was {old_st_val:,.0f} pts)"
+                            )
+                        else:
+                            st.caption("Side A is Freeform / External; lineup simulation skipped.")
+
+                    with c_imp_b:
+                        if prof_b:
+                            cur_p_objs_b = [b.get("player_obj") for b in prof_b["starters"] + prof_b["bench"] if b.get("player_obj")]
+                            give_pids_b = {gb["player_id"] for gb in selected_assets_b if gb.get("type") == "player"}
+                            recv_p_objs_a = [ra.get("player_obj") for ra in selected_assets_a if ra.get("type") == "player" and ra.get("player_obj")]
+                            new_p_objs_b = [p for p in cur_p_objs_b if str(p.get("player_id")) not in give_pids_b] + recv_p_objs_a
+
+                            old_st_b, _ = simulate_optimal_lineup(cur_p_objs_b, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
+                            new_st_b, _ = simulate_optimal_lineup(new_p_objs_b, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
+
+                            old_st_val_b = sum(r.get("market_value", 0.0) for _, r in old_st_b)
+                            new_st_val_b = sum(r.get("market_value", 0.0) for _, r in new_st_b)
+                            st_delta_b = new_st_val_b - old_st_val_b
+                            st.metric(
+                                f"{prof_b['manager_name']} Lineup Impact",
+                                f"{new_st_val_b:,.0f} pts",
+                                f"{st_delta_b:+,.0f} pts (was {old_st_val_b:,.0f} pts)"
+                            )
+                        else:
+                            st.caption("Side B is Freeform / External; lineup simulation skipped.")
+
+        elif "Targeted Asset Finder" in trade_view:
             col_t1, col_t2 = st.columns([1, 1])
             with col_t1:
                 action_type = st.selectbox("Action:", ["Target Acquisition (Buy)", "Trade Away (Sell)"])
@@ -4595,84 +5135,7 @@ else:
         active_lookup = redraft_lookup if is_redraft else primary_lookup
 
         # Build unified market assets collection
-        all_market_assets = []
-        for pid, p_data in active_lookup.items():
-            p_obj = players.get(str(pid), {})
-            pname = p_obj.get("full_name") or p_data.get("player_name") or str(pid)
-            raw_pos = p_obj.get("position") or p_data.get("position") or "UTIL"
-
-            is_pick_asset = False if is_redraft else is_draft_pick_asset(pid, pname, raw_pos)
-
-            pos = "PICK" if is_pick_asset else raw_pos
-            team = "DRAFT" if is_pick_asset else (p_obj.get("team") or "FA")
-            age = p_obj.get("age", "—")
-            val = p_data.get("market_value", 0.0)
-            ecr = p_data.get("rank_ecr_pos", p_data.get("rank_ecr", 999.0))
-            o_ecr = p_data.get("rank_ecr_overall", 999.0)
-            ktc_v = p_data.get("ktc_val")
-            fc_v = p_data.get("fc_val")
-            dp_v = p_data.get("dp_val")
-            proj_ppg = p_data.get("proj_ppg")
-            fp_o = p_data.get("fp_ecr_overall")
-            fp_p = p_data.get("fp_ecr_pos")
-
-            pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
-            overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
-
-            try:
-                raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
-            except (ValueError, TypeError):
-                raw_o_ecr = 9999.0
-
-            try:
-                raw_p_ecr = float(ecr) if (ecr is not None and float(ecr) < 900) else 9999.0
-            except (ValueError, TypeError):
-                raw_p_ecr = 9999.0
-
-            all_market_assets.append({
-                "pid": str(pid),
-                "Avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
-                "avatar": "" if is_pick_asset else get_player_avatar_url(pid, pos, team),
-                "Player": pname,
-                "name": pname,
-                "Pos": pos,
-                "pos": pos,
-                "NFL Team": team,
-                "team": team,
-                "age": age,
-                "Consensus Value": f"{val:,.0f} pts",
-                "Overall ECR": overall_ecr_str,
-                "Pos ECR": pos_ecr_str,
-                "val": val,
-                "o_ecr": raw_o_ecr,
-                "p_ecr": raw_p_ecr,
-                "o_ecr_str": overall_ecr_str,
-                "pos_ecr_str": pos_ecr_str,
-                "KeepTradeCut": f"{ktc_v:,.0f}" if ktc_v is not None else "—",
-                "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
-                "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
-                "FantasyPros ECR": f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500) else "—",
-                "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
-                "proj_ppg": proj_ppg,
-                "fp_ecr_overall": fp_o,
-                "fp_ecr_pos": fp_p,
-                "_proj_ppg": float(proj_ppg or 0.0),
-                "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
-                "ktc_val": ktc_v,
-                "fc_val": fc_v,
-                "dp_val": dp_v,
-                "is_pick": is_pick_asset,
-                "_val": val,
-                "_overall_ecr": raw_o_ecr,
-                "_pos_ecr": raw_p_ecr,
-                "_ktc": float(ktc_v) if (ktc_v is not None and str(ktc_v).replace(".", "", 1).isdigit()) else 0.0,
-                "_fc": float(fc_v) if (fc_v is not None and str(fc_v).replace(".", "", 1).isdigit()) else 0.0,
-                "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
-                "_name": pname.lower(),
-                "label": f"{pname} ({pos} - {team}) • #{int(o_ecr) if (o_ecr and o_ecr < 900) else '—'} • {val:,.0f} pts",
-            })
-
-        all_market_assets.sort(key=lambda x: x["_val"], reverse=True)
+        all_market_assets = build_market_assets_list(active_lookup, players, is_redraft=is_redraft)
 
         if "Database" in market_subview:
             c_mkt1, c_mkt2 = st.columns([1, 2])
@@ -4791,46 +5254,40 @@ else:
                 unsafe_allow_html=True
             )
 
-            PRESET_MATCHUPS = {
-                "— Select Quick Preset —": [],
-                "Gibbs vs Bijan": ["Jahmyr Gibbs", "Bijan Robinson"],
-                "Lamar Jackson vs Drake Maye": ["Lamar Jackson", "Drake Maye"],
-                "Chase vs JJ vs CeeDee": ["Ja'Marr Chase", "Justin Jefferson", "CeeDee Lamb"],
-                "Malik Nabers vs Marvin Harrison Jr.": ["Malik Nabers", "Marvin Harrison"],
-                "Jayden Daniels vs Caleb Williams": ["Jayden Daniels", "Caleb Williams"],
-            }
+            # Preserve selected player IDs across Dynasty <-> Redraft scopes
+            if "h2h_selected_pids" not in st.session_state:
+                st.session_state["h2h_selected_pids"] = []
 
-            c_cmp1, c_cmp2 = st.columns([1.2, 2.8], vertical_alignment="bottom")
-            with c_cmp1:
-                preset_choice = st.selectbox(
-                    "Quick Matchups:",
-                    list(PRESET_MATCHUPS.keys()),
-                    key=f"cmp_preset_select_{'redraft' if is_redraft else 'dynasty'}"
-                )
+            scope_key = "redraft" if is_redraft else "dynasty"
+            if st.session_state.get("h2h_last_scope") != scope_key:
+                st.session_state["h2h_last_scope"] = scope_key
+                # Evict multiselect state key so default is cleanly re-evaluated on scope switch
+                if "h2h_players_multiselect" in st.session_state:
+                    del st.session_state["h2h_players_multiselect"]
 
-            # Resolve preset labels if chosen
-            preset_labels = []
-            if preset_choice != "— Select Quick Preset —":
-                target_names = PRESET_MATCHUPS[preset_choice]
-                for tname in target_names:
-                    match = next((a["label"] for a in all_market_assets if tname.lower() in a["name"].lower()), None)
-                    if match and match not in preset_labels:
-                        preset_labels.append(match)
+            pid_to_label = {a["pid"]: a["label"] for a in all_market_assets}
+            label_to_pid = {a["label"]: a["pid"] for a in all_market_assets}
 
-            default_cmp_labels = preset_labels if preset_labels else [a["label"] for a in all_market_assets[:2]]
+            # Map existing selected PIDs to the active scope's labels
+            active_default_labels = [pid_to_label[p] for p in st.session_state["h2h_selected_pids"] if p in pid_to_label][:3]
 
-            with c_cmp2:
-                selected_cmp_labels = st.multiselect(
-                    "Select 2 or 3 Players or Picks to Compare:",
-                    options=[a["label"] for a in all_market_assets],
-                    default=default_cmp_labels[:3],
-                    max_selections=3,
-                    key=f"cmp_players_multiselect_{'redraft' if is_redraft else 'dynasty'}" if not preset_labels else f"cmp_players_{preset_choice.replace(' ', '_')}_{'redraft' if is_redraft else 'dynasty'}",
-                    help="Search by player name or draft pick. Select 2 or 3 assets to compare side-by-side."
-                )
+            selected_cmp_labels = st.multiselect(
+                "Select 2 or 3 Players or Picks to Compare:",
+                options=[a["label"] for a in all_market_assets],
+                default=active_default_labels,
+                max_selections=3,
+                key="h2h_players_multiselect",
+                placeholder="Search and select 2 or 3 players or rookie draft picks...",
+                help="Search by player name or draft pick. Select 2 or 3 assets to compare side-by-side."
+            )
 
-            if len(selected_cmp_labels) < 2:
-                st.info("👆 Please select at least 2 players or draft picks above to display the comparison.")
+            # Update session state with currently selected PIDs
+            st.session_state["h2h_selected_pids"] = [label_to_pid[l] for l in selected_cmp_labels if l in label_to_pid]
+
+            if len(selected_cmp_labels) == 0:
+                st.info("🔍 Search and select 2 or 3 players or rookie draft picks above to display the head-to-head comparison.")
+            elif len(selected_cmp_labels) == 1:
+                st.info("👆 Please select at least 1 more player or draft pick above to compare side-by-side.")
             else:
                 selected_assets = [next(a for a in all_market_assets if a["label"] == lbl) for lbl in selected_cmp_labels]
                 selected_assets.sort(key=lambda a: a.get("val", 0.0), reverse=True)

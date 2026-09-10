@@ -294,6 +294,58 @@ def analyze_team_profile(
     }
 
 
+def is_position_saturated(
+    profile: Dict[str, Any],
+    pos: str,
+    roster_positions: Optional[List[str]] = None,
+    is_dynasty: bool = True,
+) -> bool:
+    """
+    Checks whether a team already has surplus/saturated depth at a position such that
+    acquiring more non-elite players at this position provides negative or near-zero marginal utility.
+    """
+    pos_starters = profile.get("pos_starters", {}).get(pos, [])
+    pos_bench = profile.get("pos_bench", {}).get(pos, [])
+    all_pos_assets = pos_starters + pos_bench
+
+    req_counts = {p: roster_positions.count(p) for p in ("QB", "RB", "WR", "TE")} if roster_positions else {}
+    base_req = req_counts.get(pos, 1)
+    is_superflex = bool(roster_positions and ("SUPER_FLEX" in roster_positions or roster_positions.count("QB") >= 2))
+
+    if pos == "TE":
+        # In 1-TE leagues, holding 2 or more viable starting-tier TEs (or 3+ overall startable TEs) is saturated
+        viable_tes = [
+            a for a in all_pos_assets
+            if a.get("market_value", 0) >= 2000.0 or a.get("redraft_ecr", 999) <= 18
+        ]
+        if base_req <= 1 and len(viable_tes) >= 2:
+            return True
+        if len(pos_starters) >= base_req and len(viable_tes) >= (base_req + 2):
+            return True
+
+    elif pos == "QB":
+        # In 1-QB leagues, holding 2 viable QBs is completely saturated. In SF, 3+ viable QBs.
+        viable_qbs = [
+            a for a in all_pos_assets
+            if a.get("market_value", 0) >= 2500.0 or a.get("redraft_ecr", 999) <= 24
+        ]
+        if not is_superflex and len(viable_qbs) >= 2:
+            return True
+        if is_superflex and len(viable_qbs) >= 3:
+            return True
+
+    elif pos in ("RB", "WR"):
+        # RB and WR have high FLEX utility; saturated only when bench is deeply stocked (4+ viable bench pieces)
+        viable_bn = [
+            a for a in pos_bench
+            if a.get("market_value", 0) >= 2200.0 or a.get("redraft_ecr", 999) <= 40
+        ]
+        if len(viable_bn) >= 4:
+            return True
+
+    return False
+
+
 def check_lineup_and_deficit_viability(
     user_profile: Dict[str, Any],
     give_assets: List[Dict[str, Any]],
@@ -306,7 +358,8 @@ def check_lineup_and_deficit_viability(
     Validates:
     1. Deficit Protection: Cannot give away a starter from a critical deficit position
        unless receiving an equal-or-better player at that same position.
-    2. Lineup Improvement: For contenders/neutrals, incoming player must crack the starting lineup
+    2. Saturation Guard: Do not acquire players at saturated positions unless receiving an elite upgrade.
+    3. Lineup Improvement: For contenders/neutrals, incoming player must crack the starting lineup
        or the new starting lineup total value must not decline.
     """
     critical_deficits = set(user_profile.get("critical_deficits", []))
@@ -315,8 +368,6 @@ def check_lineup_and_deficit_viability(
     user_cat = user_profile.get("category", "neutral")
 
     # 1. Deficit Protection Check
-    # Strictly enforced for Contenders and Middle-of-the-pack teams!
-    # Rebuilders ARE allowed to trade away older starters (e.g. Derrick Henry, Josh Jacobs) for draft capital & youth.
     if user_cat in ("win", "neutral"):
         for ga in give_assets:
             if ga.get("type") == "player":
@@ -331,7 +382,19 @@ def check_lineup_and_deficit_viability(
                     if not matching_recv:
                         return False, f"Cannot trade starter {ga['name']} from deficit position {pos} without receiving an equivalent starter at {pos}."
 
-    # 2. Starting Lineup Impact Check
+    # 2. Positional Saturation Check (Prevent stockpiling bench pieces at already-stacked positions)
+    for ra in receive_assets:
+        if ra.get("type") == "player":
+            r_pos = ra.get("position")
+            if is_position_saturated(user_profile, r_pos, roster_positions, is_dynasty):
+                curr_starters_val = [
+                    a.get("market_value", 0) for a in user_profile.get("pos_starters", {}).get(r_pos, [])
+                ]
+                top_starter_val = max(curr_starters_val) if curr_starters_val else 0.0
+                if ra.get("market_value", 0) <= top_starter_val * 1.05:
+                    return False, f"Position {r_pos} is already saturated with startable depth; trade does not upgrade starters."
+
+    # 3. Starting Lineup Impact Check
     if primary_lookup and roster_positions:
         current_players = [
             a["player_obj"] for a in user_profile["starter_assets"] + user_profile["bench_assets"]
@@ -438,6 +501,13 @@ def generate_trade_suggestions(
                 ]
 
                 for stud in partner_studs:
+                    stud_pos = stud.get("position")
+                    if is_position_saturated(user_profile, stud_pos, roster_positions, is_dynasty):
+                        curr_starters_val = [a.get("market_value", 0) for a in user_profile.get("pos_starters", {}).get(stud_pos, [])]
+                        top_starter_val = max(curr_starters_val) if curr_starters_val else 0.0
+                        if stud.get("market_value", 0) <= top_starter_val * 1.05:
+                            continue
+
                     # Option A: Player + Pick for Stud (Dynasty only)
                     if is_dynasty and user_picks:
                         # In redraft, guard against low-value producers; in dynasty, high market value is key
@@ -582,10 +652,19 @@ def generate_trade_suggestions(
                     a for a in user_profile["pos_bench"][user_pos] + user_profile["pos_starters"][user_pos]
                     if pos_min <= a["market_value"] <= pos_max
                 ]
-                # Look for partner's surplus in another position
-                for other_pos in ["QB", "RB", "WR", "TE"]:
-                    if other_pos == user_pos:
-                        continue
+                # Look for partner's surplus in a candidate position:
+                # 1) Cannot be user_pos
+                # 2) Cannot be an existing surplus position on user's squad
+                # 3) Cannot be a saturated position on user's squad
+                target_positions = [
+                    p for p in ["QB", "RB", "WR", "TE"]
+                    if p != user_pos
+                    and not is_position_saturated(user_profile, p, roster_positions, is_dynasty)
+                ]
+                if user_profile.get("deficits"):
+                    target_positions.sort(key=lambda p: 0 if p in user_profile["deficits"] else 1)
+
+                for other_pos in target_positions:
                     their_pos_assets = [
                         a for a in partner["pos_bench"][other_pos] + partner["pos_starters"][other_pos]
                         if pos_min <= a["market_value"] <= pos_max
