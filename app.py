@@ -250,7 +250,7 @@ from src.trade_finder import (
 )
 
 DEFAULT_USERNAME = "henriquefrz"
-ALLOWED_USERS = ["henriquefrz", "LucasFrazao"]
+ALLOWED_USERS = ["henriquefrz", "LucasFrazao", "GervasioAceiro"]
 
 # -----------------------------------------------------------------------------
 # Streamlit Page Setup & Custom Mobile-Responsive CSS
@@ -2416,8 +2416,10 @@ if "selected_league_id" not in st.session_state:
     st.session_state["selected_league_id"] = None
 
 qp_user = st.query_params.get("user")
-if qp_user and qp_user in ALLOWED_USERS:
-    st.session_state["active_user_handle"] = qp_user
+if qp_user:
+    matched_u = next((u for u in ALLOWED_USERS if u.lower() == qp_user.lower()), None)
+    if matched_u:
+        st.session_state["active_user_handle"] = matched_u
 elif "active_user_handle" not in st.session_state:
     st.session_state["active_user_handle"] = DEFAULT_USERNAME
 
