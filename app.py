@@ -3956,6 +3956,7 @@ else:
         with c_f2:
             search_query = st.text_input("Search Player Name:", "")
 
+        is_fa_redraft = not eval_dynasty
         fa_rows = []
         for fa in free_agents:
             pos = fa.get("position") or ""
@@ -3966,13 +3967,16 @@ else:
                 continue
 
             pid = fa.get("player_id")
-            p_val_data = primary_lookup.get(pid, {})
+            p_val_data = active_lookup.get(pid, {})
             val = float(p_val_data.get("market_value") or 0.0)
             ecr = p_val_data.get("rank_ecr_pos", p_val_data.get("rank_ecr", 999.0))
             o_ecr = p_val_data.get("rank_ecr_overall", 999.0)
             fc_v = p_val_data.get("fc_val")
             ktc_v = p_val_data.get("ktc_val")
             dp_v = p_val_data.get("dp_val")
+            proj_ppg = p_val_data.get("proj_ppg")
+            fp_o = p_val_data.get("fp_ecr_overall")
+            fp_p = p_val_data.get("fp_ecr_pos")
 
             try:
                 pos_ecr_str = f"{pos}{int(float(ecr))}" if (ecr is not None and float(ecr) < 900) else "—"
@@ -4000,6 +4004,16 @@ else:
                 dp_str = "—"
 
             try:
+                fp_str = f"#{int(float(fp_o))}" if (fp_o is not None and float(fp_o) < 500) else "—"
+            except (ValueError, TypeError):
+                fp_str = "—"
+
+            try:
+                proj_str = f"{float(proj_ppg):.1f} PPG" if proj_ppg is not None else "—"
+            except (ValueError, TypeError):
+                proj_str = "—"
+
+            try:
                 raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
             except (ValueError, TypeError):
                 raw_o_ecr = 9999.0
@@ -4010,6 +4024,7 @@ else:
                 raw_p_ecr = 9999.0
 
             fa_rows.append({
+                "pid": str(pid),
                 "Avatar": get_player_avatar_url(pid, pos, fa.get("team")),
                 "Player": pname,
                 "Pos": pos,
@@ -4020,12 +4035,16 @@ else:
                 "FantasyCalc": fc_str,
                 "KeepTradeCut": ktc_str,
                 "DynastyProcess": dp_str,
+                "FantasyPros ECR": fp_str,
+                "Sleeper Proj PPG": proj_str,
                 "_raw_val": val,
                 "_overall_ecr": raw_o_ecr,
                 "_pos_ecr": raw_p_ecr,
                 "_ktc": float(ktc_v) if (ktc_v is not None and str(ktc_v).replace(".", "", 1).isdigit()) else 0.0,
                 "_fc": float(fc_v) if (fc_v is not None and str(fc_v).replace(".", "", 1).isdigit()) else 0.0,
                 "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
+                "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
+                "_proj_ppg": float(proj_ppg or 0.0),
                 "_name": pname.lower(),
             })
 
@@ -4033,16 +4052,21 @@ else:
         if fa_rows:
             c_fasort1, c_fasort2, c_fasort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
             with c_fasort1:
+                sort_options = (
+                    ["Consensus Value", "Overall Rank", "Pos Rank", "FantasyCalc", "FantasyPros ECR", "Sleeper Projections PPG", "Player Name"]
+                    if is_fa_redraft
+                    else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
+                )
                 sort_fa_col = st.selectbox(
                     "Sort Free Agents By:",
-                    ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"],
-                    key="fa_sort_col"
+                    sort_options,
+                    key=f"fa_sort_col_{'redraft' if is_fa_redraft else 'dynasty'}_{selected_league_id}"
                 )
             with c_fasort2:
                 sort_fa_order = st.selectbox(
                     "Order:",
                     ["Descending (High / Best)", "Ascending (Low)"],
-                    key="fa_sort_order"
+                    key=f"fa_sort_order_{'redraft' if is_fa_redraft else 'dynasty'}_{selected_league_id}"
                 )
             with c_fasort3:
                 st.caption(f"Showing top {min(len(fa_rows), 50)} of {len(fa_rows)} matching free agents.")
@@ -4059,6 +4083,10 @@ else:
                 sorted_fa.sort(key=lambda x: x["_ktc"], reverse=is_desc)
             elif sort_fa_col == "FantasyCalc":
                 sorted_fa.sort(key=lambda x: x["_fc"], reverse=is_desc)
+            elif sort_fa_col == "FantasyPros ECR":
+                sorted_fa.sort(key=lambda x: x["_fp_ecr"], reverse=not is_desc)
+            elif sort_fa_col == "Sleeper Projections PPG":
+                sorted_fa.sort(key=lambda x: x["_proj_ppg"], reverse=is_desc)
             elif sort_fa_col == "DynastyProcess":
                 sorted_fa.sort(key=lambda x: x["_dp"], reverse=is_desc)
             elif sort_fa_col == "Player Name":
@@ -4067,7 +4095,7 @@ else:
             for idx, r in enumerate(sorted_fa, start=1):
                 r["Rank"] = f"#{idx}"
 
-            st.html(render_market_table_html(sorted_fa[:50]))
+            st.html(render_market_table_html(sorted_fa[:50], is_redraft=is_fa_redraft))
         else:
             st.info("No free agents match current filter criteria.")
 
