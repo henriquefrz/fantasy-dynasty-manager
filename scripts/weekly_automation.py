@@ -24,6 +24,7 @@ from src.sleeper_api import (
     get_free_agents,
     get_nfl_state,
     get_weekly_projections,
+    get_ros_projections,
 )
 from src.league_classifier import classify_league
 from src.market_data import (
@@ -271,8 +272,9 @@ def main():
     enrich_lookup_with_consensus_values(dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
     weekly_proj = get_weekly_projections(active_season, active_week)
+    ros_proj = get_ros_projections(active_season, start_week=active_week, end_week=17)
     redraft_lk = build_positional_lookup(fp_rankings, player_ids, "redraft")
-    enrich_lookup_with_redraft_values(redraft_lk, fc_redraft_raw=fc_redraft, projections_raw=weekly_proj)
+    enrich_lookup_with_redraft_values(redraft_lk, fc_redraft_raw=fc_redraft, projections_raw=ros_proj)
 
     if args.routine in ["tuesday", "all"]:
         run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, redraft_lk, output_dir=args.output_dir)

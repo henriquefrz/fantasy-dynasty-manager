@@ -61,6 +61,7 @@ try:
         get_league_users,
         get_nfl_state,
         get_weekly_projections,
+        get_ros_projections,
         get_league_schedule,
         get_league_matchups,
         get_league_history,
@@ -81,6 +82,7 @@ except ImportError:
     get_league_users = getattr(_s_api, "get_league_users")
     get_nfl_state = getattr(_s_api, "get_nfl_state")
     get_weekly_projections = getattr(_s_api, "get_weekly_projections")
+    get_ros_projections = getattr(_s_api, "get_ros_projections")
     get_league_schedule = getattr(_s_api, "get_league_schedule")
     get_league_matchups = getattr(_s_api, "get_league_matchups")
     get_league_history = getattr(_s_api, "get_league_history")
@@ -2086,7 +2088,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v21_calibrated_waiver_drops"):
+def fetch_market_database(_cache_version="v22_multi_week_ros_projections"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2104,6 +2106,7 @@ def fetch_market_database(_cache_version="v21_calibrated_waiver_drops"):
     season = nfl_state.get("season", "2026")
     week = max(1, nfl_state.get("week", 1))
     projections_raw = get_weekly_projections(season, week)
+    ros_projections_raw = get_ros_projections(season, start_week=week, end_week=17)
 
     # Positional lookups with raw constituent values preserved
     base_dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=True)
@@ -2119,7 +2122,7 @@ def fetch_market_database(_cache_version="v21_calibrated_waiver_drops"):
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
-    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft, projections_raw=projections_raw)
+    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft, projections_raw=ros_projections_raw)
 
     # Raw pick bundles for instant mode switching
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
@@ -2139,6 +2142,7 @@ def fetch_market_database(_cache_version="v21_calibrated_waiver_drops"):
         "fc_1qb": fc_1qb,
         "fc_redraft": fc_redraft,
         "projections_raw": projections_raw,
+        "ros_projections_raw": ros_projections_raw,
         "dynasty_sf_lookup": base_dynasty_sf,
         "dynasty_1qb_lookup": base_dynasty_1qb,
         "redraft_lookup": base_redraft,

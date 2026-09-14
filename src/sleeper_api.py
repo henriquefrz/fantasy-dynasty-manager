@@ -168,6 +168,7 @@ def get_nfl_state():
 
 
 _WEEKLY_PROJECTIONS_CACHE = {}
+_ROS_PROJECTIONS_CACHE = {}
 
 
 def get_weekly_projections(season: str, week: int):
@@ -195,6 +196,68 @@ def get_weekly_projections(season: str, week: int):
     except Exception as e:
         print(f"Warning: Failed to fetch weekly projections for {season} Week {week}: {e}")
         return {}
+
+
+def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
+    """
+    Returns aggregated Rest-of-Season (ROS) quantitative projections from Sleeper,
+    spanning from start_week through end_week (standard fantasy championship Week 17).
+
+    Each player's statistical projection (points, receptions, yards, touchdowns, etc.)
+    is averaged across all remaining weeks N = (end_week - start_week + 1).
+    This computes an authentic Effective ROS PPG that inherently accounts for:
+    - Zero-point weeks during player injuries (e.g. multi-week IR stints)
+    - Zero-point weeks during team NFL bye weeks
+    - Expected return-to-play timelines modeled by Sleeper
+
+    Cached in-memory by (season, start_week, end_week).
+    """
+    from collections import defaultdict
+    import concurrent.futures
+
+    s_wk = max(1, int(start_week))
+    e_wk = max(s_wk, int(end_week))
+    cache_key = (str(season), s_wk, e_wk)
+    if cache_key in _ROS_PROJECTIONS_CACHE:
+        return _ROS_PROJECTIONS_CACHE[cache_key]
+
+    weeks = list(range(s_wk, e_wk + 1))
+    num_weeks = len(weeks)
+
+    def _fetch(w):
+        return w, get_weekly_projections(season, w)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, num_weeks)) as executor:
+        weekly_results = dict(executor.map(_fetch, weeks))
+
+    player_sums = defaultdict(lambda: defaultdict(float))
+    player_meta = {}
+
+    for w in weeks:
+        w_data = weekly_results.get(w) or {}
+        for pid, proj in w_data.items():
+            if not proj or not isinstance(proj, dict):
+                continue
+            if pid not in player_meta:
+                player_meta[pid] = {
+                    "player_id": pid,
+                    "pos": proj.get("pos"),
+                    "team": proj.get("team"),
+                    "player_name": proj.get("player_name"),
+                }
+            for k, v in proj.items():
+                if isinstance(v, (int, float)):
+                    player_sums[pid][k] += float(v)
+
+    ros_projections = {}
+    for pid, sums in player_sums.items():
+        ros_p = dict(player_meta.get(pid, {}))
+        for k, total_val in sums.items():
+            ros_p[k] = round(total_val / num_weeks, 3)
+        ros_projections[pid] = ros_p
+
+    _ROS_PROJECTIONS_CACHE[cache_key] = ros_projections
+    return ros_projections
 
 
 _LEAGUE_MATCHUPS_CACHE = {}
