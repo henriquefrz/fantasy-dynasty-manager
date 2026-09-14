@@ -492,7 +492,7 @@ for league in leagues:
 
         # Streaming Recommendations
         if classification["stage"] not in ("drafting", "pre_draft_with_roster"):
-            free_agents = get_free_agents(league_rosters, players)
+            free_agents = get_free_agents(league_rosters, players, roster_positions=roster_pos)
             fa_projs = {}
             for fa in free_agents:
                 fpid = fa.get("player_id")
@@ -523,7 +523,7 @@ for league in leagues:
         print("  🔒 Waivers locked during draft / pre-draft.")
     else:
         roster_players = get_roster_players(user_roster, players)
-        free_agents = get_free_agents(league_rosters, players)
+        free_agents = get_free_agents(league_rosters, players, roster_positions=roster_pos)
 
         waiver_recs = build_intelligent_waiver_suggestions(
             roster_players=roster_players,

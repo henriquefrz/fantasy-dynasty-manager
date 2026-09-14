@@ -3724,7 +3724,7 @@ else:
         st.subheader("Intelligent Waiver Wire & Add/Drop Assistant")
 
         roster_players = get_roster_players(user_roster, players)
-        free_agents = get_free_agents(rosters, players)
+        free_agents = get_free_agents(rosters, players, roster_positions=roster_pos)
 
         col_w1, col_w2 = st.columns([2, 1])
         with col_w1:
@@ -3956,7 +3956,16 @@ else:
         st.markdown("### Free Agent Market Explorer")
         c_f1, c_f2 = st.columns([1, 2])
         with c_f1:
-            pos_filter = st.selectbox("Filter Position:", ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"])
+            avail_fa_pos = ["ALL", "QB", "RB", "WR", "TE"]
+            if any(p == "K" for p in roster_pos):
+                avail_fa_pos.append("K")
+            if any(p in ("DEF", "DST") for p in roster_pos):
+                avail_fa_pos.append("DEF")
+            if any(p in ("IDP", "IDP_FLEX", "LB", "DB", "DL") for p in roster_pos):
+                for idp_p in ["LB", "DB", "DL"]:
+                    if idp_p not in avail_fa_pos:
+                        avail_fa_pos.append(idp_p)
+            pos_filter = st.selectbox("Filter Position:", avail_fa_pos, key=f"fa_pos_filter_{selected_league_id}")
         with c_f2:
             search_query = st.text_input("Search Player Name:", "")
 

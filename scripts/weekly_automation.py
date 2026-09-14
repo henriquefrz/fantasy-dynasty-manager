@@ -87,7 +87,7 @@ def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb,
         lines.append("-" * 60)
 
         roster_players = get_roster_players(user_roster, players)
-        free_agents = get_free_agents(rosters, players)
+        free_agents = get_free_agents(rosters, players, roster_positions=roster_pos)
 
         alt_lk = redraft_lk if is_dyn else None
 

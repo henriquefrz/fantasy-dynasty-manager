@@ -105,12 +105,30 @@ def has_stale_record(player):
     return abs(reported_age - real_age) >= AGE_MISMATCH_LIMIT
 
 
-def get_free_agents(rosters, players):
+def get_free_agents(rosters, players, roster_positions=None):
     rostered_ids = set()
 
     for roster in rosters:
         if roster.get("players"):
             rostered_ids.update(roster["players"])
+
+    # Determine positions used by this league
+    if roster_positions:
+        valid_positions = {"QB", "RB", "WR", "TE"}
+        if any(pos in ("DEF", "DST") for pos in roster_positions):
+            valid_positions.add("DEF")
+        if any(pos == "K" for pos in roster_positions):
+            valid_positions.add("K")
+        if any(pos in ("DL", "DE", "DT") for pos in roster_positions):
+            valid_positions.update({"DL", "DE", "DT"})
+        if any(pos in ("LB",) for pos in roster_positions):
+            valid_positions.add("LB")
+        if any(pos in ("DB", "CB", "SS", "FS") for pos in roster_positions):
+            valid_positions.update({"DB", "CB", "SS", "FS"})
+        if any(pos in ("IDP_FLEX", "IDP") for pos in roster_positions):
+            valid_positions.update({"DL", "DE", "DT", "LB", "DB", "CB", "SS", "FS"})
+    else:
+        valid_positions = RELEVANT_POSITIONS
 
     free_agents = []
 
@@ -118,10 +136,11 @@ def get_free_agents(rosters, players):
         if player_id in rostered_ids:
             continue
 
-        if player.get("position") not in RELEVANT_POSITIONS:
+        pos = player.get("position")
+        if pos not in valid_positions:
             continue
 
-        if player.get("position") == "DEF":
+        if pos == "DEF":
             free_agents.append(player)
             continue
 

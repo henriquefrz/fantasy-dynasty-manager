@@ -144,6 +144,19 @@ def build_intelligent_waiver_suggestions(
             "positional_options": {},
         }
 
+    has_league_def = any(p in ("DEF", "DST") for p in (roster_positions or []))
+    has_league_k = any(p == "K" for p in (roster_positions or []))
+
+    def _is_valid_league_asset(item):
+        pos = item[0].get("position")
+        if pos in ("DEF", "DST") and not has_league_def:
+            return False
+        if pos == "K" and not has_league_k:
+            return False
+        return True
+
+    matched_fa = [item for item in matched_fa if _is_valid_league_asset(item)]
+
     # Filter FAs with meaningful rank or market value
     if is_dynasty:
         eligible_fa = [
