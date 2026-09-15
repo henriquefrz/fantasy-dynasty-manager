@@ -2296,7 +2296,10 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
             "KeepTradeCut": f"{ktc_v:,.0f}" if ktc_v is not None else "—",
             "FantasyCalc": f"{fc_v:,.0f}" if fc_v is not None else "—",
             "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
-            "FantasyPros ECR": f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500) else "—",
+            "FantasyPros ECR": (
+                f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500)
+                else (f"{pos}{int(fp_p)}" if (fp_p is not None and float(fp_p) < 200) else "—")
+            ),
             "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
             "ESPN Proj PPG": f"{espn_ppg:.1f} PPG" if espn_ppg is not None else "—",
             "proj_ppg": proj_ppg,
@@ -2307,7 +2310,10 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
             "espn_pos_rank": espn_p,
             "_proj_ppg": float(proj_ppg or 0.0),
             "_espn_ppg": float(espn_ppg or 0.0),
-            "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
+            "_fp_ecr": (
+                float(fp_o) if (fp_o is not None and float(fp_o) < 500)
+                else (float(fp_p) + 500.0 if (fp_p is not None and float(fp_p) < 200) else 9999.0)
+            ),
             "_espn_o": float(espn_o) if (espn_o is not None and float(espn_o) < 500) else 9999.0,
             "ktc_val": ktc_v,
             "fc_val": fc_v,
@@ -4156,7 +4162,12 @@ else:
                 dp_str = "—"
 
             try:
-                fp_str = f"#{int(float(fp_o))}" if (fp_o is not None and float(fp_o) < 500) else "—"
+                if fp_o is not None and float(fp_o) < 500:
+                    fp_str = f"#{int(float(fp_o))}"
+                elif fp_p is not None and float(fp_p) < 200:
+                    fp_str = f"{pos}{int(float(fp_p))}"
+                else:
+                    fp_str = "—"
             except (ValueError, TypeError):
                 fp_str = "—"
 

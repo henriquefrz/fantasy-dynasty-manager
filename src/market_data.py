@@ -185,7 +185,10 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_sup
             fp_id_to_sleeper_id[fp_id] = sleeper_id
 
     pos_page_types = {f"{ranking_prefix}-{pos.lower()}" for pos in POSITIONS}
-    overall_page_type = f"{ranking_prefix}-op" if is_superflex else f"{ranking_prefix}-overall"
+    op_page = f"{ranking_prefix}-op"
+    std_page = f"{ranking_prefix}-overall"
+    has_op = any(row.get("page_type") == op_page for row in fp_rankings_raw)
+    overall_page_type = op_page if (is_superflex and has_op) else std_page
 
     lookup = {}
 
