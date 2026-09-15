@@ -2154,7 +2154,7 @@ def fetch_market_database(_cache_version="v25_espn_2026_season_sync"):
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
     picks_bundle_1qb = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
-    freshness_info = get_market_data_freshness(fp_rankings, values_players)
+    freshness_info = get_market_data_freshness(fp_rankings, values_players, espn_raw=espn_raw)
 
     return {
         "players": players,
@@ -2682,10 +2682,13 @@ with st.container(key="topbar_nav_container"):
             fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
             dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
             fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
+            espn_stat = (fresh.get("espn") or {}).get("status", "Live Current")
             st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
             st.markdown(f"**FantasyCalc:** `{fc_stat}`")
             st.markdown(f"**DynastyProcess:** `{dp_stat}`")
             st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
+            st.markdown(f"**ESPN Projections:** `{espn_stat}`")
+            st.caption("ESPN & Sleeper machine projections update live every 30 mins from API. ESPN refreshes projections upstream daily.")
             st.markdown("---")
             if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
                 st.cache_data.clear()

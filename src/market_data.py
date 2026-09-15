@@ -493,7 +493,7 @@ def compute_composite_value(fc_val, ktc_val, dp_val, mode="equal", rank_ecr=None
     return round(composite, 1)
 
 
-def get_market_data_freshness(fp_raw=None, dp_raw=None):
+def get_market_data_freshness(fp_raw=None, dp_raw=None, espn_raw=None):
     """
     Returns timestamp / scrape date status for each connected database.
     """
@@ -507,6 +507,8 @@ def get_market_data_freshness(fp_raw=None, dp_raw=None):
     dp_date = None
     if dp_raw and len(dp_raw) > 0:
         dp_date = dp_raw[0].get("scrape_date")
+
+    espn_status = f"Live Current ({len(espn_raw):,} players)" if espn_raw else "Live Current"
 
     return {
         "fantasycalc": {
@@ -532,6 +534,12 @@ def get_market_data_freshness(fp_raw=None, dp_raw=None):
             "type": "Consensus redraft & dynasty ECR",
             "date": fp_date or "2026-09-04",
             "status": f"Updated ({fp_date or '2026-09-04'})",
+        },
+        "espn": {
+            "source": "ESPN Fantasy API",
+            "type": "Live multi-week machine projections",
+            "date": now_str,
+            "status": espn_status,
         },
     }
 
