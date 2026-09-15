@@ -2106,7 +2106,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v24_espn_table_headers_sync"):
+def fetch_market_database(_cache_version="v25_espn_2026_season_sync"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2114,15 +2114,16 @@ def fetch_market_database(_cache_version="v24_espn_table_headers_sync"):
     values_players = get_values_players_raw()
     values_picks = get_values_picks_raw()
 
+    nfl_state = get_nfl_state() or {}
+    season = nfl_state.get("season", "2026")
+    week = max(1, nfl_state.get("week", 1))
+
     ktc_sf = get_ktc_data_raw(is_superflex=True)
     ktc_1qb = get_ktc_data_raw(is_superflex=False)
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-    espn_raw = get_espn_data_raw(season="2024", scoring_period=1)
+    espn_raw = get_espn_data_raw(season=season, scoring_period=1)
 
-    nfl_state = get_nfl_state() or {}
-    season = nfl_state.get("season", "2024")
-    week = max(1, nfl_state.get("week", 1))
     projections_raw = get_weekly_projections(season, week)
     ros_projections_raw = get_ros_projections(season, start_week=week, end_week=17)
 

@@ -144,14 +144,15 @@ values_players = get_values_players_raw()
 values_picks = get_values_picks_raw()
 
 # Fetch live multi-source market values
+nfl_state = get_nfl_state() or {}
+active_season = nfl_state.get("season", "2026")
+active_week = max(1, nfl_state.get("week", 1))
+
 ktc_sf = get_ktc_data_raw(is_superflex=True)
 ktc_1qb = get_ktc_data_raw(is_superflex=False)
 fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
 fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-espn_raw = get_espn_data_raw(season="2024", scoring_period=1)
-nfl_state = get_nfl_state() or {}
-active_season = nfl_state.get("season", "2024")
-active_week = max(1, nfl_state.get("week", 1))
+espn_raw = get_espn_data_raw(season=active_season, scoring_period=1)
 projections_raw = get_weekly_projections(active_season, active_week)
 
 # Build baseline positional lookups enriched with 3-Pillar Consensus points (0-10,000 scale)

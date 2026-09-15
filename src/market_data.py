@@ -128,7 +128,7 @@ def get_ktc_data_raw(is_superflex=True):
 ESPN_PROJECTIONS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leaguedefaults/1?scoringPeriodId={scoring_period}&view=kona_player_info"
 
 
-def get_espn_data_raw(season="2024", scoring_period=1):
+def get_espn_data_raw(season="2026", scoring_period=1):
     """
     Fetches raw multi-week player projections and stats from ESPN's public fantasy API.
     Retrieves up to 1,500 players, covering the entire NFL player pool.
