@@ -749,23 +749,30 @@ def compute_weekly_evolution_history(
     team_expectations: Dict[int, Dict[str, Any]],
     current_week: int = 1,
     playoff_week_start: int = 15,
-    num_simulations: int = 500,
+    num_simulations: int = DEFAULT_SIMULATIONS,
+    current_sim_results: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> Dict[int, Dict[str, Any]]:
     """
     Computes simulation snapshots for all weeks from 1 to current_week.
     Returns dict mapping week_num -> simulation results dict.
+    If current_sim_results is provided, reuses it for current_week to guarantee
+    exact consistency with the main Season Standing simulation table.
     """
     evolution = {}
     for w in range(1, max(1, current_week) + 1):
-        evolution[w] = run_historical_simulation_snapshot(
-            league=league,
-            rosters=rosters,
-            schedule=schedule,
-            team_expectations=team_expectations,
-            snapshot_week=w,
-            current_week=current_week,
-            playoff_week_start=playoff_week_start,
-            num_simulations=num_simulations,
-        )
+        if w == current_week and current_sim_results:
+            evolution[w] = current_sim_results
+        else:
+            evolution[w] = run_historical_simulation_snapshot(
+                league=league,
+                rosters=rosters,
+                schedule=schedule,
+                team_expectations=team_expectations,
+                snapshot_week=w,
+                current_week=current_week,
+                playoff_week_start=playoff_week_start,
+                num_simulations=num_simulations,
+            )
     return evolution
+
 

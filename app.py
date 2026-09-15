@@ -2346,7 +2346,7 @@ def fetch_user_and_leagues(username):
 def fetch_league_data(league_id, season, week):
     rosters = get_league_rosters(league_id)
     users = get_league_users(league_id)
-    schedule = get_league_schedule(league_id, week)
+    schedule = get_league_schedule(league_id, start_week=1, end_week=18)
     traded_picks = get_traded_picks(league_id)
     projections = get_weekly_projections(season, week)
     matchups = get_league_matchups(league_id, week)
@@ -4391,7 +4391,8 @@ else:
                             team_expectations=team_expectations,
                             current_week=active_week,
                             playoff_week_start=playoff_start,
-                            num_simulations=500,
+                            num_simulations=1000,
+                            current_sim_results=live_sim_results,
                         )
 
                     evo_rows = []

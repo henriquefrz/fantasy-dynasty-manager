@@ -304,7 +304,7 @@ def get_league_matchups(league_id: str, week: int):
         return []
 
 
-def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 14):
+def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 18):
     """
     Returns the head-to-head regular season schedule map for the league.
     Format: dict mapping week -> list of (roster_id_1, roster_id_2) pairings.
