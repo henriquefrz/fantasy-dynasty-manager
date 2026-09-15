@@ -1111,9 +1111,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <th style='width: 11%; text-align: center;'>Overall Rank</th>
                     <th style='width: 11%; text-align: center;'>Pos Rank</th>
                     <th style='width: 15%; text-align: center;'>Single-Season Value</th>
-                    <th style='width: 12%; text-align: center;'>FantasyCalc Trade</th>
-                    <th style='width: 12%; text-align: center;'>FantasyPros ECR</th>
                     <th style='width: 12%; text-align: center;'>Sleeper Proj PPG</th>
+                    <th style='width: 12%; text-align: center;'>FantasyPros ECR</th>
+                    <th style='width: 12%; text-align: center;'>ESPN Proj PPG</th>
                 </tr>
             </thead>
             <tbody>
@@ -1151,6 +1151,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
         fc = r.get("FantasyCalc", "—")
         fp = r.get("FantasyPros ECR", "—")
         proj = r.get("Sleeper Proj PPG", "—")
+        espn = r.get("ESPN Proj PPG", "—")
         dp = r.get("DynastyProcess", "—")
 
         is_pick = False if is_redraft else is_draft_pick_asset(pid, pname, pos)
@@ -1187,9 +1188,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{fc}</td>
-                    <td style='text-align: center; color: #94a3b8;'>{fp}</td>
                     <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{proj}</td>
+                    <td style='text-align: center; color: #fbbf24;'>{fp}</td>
+                    <td style='text-align: center; color: #f87171; font-weight: 700;'>{espn}</td>
                 </tr>
             """
         else:
@@ -2105,7 +2106,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v23_espn_tri_source_ros"):
+def fetch_market_database(_cache_version="v24_espn_table_headers_sync"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -4065,6 +4066,7 @@ else:
             proj_ppg = p_val_data.get("proj_ppg")
             fp_o = p_val_data.get("fp_ecr_overall")
             fp_p = p_val_data.get("fp_ecr_pos")
+            espn_ppg = p_val_data.get("espn_ppg")
 
             try:
                 pos_ecr_str = f"{pos}{int(float(ecr))}" if (ecr is not None and float(ecr) < 900) else "—"
@@ -4102,6 +4104,11 @@ else:
                 proj_str = "—"
 
             try:
+                espn_str = f"{float(espn_ppg):.1f} PPG" if espn_ppg is not None else "—"
+            except (ValueError, TypeError):
+                espn_str = "—"
+
+            try:
                 raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
             except (ValueError, TypeError):
                 raw_o_ecr = 9999.0
@@ -4125,6 +4132,7 @@ else:
                 "DynastyProcess": dp_str,
                 "FantasyPros ECR": fp_str,
                 "Sleeper Proj PPG": proj_str,
+                "ESPN Proj PPG": espn_str,
                 "_raw_val": val,
                 "_overall_ecr": raw_o_ecr,
                 "_pos_ecr": raw_p_ecr,
@@ -4133,6 +4141,7 @@ else:
                 "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
                 "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
                 "_proj_ppg": float(proj_ppg or 0.0),
+                "_espn_ppg": float(espn_ppg or 0.0),
                 "_name": pname.lower(),
             })
 
@@ -4141,7 +4150,7 @@ else:
             c_fasort1, c_fasort2, c_fasort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
             with c_fasort1:
                 sort_options = (
-                    ["Consensus Value", "Overall Rank", "Pos Rank", "FantasyCalc", "FantasyPros ECR", "Sleeper Projections PPG", "Player Name"]
+                    ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "ESPN Projections PPG", "Player Name"]
                     if is_fa_redraft
                     else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
                 )
@@ -4175,6 +4184,8 @@ else:
                 sorted_fa.sort(key=lambda x: x["_fp_ecr"], reverse=not is_desc)
             elif sort_fa_col == "Sleeper Projections PPG":
                 sorted_fa.sort(key=lambda x: x["_proj_ppg"], reverse=is_desc)
+            elif sort_fa_col == "ESPN Projections PPG":
+                sorted_fa.sort(key=lambda x: x["_espn_ppg"], reverse=is_desc)
             elif sort_fa_col == "DynastyProcess":
                 sorted_fa.sort(key=lambda x: x["_dp"], reverse=is_desc)
             elif sort_fa_col == "Player Name":
@@ -5262,6 +5273,8 @@ else:
                 else:
                     ppg_a = sum(float(a.get("proj_ppg") or 0.0) for a in selected_assets_a if a.get("proj_ppg"))
                     ppg_b = sum(float(b.get("proj_ppg") or 0.0) for b in selected_assets_b if b.get("proj_ppg"))
+                    espn_a = sum(float(a.get("espn_ppg") or 0.0) for a in selected_assets_a if a.get("espn_ppg"))
+                    espn_b = sum(float(b.get("espn_ppg") or 0.0) for b in selected_assets_b if b.get("espn_ppg"))
                     def model_verdict_redraft(va, vb, unit="pts"):
                         if abs(vb - va) <= (0.5 if unit == "PPG" else 250):
                             return "⚖️ Even"
@@ -5271,8 +5284,8 @@ else:
                             return f"🔵 Favors Side A (+{va - vb:.1f} {unit})"
 
                     platform_data = [
-                        {"Platform Model": "FantasyCalc Redraft", "Side A Total": f"{fc_a:,.0f} pts", "Side B Total": f"{fc_b:,.0f} pts", "Model Verdict": model_verdict_redraft(fc_a, fc_b, "pts")},
                         {"Platform Model": "Sleeper Projections", "Side A Total": f"{ppg_a:.1f} PPG", "Side B Total": f"{ppg_b:.1f} PPG", "Model Verdict": model_verdict_redraft(ppg_a, ppg_b, "PPG")},
+                        {"Platform Model": "ESPN Projections", "Side A Total": f"{espn_a:.1f} PPG", "Side B Total": f"{espn_b:.1f} PPG", "Model Verdict": model_verdict_redraft(espn_a, espn_b, "PPG")},
                     ]
 
                 st.dataframe(pd.DataFrame(platform_data), hide_index=True, use_container_width=True)
@@ -5466,7 +5479,6 @@ else:
     # =========================================================================
     with tab_market:
         st.subheader("Market Rankings & Player Database")
-        st.caption("Explore comprehensive valuations and rankings for all players comparing KeepTradeCut, FantasyCalc, DynastyProcess, and Positional ECR.")
 
         c_fmt, c_sec = st.columns([1.1, 1], vertical_alignment="center")
         with c_fmt:
@@ -5485,6 +5497,11 @@ else:
             )
 
         is_redraft = ("Single-Season" in ranking_scope)
+        if is_redraft:
+            st.caption("Explore comprehensive single-season valuations and rankings comparing Sleeper Multi-Week Projections, FantasyPros ECR, and ESPN Projections.")
+        else:
+            st.caption("Explore comprehensive dynasty valuations and rankings comparing KeepTradeCut, FantasyCalc, DynastyProcess, and Positional ECR.")
+
         active_lookup = redraft_lookup if is_redraft else primary_lookup
 
         # Build unified market assets collection
@@ -5511,7 +5528,7 @@ else:
                 c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
                 with c_mksort1:
                     sort_options = (
-                        ["Consensus Value", "Overall Rank", "Pos Rank", "FantasyCalc", "FantasyPros ECR", "Sleeper Projections PPG", "Player Name"]
+                        ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "ESPN Projections PPG", "Player Name"]
                         if is_redraft
                         else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
                     )
@@ -5550,6 +5567,8 @@ else:
                     sorted_mkt.sort(key=lambda x: x["_fp_ecr"], reverse=not is_desc)
                 elif sort_mkt_col == "Sleeper Projections PPG":
                     sorted_mkt.sort(key=lambda x: x["_proj_ppg"], reverse=is_desc)
+                elif sort_mkt_col == "ESPN Projections PPG":
+                    sorted_mkt.sort(key=lambda x: x["_espn_ppg"], reverse=is_desc)
                 elif sort_mkt_col == "DynastyProcess":
                     sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
                 elif sort_mkt_col == "Player Name":
@@ -5674,15 +5693,13 @@ else:
                         elif k_diff < 0:
                             sentiment_bullets.append(f"<span style='color: #38bdf8;'>KeepTradeCut</span> crowdsourced sentiment favors <b>{p2['name']}</b> (+{abs(k_diff):,.0f} pts).")
 
-                if p1.get("fc_val") and p2.get("fc_val"):
-                    f_diff = float(p1["fc_val"]) - float(p2["fc_val"])
-                    source_title = "FantasyCalc Redraft" if is_redraft else "FantasyCalc"
-                    if f_diff > 0:
-                        sentiment_bullets.append(f"<span style='color: #34d399;'>{source_title}</span> real trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
-                    elif f_diff < 0:
-                        sentiment_bullets.append(f"<span style='color: #34d399;'>{source_title}</span> real trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
+                    if p1.get("fc_val") and p2.get("fc_val"):
+                        f_diff = float(p1["fc_val"]) - float(p2["fc_val"])
+                        if f_diff > 0:
+                            sentiment_bullets.append(f"<span style='color: #34d399;'>FantasyCalc</span> real trade data favors <b>{p1['name']}</b> (+{f_diff:,.0f} pts).")
+                        elif f_diff < 0:
+                            sentiment_bullets.append(f"<span style='color: #34d399;'>FantasyCalc</span> real trade data favors <b>{p2['name']}</b> (+{abs(f_diff):,.0f} pts).")
 
-                if not is_redraft:
                     if p1.get("dp_val") and p2.get("dp_val"):
                         d_diff = float(p1["dp_val"]) - float(p2["dp_val"])
                         if d_diff > 0:
@@ -5708,6 +5725,13 @@ else:
                                     sentiment_bullets.append(f"<span style='color: #fbbf24;'>FantasyPros ECR</span> consensus favors <b>{p2['name']}</b> (#{int(fp2)} vs #{int(fp1)}).")
                         except (ValueError, TypeError):
                             pass
+
+                    if p1.get("espn_ppg") and p2.get("espn_ppg"):
+                        e_diff = float(p1["espn_ppg"]) - float(p2["espn_ppg"])
+                        if e_diff > 0:
+                            sentiment_bullets.append(f"<span style='color: #f87171;'>ESPN Projections</span> model projects <b>{p1['name']}</b> ({p1['espn_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['espn_ppg']:.1f} PPG, +{e_diff:.1f} PPG).")
+                        elif e_diff < 0:
+                            sentiment_bullets.append(f"<span style='color: #f87171;'>ESPN Projections</span> model projects <b>{p2['name']}</b> ({p2['espn_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['espn_ppg']:.1f} PPG, +{abs(e_diff):.1f} PPG).")
 
                 # Executive Advantage Banner
                 lead_title = "Single-Season Value Leader" if is_redraft else "Consensus Value Leader"
