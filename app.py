@@ -2464,11 +2464,11 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _pr
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, active_week, _players, _leagues_data, _cache_version="v1_hub_lineup_alerts"):
+def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, active_week, _players, _leagues_data, _cache_version="v2_hub_lineup_alerts_aligned"):
     """
     Aggregates actionable lineup suggestions across all leagues for the connected user.
     Reuses existing calculate_weekly_projected_points and audit_weekly_lineup engines.
-    Returns sorted list of league alert dicts.
+    Returns sorted list of league alert dicts with structured move fields.
     """
     weekly_proj = get_weekly_projections(active_season, active_week)
     league_alerts = []
@@ -2538,8 +2538,11 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                     formatted_moves.append({
                         "type": "injury_out",
                         "slot": slot,
+                        "starter_name": starter_name,
+                        "pivot_name": pname,
+                        "pivot_pts": ppts,
+                        "status": status,
                         "text": f"{slot}: {starter_name} is {status} — start {pname} from bench ({ppts:.1f} pts)",
-                        "text_clean": f"{starter_name} is {status} — start {pname} from bench ({ppts:.1f} pts)",
                         "impact": ppts,
                     })
                     copy_lines.append(f"{slot}: start {pname} over {starter_name} ({status})")
@@ -2547,8 +2550,11 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                     formatted_moves.append({
                         "type": "injury_out",
                         "slot": slot,
+                        "starter_name": starter_name,
+                        "pivot_name": "",
+                        "pivot_pts": 0.0,
+                        "status": status,
                         "text": f"{slot}: {starter_name} is {status} — No healthy bench pivot found!",
-                        "text_clean": f"{starter_name} is {status} — No healthy bench pivot found!",
                         "impact": 5.0,
                     })
                     copy_lines.append(f"{slot}: {starter_name} is {status} (bench empty)")
@@ -2562,8 +2568,12 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
             formatted_moves.append({
                 "type": "swap",
                 "slot": slot,
+                "start_player": st_p,
+                "start_proj": s["start_proj"],
+                "sit_player": sit_p,
+                "sit_proj": s["sit_proj"],
+                "gain": gain,
                 "text": f"{slot}: start {st_p} over {sit_p} (+{gain:.1f} pts)",
-                "text_clean": f"start {st_p} over {sit_p} (+{gain:.1f} pts)",
                 "impact": gain,
             })
             copy_lines.append(f"{slot}: start {st_p} over {sit_p} (+{gain:.1f} pts)")
@@ -2579,8 +2589,11 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                 formatted_moves.append({
                     "type": "injury_q",
                     "slot": slot,
+                    "starter_name": starter_name,
+                    "pivot_name": pname,
+                    "pivot_pts": ppts,
+                    "status": "Q",
                     "text": f"{slot}: monitor {starter_name} (Q) — bench pivot ready: {pname} ({ppts:.1f} pts)",
-                    "text_clean": f"monitor {starter_name} (Q) — bench pivot ready: {pname} ({ppts:.1f} pts)",
                     "impact": 0.5,
                 })
                 copy_lines.append(f"{slot}: monitor {starter_name} (Q) -> pivot {pname}")
@@ -2605,23 +2618,50 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
 def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle):
     """
     Renders the consolidated executive heads-up lineup recommendations card.
-    Follows the dark card aesthetic with coral/orange-red accent border.
+    100% aligned with Fantasy Dynasty Manager design system:
+    - Uses .card-container with .card-alert styling (#111827 / slate background with amber #f59e0b accent).
+    - Uses native micro-badges (.badge-pos, START, SIT, OUT).
+    - Uses brand secondary slate button for Copy Moves and primary Sky gradient for Open Workspace.
     """
     if not league_alerts:
         return f"""
-        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-left: 4px solid #10b981; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 1.25rem;">✅</span>
-                <div>
-                    <div style="color: #34d399; font-weight: 800; font-size: 0.98rem;">All Starting Lineups Optimal — Week {active_week}</div>
-                    <div style="color: #94a3b8; font-size: 0.82rem; margin-top: 2px;">No suboptimal starters or unaddressed player injuries detected across your franchises.</div>
+        <div class="card-container card-success" style="margin-bottom: 22px; padding: 16px 20px; border-radius: 10px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #111827 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-left: 3px solid #10b981;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.25rem;">⭐</span>
+                    <div>
+                        <div style="color: #34d399; font-weight: 800; font-size: 0.98rem; letter-spacing: -0.01em;">
+                            All Starting Lineups Optimal — Week {active_week}
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.82rem; margin-top: 2px;">
+                            No suboptimal starters or unaddressed player injuries detected across your franchises.
+                        </div>
+                    </div>
                 </div>
+                <span class="status-capsule status-rebuild" style="font-size: 0.72rem;">100% READY</span>
             </div>
         </div>
         """
 
     num_leagues = len(league_alerts)
-    league_word = "league" if num_leagues == 1 else "leagues"
+    league_word = "Franchise" if num_leagues == 1 else "Franchises"
+    total_actions = sum(len(a["moves"]) for a in league_alerts)
+
+    def _get_slot_badge_class(s_name):
+        s = s_name.upper()
+        if "QB" in s:
+            return "badge-qb"
+        elif "RB" in s:
+            return "badge-rb"
+        elif "WR" in s:
+            return "badge-wr"
+        elif "TE" in s:
+            return "badge-te"
+        elif "K" in s:
+            return "badge-k"
+        elif "DEF" in s or "DST" in s:
+            return "badge-def"
+        return "badge-wr"
 
     rows_html = []
     for a in league_alerts:
@@ -2634,49 +2674,88 @@ def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle
         for m in moves:
             slot = m["slot"]
             mtype = m["type"]
-            text_clean = m["text_clean"]
+            badge_cls = _get_slot_badge_class(slot)
+
             if mtype == "injury_out":
-                parts = text_clean.split(" — ")
-                head_part = parts[0]
-                tail_part = f" — {parts[1]}" if len(parts) > 1 else ""
+                starter_name = m.get("starter_name", "")
+                pivot_name = m.get("pivot_name", "")
+                pivot_pts = m.get("pivot_pts", 0.0)
+                status = m.get("status", "OUT")
+                if pivot_name:
+                    pivot_snippet = f"""
+                    <span style="color: #64748b; margin: 0 2px;">➔</span>
+                    <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">START</span>
+                    <strong style="color: #38bdf8;">{pivot_name}</strong>
+                    <span style="color: #64748b; font-size: 0.8rem;">({pivot_pts:.1f} pts)</span>
+                    """
+                else:
+                    pivot_snippet = "<span style='color: #fb7185; font-size: 0.8rem;'>(No healthy bench pivot found)</span>"
+
                 moves_rendered.append(f"""
-                <div style="margin-bottom: 4px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;">
-                    <span style="color: #94a3b8; font-weight: 600;">{slot}:</span> <strong style="color: #f87171;">{head_part}</strong>{tail_part}
+                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.86rem; line-height: 1.4;">
+                    <span class="badge-pos {badge_cls}">{slot}</span>
+                    <span style="background: rgba(244, 63, 94, 0.18); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">{status}</span>
+                    <strong style="color: #f87171;">{starter_name}</strong>
+                    {pivot_snippet}
                 </div>
                 """)
             elif mtype == "swap":
+                st_p = m.get("start_player", "")
+                sit_p = m.get("sit_player", "")
+                st_pts = m.get("start_proj", 0.0)
+                sit_pts = m.get("sit_proj", 0.0)
+                gain = m.get("gain", 0.0)
                 moves_rendered.append(f"""
-                <div style="margin-bottom: 4px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;">
-                    <span style="color: #94a3b8; font-weight: 600;">{slot}:</span> {text_clean}
+                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.86rem; line-height: 1.4;">
+                    <span class="badge-pos {badge_cls}">{slot}</span>
+                    <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">START</span>
+                    <strong style="color: #f8fafc;">{st_p}</strong>
+                    <span style="color: #64748b; font-size: 0.8rem;">({st_pts:.1f} pts)</span>
+                    <span style="color: #64748b; font-weight: 600; margin: 0 2px;">over</span>
+                    <span style="background: rgba(244, 63, 94, 0.12); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.25); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">SIT</span>
+                    <span style="color: #cbd5e1;">{sit_p}</span>
+                    <span style="color: #64748b; font-size: 0.8rem;">({sit_pts:.1f} pts)</span>
+                    <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; margin-left: 2px;">+{gain:.1f} PTS</span>
                 </div>
                 """)
             else:
+                starter_name = m.get("starter_name", "")
+                pivot_name = m.get("pivot_name", "")
+                pivot_pts = m.get("pivot_pts", 0.0)
                 moves_rendered.append(f"""
-                <div style="margin-bottom: 4px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.84rem; color: #94a3b8; line-height: 1.5;">
-                    <span style="color: #64748b; font-weight: 600;">{slot}:</span> {text_clean}
+                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.84rem; color: #94a3b8; line-height: 1.4;">
+                    <span class="badge-pos {badge_cls}" style="opacity: 0.85;">{slot}</span>
+                    <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">QUESTIONABLE</span>
+                    <span style="color: #cbd5e1;">Monitor <strong>{starter_name}</strong></span>
+                    <span style="color: #64748b;">— pivot: <strong style="color: #38bdf8;">{pivot_name}</strong> ready ({pivot_pts:.1f} pts)</span>
                 </div>
                 """)
 
         moves_block = "".join(moves_rendered)
 
         rows_html.append(f"""
-        <div style="padding: 14px 0; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <div style="padding: 14px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 260px;">
-                <div style="font-weight: 700; font-size: 1.02rem; color: #f8fafc; margin-bottom: 5px; letter-spacing: -0.01em;">
-                    {lname}
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-weight: 800; font-size: 1.02rem; color: #f8fafc; letter-spacing: -0.01em;">
+                        {lname}
+                    </span>
+                    <span style="color: #64748b; font-size: 0.78rem; font-weight: 600;">
+                        ({len(moves)} {'change' if len(moves) == 1 else 'changes'})
+                    </span>
                 </div>
                 <div>
                     {moves_block}
                 </div>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0;">
-                <button onclick="navigator.clipboard.writeText('{copy_text}'); this.innerText='Copied!'; this.style.borderColor='#34d399'; this.style.color='#34d399'; setTimeout(() => {{ this.innerText='Copy moves'; this.style.borderColor='rgba(148, 163, 184, 0.25)'; this.style.color='#cbd5e1'; }}, 2000);"
-                        style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.25); color: #cbd5e1; border-radius: 20px; padding: 6px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; outline: none; white-space: nowrap;">
-                    Copy moves
+            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                <button onclick="navigator.clipboard.writeText('{copy_text}'); this.innerText='Copied!'; this.style.borderColor='#34d399'; this.style.color='#34d399'; setTimeout(() => {{ this.innerText='Copy Moves'; this.style.borderColor='rgba(56, 189, 248, 0.25)'; this.style.color='#e2e8f0'; }}, 2000);"
+                        style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); color: #e2e8f0; border-radius: 6px; padding: 6px 13px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;">
+                    Copy Moves
                 </button>
                 <a href="?league={lid}&user={active_user_handle}" target="_self"
-                   style="color: #94a3b8; font-size: 0.84rem; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s ease;">
-                    Take a look →
+                   style="display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 6px 14px; border-radius: 6px; font-weight: 800; font-size: 0.78rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25); transition: all 0.15s ease; white-space: nowrap;">
+                    Open Workspace →
                 </a>
             </div>
         </div>
@@ -2685,22 +2764,28 @@ def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle
     body_rows = "".join(rows_html)
 
     card_html = f"""
-    <div style="background: #0d1512; border: 1px solid rgba(248, 113, 113, 0.2); border-left: 4px solid #f87171; border-radius: 12px; padding: 20px 24px; margin-bottom: 26px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+    <div class="card-container card-alert" style="margin-bottom: 22px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(15, 23, 42, 0.85) 100%); border: 1px solid rgba(251, 191, 36, 0.25); border-left: 3px solid #f59e0b; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);">
         <!-- Card Header -->
-        <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px;">
-            <div style="color: #f87171; font-size: 1.15rem; line-height: 1.2;">⚠️</div>
-            <div>
-                <div style="color: #f87171; font-weight: 800; font-size: 1.12rem; letter-spacing: -0.01em;">
-                    Heads up — {num_leagues} {league_word} need a lineup look
-                </div>
-                <div style="color: #94a3b8; font-size: 0.88rem; margin-top: 4px;">
-                    Looks like a bench player might be a better call than who's starting somewhere, or someone's banged up. <span style="opacity: 0.6; cursor: help;" title="Lineup recommendations derived from Sleeper projected points, scoring rules, and active NFL injury designations">ⓘ</span>
-                </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 9px;">
+                <span style="font-size: 1.15rem; color: #fbbf24;">⚡</span>
+                <span style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.01em;">
+                    Heads Up — {num_leagues} {league_word} Need a Lineup Look
+                </span>
+                <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;">
+                    {total_actions} Actions
+                </span>
             </div>
+            <div style="color: #64748b; font-size: 0.75rem; font-weight: 600;">
+                Week {active_week} Projection Engine
+            </div>
+        </div>
+        <div style="color: #94a3b8; font-size: 0.84rem; margin-bottom: 12px;">
+            Suboptimal starters, higher-projected bench depth, or active starter injuries detected across your franchises.
         </div>
 
         <!-- League Action Rows -->
-        <div style="margin-top: 10px;">
+        <div>
             {body_rows}
         </div>
     </div>
