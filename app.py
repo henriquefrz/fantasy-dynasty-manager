@@ -3768,179 +3768,221 @@ else:
             alt_lookup=alt_eval_lookup,
         )
 
-        def render_waiver_upgrade_card(s, is_starter=True):
-            add_p = s["add_player"]
-            drop_p = s["drop_player"]
-            add_id = add_p.get("player_id")
-            drop_id = drop_p.get("player_id")
-            add_name = add_p.get("full_name") or add_id
-            drop_name = drop_p.get("full_name") or drop_id
-            pos = add_p.get("position", "UTIL")
-            team = add_p.get("team", "FA")
-            age = add_p.get("age", "—")
-            avatar = get_player_avatar_url(add_id, pos, team)
-            tag = s.get("priority_tag", "STARTER UPGRADE" if is_starter else "BENCH UPGRADE")
+        def render_waiver_player_chip(p_obj, is_add=True, tag=None, displaced_name=None):
+            pid = p_obj.get("player_id")
+            name = p_obj.get("full_name") or pid
+            pos = p_obj.get("position", "UTIL")
+            team = p_obj.get("team", "FA")
+            age = p_obj.get("age", "—")
+            avatar = get_player_avatar_url(pid, pos, team)
+            pos_lower = pos.lower() if pos else "util"
+            pos_cls = f"badge-{pos_lower}" if f"badge-{pos_lower}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
 
             # Add player dynasty & redraft metrics
-            add_dyn_data = primary_lookup.get(add_id, {})
-            add_ros_data = redraft_lookup.get(add_id, {})
+            dyn_data = primary_lookup.get(pid, {})
+            ros_data = redraft_lookup.get(pid, {})
 
-            dyn_val = add_dyn_data.get("market_value", 0.0)
-            ros_val = add_ros_data.get("market_value", 0.0)
+            dyn_val = dyn_data.get("market_value", 0.0)
+            ros_val = ros_data.get("market_value", 0.0)
 
-            dyn_o_ecr = add_dyn_data.get("rank_ecr_overall", 999.0)
-            dyn_p_ecr = add_dyn_data.get("rank_ecr_pos", add_dyn_data.get("rank_ecr", 999.0))
-            ros_o_rank = add_ros_data.get("rank_ecr_overall", 999.0)
-            ros_p_rank = add_ros_data.get("rank_ecr_pos", add_ros_data.get("rank_ecr", 999.0))
+            dyn_o_ecr = dyn_data.get("rank_ecr_overall", 999.0)
+            dyn_p_ecr = dyn_data.get("rank_ecr_pos", dyn_data.get("rank_ecr", 999.0))
+            ros_o_rank = ros_data.get("rank_ecr_overall", 999.0)
+            ros_p_rank = ros_data.get("rank_ecr_pos", ros_data.get("rank_ecr", 999.0))
 
             dyn_o_str = f"#{int(dyn_o_ecr)}" if (dyn_o_ecr and dyn_o_ecr < 900) else "—"
             dyn_p_str = f"{pos}{int(dyn_p_ecr)}" if (dyn_p_ecr and dyn_p_ecr < 900) else "—"
             ros_o_str = f"#{int(ros_o_rank)}" if (ros_o_rank and ros_o_rank < 900) else "—"
             ros_p_str = f"{pos}{int(ros_p_rank)}" if (ros_p_rank and ros_p_rank < 900) else "—"
 
-            # Drop player metrics & avatar
-            drop_pos = drop_p.get("position", "UTIL")
-            drop_team = drop_p.get("team", "FA")
-            drop_age = drop_p.get("age", "—")
-            drop_avatar = get_player_avatar_url(drop_id, drop_pos, drop_team)
+            tag_html = ""
+            if tag:
+                bg_col = "rgba(16, 185, 129, 0.18)" if "STARTER" in tag.upper() else "rgba(56, 189, 248, 0.15)"
+                text_col = "#34d399" if "STARTER" in tag.upper() else "#38bdf8"
+                tag_html = f"<span style='background: {bg_col}; color: {text_col}; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;'>{tag}</span>"
 
-            drop_dyn_data = primary_lookup.get(drop_id, {})
-            drop_ros_data = redraft_lookup.get(drop_id, {})
+            displaced_html = ""
+            if displaced_name:
+                displaced_html = f"<div style='margin-top: 4px; font-size: 0.78rem; color: #38bdf8;'>↳ Displaces <b>{displaced_name}</b> in starting lineup</div>"
 
-            drop_dyn_val = drop_dyn_data.get("market_value", 0.0)
-            drop_ros_val = drop_ros_data.get("market_value", 0.0)
-
-            drop_dyn_o = drop_dyn_data.get("rank_ecr_overall", 999.0)
-            drop_dyn_p = drop_dyn_data.get("rank_ecr_pos", drop_dyn_data.get("rank_ecr", 999.0))
-            drop_ros_o_rank = drop_ros_data.get("rank_ecr_overall", 999.0)
-            drop_ros_p_rank = drop_ros_data.get("rank_ecr_pos", drop_ros_data.get("rank_ecr", 999.0))
-
-            drop_dyn_o_str = f"#{int(drop_dyn_o)}" if (drop_dyn_o and drop_dyn_o < 900) else "—"
-            drop_dyn_p_str = f"{drop_pos}{int(drop_dyn_p)}" if (drop_dyn_p and drop_dyn_p < 900) else "—"
-            drop_ros_o_str = f"#{int(drop_ros_o_rank)}" if (drop_ros_o_rank and drop_ros_o_rank < 900) else "—"
-            drop_ros_p_str = f"{drop_pos}{int(drop_ros_p_rank)}" if (drop_ros_p_rank and drop_ros_p_rank < 900) else "—"
-
-            gain = s.get("market_value_gain", 0.0)
-            gain_sign = "+" if gain >= 0 else ""
-            
-            disp_p = s.get("displaced_player")
-            disp_text = ""
-            if is_starter and disp_p:
-                d_name = disp_p.get("full_name") or disp_p.get("player_id")
-                disp_text = f"<div style='margin-top: 8px; font-size: 0.82rem; color: #38bdf8;'>↳ Displaces <b>{d_name}</b> in starting lineup</div>"
-
-            alt_drops_html = ""
-            viable_drops = s.get("all_drop_candidates", [])
-            if viable_drops and len(viable_drops) > 1:
-                chips = []
-                for cd in viable_drops[:4]:
-                    c_obj = cd["drop_player"]
-                    c_id = c_obj.get("player_id")
-                    c_name = c_obj.get("full_name") or c_id
-                    c_pos = c_obj.get("position", "UTIL")
-                    c_team = c_obj.get("team", "FA")
-                    c_val = cd.get("drop_value", 0.0)
-                    c_gain = cd.get("market_value_gain", 0.0)
-                    c_avatar = get_player_avatar_url(c_id, c_pos, c_team)
-                    c_pos_cls = f"badge-{c_pos.lower()}" if f"badge-{c_pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
-                    chips.append(
-                        f"<div style='display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem;'>"
-                        f"<img src='{c_avatar}' style='width: 24px; height: 24px; border-radius: 50%; object-fit: cover;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
-                        f"<span style='color: #f8fafc; font-weight: 600;'>{c_name}</span>"
-                        f"<span class='badge-pos {c_pos_cls}' style='font-size: 0.65rem; padding: 1px 4px;'>{c_pos}</span>"
-                        f"<span style='color: #94a3b8;'>({c_val:,.0f} pts)</span>"
-                        f"<span style='color: #34d399; font-weight: 700;'>+{c_gain:,.0f} pts</span>"
-                        f"</div>"
-                    )
-                alt_drops_html = f"""
-                <div style='margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06);'>
-                    <div style='font-size: 0.76rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>
-                        Alternative Cut Options ({len(viable_drops)} bench players below FA value):
+            chip_html = f"""
+            <div style='display: flex; gap: 12px; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 10px 12px;'>
+                <img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
+                <div style='flex: 1; min-width: 0;'>
+                    <div style='display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
+                        <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{name}</span>
+                        <span class='badge-pos {pos_cls}'>{pos}</span>
+                        <span style='color: #94a3b8; font-size: 0.82rem;'>{team} • Age {age}</span>
+                        {tag_html}
                     </div>
-                    <div style='display: flex; flex-wrap: wrap; gap: 8px;'>
-                        {''.join(chips)}
+                    <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
+                        <span class='rank-pill'>Dynasty: {dyn_val:,.0f} pts ({dyn_o_str} Ovr • {dyn_p_str})</span>
+                        <span class='rank-pill rank-pill-highlight'>ROS Value: {ros_val:,.0f} pts ({ros_o_str} Ovr • {ros_p_str})</span>
+                    </div>
+                    {displaced_html}
+                </div>
+            </div>
+            """
+            return chip_html
+
+        starter_upgrades = waivers.get("starter_upgrades", [])
+        cross_upgrades = waivers.get("cross_pos_upgrades", [])
+        ir_suggestions = waivers.get("ir_suggestions", [])
+
+        # Collect unique adds
+        adds_list = []
+        seen_add_ids = set()
+        for s in starter_upgrades:
+            ap = s.get("add_player")
+            if not ap:
+                continue
+            pid = ap.get("player_id")
+            if pid and pid not in seen_add_ids:
+                seen_add_ids.add(pid)
+                d_p = s.get("displaced_player")
+                d_name = (d_p.get("full_name") or d_p.get("player_id")) if d_p else None
+                adds_list.append({
+                    "player": ap,
+                    "is_starter": True,
+                    "tag": "Starter Upgrade",
+                    "displaced_name": d_name,
+                    "val": float(active_lookup.get(pid, {}).get("market_value") or 0.0),
+                })
+
+        for s in cross_upgrades:
+            ap = s.get("add_player")
+            if not ap:
+                continue
+            pid = ap.get("player_id")
+            if pid and pid not in seen_add_ids:
+                seen_add_ids.add(pid)
+                adds_list.append({
+                    "player": ap,
+                    "is_starter": False,
+                    "tag": "Bench Upgrade",
+                    "displaced_name": None,
+                    "val": float(active_lookup.get(pid, {}).get("market_value") or 0.0),
+                })
+
+        # Sort adds: starter upgrades first, then by active valuation descending
+        adds_list.sort(key=lambda x: (0 if x["is_starter"] else 1, -x["val"]))
+
+        # Collect unique drops from recommended cuts
+        drops_list = []
+        seen_drop_ids = set()
+        for s in starter_upgrades + cross_upgrades:
+            dp = s.get("drop_player")
+            if dp:
+                pid = dp.get("player_id")
+                if pid and pid not in seen_drop_ids:
+                    seen_drop_ids.add(pid)
+                    drops_list.append({
+                        "player": dp,
+                        "val": float(active_lookup.get(pid, {}).get("market_value") or 0.0),
+                    })
+            for cand in s.get("all_drop_candidates", []):
+                cdp = cand.get("drop_player")
+                if cdp:
+                    cpid = cdp.get("player_id")
+                    if cpid and cpid not in seen_drop_ids:
+                        seen_drop_ids.add(cpid)
+                        drops_list.append({
+                            "player": cdp,
+                            "val": float(active_lookup.get(cpid, {}).get("market_value") or 0.0),
+                        })
+
+        # Sort drops: lowest active valuation first (best cut candidates first)
+        drops_list.sort(key=lambda x: x["val"])
+
+        if adds_list:
+            adds_html = [
+                render_waiver_player_chip(
+                    item["player"],
+                    is_add=True,
+                    tag=item["tag"],
+                    displaced_name=item["displaced_name"],
+                )
+                for item in adds_list[:8]
+            ]
+            drops_html = [
+                render_waiver_player_chip(
+                    item["player"],
+                    is_add=False,
+                )
+                for item in drops_list[:8]
+            ]
+
+            ir_banner_html = ""
+            if ir_suggestions:
+                ir_items = []
+                for ir in ir_suggestions:
+                    pname = ir["player"].get("full_name") or ir["player"].get("player_id")
+                    reason = ir.get("reason", "IR Eligible")
+                    ir_items.append(f"Move <b>{pname}</b> ({reason}) to IR")
+                ir_text = " • ".join(ir_items)
+                ir_banner_html = f"""
+                <div style='background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;'>
+                    <span style='font-size: 1.1rem;'>💡</span>
+                    <div style='font-size: 0.85rem; color: #fde68a;'>
+                        <b>IR Slot Optimization:</b> {ir_text} ➔ <i>Frees up active bench space for a free agent addition.</i>
                     </div>
                 </div>
                 """
 
+            horizon_tag = "DYNASTY HORIZON" if eval_dynasty else "REST OF SEASON (ROS)"
+
             card_html = f"""
-            <div class='card-container card-success' style='margin-bottom: 16px;'>
-                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;'>
-                    <span class='status-capsule status-contender'>{tag}</span>
-                    <span class='status-capsule status-rebuild' style='font-size: 0.82rem; font-weight: 800;'>{gain_sign}{gain:,.0f} PTS NET GAIN</span>
-                </div>
-                
-                <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;'>
-                    <!-- TARGET ADD PLAYER -->
-                    <div style='background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px;'>
-                        <div style='font-size: 0.72rem; font-weight: 800; color: #34d399; letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase;'>TARGET ADD</div>
-                        <div style='display: flex; gap: 12px; align-items: center;'>
-                            <img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
-                            <div>
-                                <div style='display: flex; align-items: center; gap: 6px;'>
-                                    <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{add_name}</span>
-                                    <span class='badge-pos badge-{pos.lower()}'>{pos}</span>
-                                    <span style='color: #94a3b8; font-size: 0.8rem;'>{team} • Age {age}</span>
-                                </div>
-                                <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
-                                    <span class='rank-pill'>Dynasty: {dyn_val:,.0f} pts ({dyn_o_str} Ovr • {dyn_p_str})</span>
-                                    <span class='rank-pill rank-pill-highlight'>ROS Value: {ros_val:,.0f} pts ({ros_o_str} Ovr • {ros_p_str})</span>
-                                </div>
-                            </div>
-                        </div>
+            <div class='card-container' style='margin-bottom: 24px;'>
+                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); flex-wrap: wrap; gap: 8px;'>
+                    <div>
+                        <h3 style='margin: 0; font-size: 1.15rem; font-weight: 700; color: #f8fafc;'>⚡ Waiver Wire & Add/Drop Recommendations</h3>
+                        <span style='font-size: 0.82rem; color: #94a3b8;'>Consolidated recommendations based on your active roster and available free agents</span>
                     </div>
-
-                    <!-- RECOMMENDED CUT PLAYER -->
-                    <div style='background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 12px;'>
-                        <div style='font-size: 0.72rem; font-weight: 800; color: #f87171; letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase;'>RECOMMENDED CUT</div>
-                        <div style='display: flex; gap: 12px; align-items: center;'>
-                            <img src='{drop_avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />
-                            <div>
-                                <div style='display: flex; align-items: center; gap: 6px;'>
-                                    <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{drop_name}</span>
-                                    <span class='badge-pos badge-{drop_pos.lower()}'>{drop_pos}</span>
-                                    <span style='color: #94a3b8; font-size: 0.8rem;'>{drop_team} • Age {drop_age}</span>
-                                </div>
-                                <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
-                                    <span class='rank-pill'>Dynasty: {drop_dyn_val:,.0f} pts ({drop_dyn_o_str} Ovr • {drop_dyn_p_str})</span>
-                                    <span class='rank-pill rank-pill-highlight'>ROS Value: {drop_ros_val:,.0f} pts ({drop_ros_o_str} Ovr • {drop_ros_p_str})</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div>
+                        <span class='status-capsule status-contender' style='font-size: 0.75rem; font-weight: 700;'>
+                            {horizon_tag}
+                        </span>
                     </div>
                 </div>
 
-                {disp_text}
-                {alt_drops_html}
+                {ir_banner_html}
+
+                <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;'>
+                    <!-- LEFT SIDE: PLAYERS TO ADD -->
+                    <div style='background: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 14px;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(16, 185, 129, 0.15);'>
+                            <span style='font-size: 0.82rem; font-weight: 800; color: #34d399; letter-spacing: 0.05em; text-transform: uppercase;'>
+                                ➕ Target Adds (Free Agents)
+                            </span>
+                            <span style='background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px;'>
+                                {len(adds_list)} Recommended
+                            </span>
+                        </div>
+                        <div style='display: flex; flex-direction: column; gap: 10px;'>
+                            {''.join(adds_html)}
+                        </div>
+                    </div>
+
+                    <!-- RIGHT SIDE: PLAYERS TO DROP -->
+                    <div style='background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 10px; padding: 14px;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(239, 68, 68, 0.15);'>
+                            <span style='font-size: 0.82rem; font-weight: 800; color: #f87171; letter-spacing: 0.05em; text-transform: uppercase;'>
+                                ➖ Droppable Players (Bench Cuts)
+                            </span>
+                            <span style='background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px;'>
+                                {len(drops_list)} Candidates
+                            </span>
+                        </div>
+                        <div style='display: flex; flex-direction: column; gap: 10px;'>
+                            {''.join(drops_html) if drops_html else "<div style='color: #94a3b8; font-size: 0.85rem; padding: 12px;'>No drop required (open roster / IR spots available).</div>"}
+                        </div>
+                    </div>
+                </div>
             </div>
             """
-            return "\n".join(l.lstrip() for l in card_html.splitlines())
-
-        # IR Slot Actions
-        ir_suggestions = waivers.get("ir_suggestions", [])
-        if ir_suggestions:
-            st.markdown("### IR Slot Optimization")
-            for ir in ir_suggestions:
-                pname = ir["player"].get("full_name")
-                reason = ir.get("reason", "IR Eligible")
-                st.info(f"• **Move to IR:** `{pname}` ({reason}) ➔ *Frees up an active bench spot for a free agent add.*")
-
-        # Starting Lineup Upgrades
-        starter_upgrades = waivers.get("starter_upgrades", [])
-        if starter_upgrades:
-            st.markdown("### Starting Lineup Upgrades")
-            for s in starter_upgrades[:6]:
-                st.html(render_waiver_upgrade_card(s, is_starter=True))
-
-        # Bench Upgrades
-        cross_upgrades = waivers.get("cross_pos_upgrades", [])
-        if cross_upgrades:
-            st.markdown("### Top Bench Upgrades")
-            for s in cross_upgrades[:6]:
-                st.html(render_waiver_upgrade_card(s, is_starter=False))
-
-        # Empty state notification if no waiver suggestions found
-        if not starter_upgrades and not cross_upgrades:
+            st.html("\n".join(l.lstrip() for l in card_html.splitlines()))
+        else:
+            # Empty state notification if no waiver suggestions found
             st.markdown(
                 """
                 <div class='card-container'>
