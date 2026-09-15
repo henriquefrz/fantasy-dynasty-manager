@@ -96,6 +96,7 @@ from src.market_data import (
     get_values_picks_raw,
     get_ktc_data_raw,
     get_fantasycalc_data_raw,
+    get_espn_data_raw,
     build_picks_sources_bundle,
     compute_picks_lookup_from_bundle,
     enrich_lookup_with_consensus_values,
@@ -1324,6 +1325,22 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
         age_cells += f"<td style='text-align: center; font-weight: 600; color: {color};'>{age_disp}</td>"
 
     if is_redraft:
+        # Sleeper Projections PPG Row
+        proj_cells = ""
+        valid_projs = [(p, float(p.get("proj_ppg") or 0.0)) for p in comparison_assets if p.get("proj_ppg") is not None]
+        if valid_projs and max(x[1] for x in valid_projs) > 0:
+            proj_lead, proj_max = max(valid_projs, key=lambda x: x[1])
+            proj_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{proj_lead['name']} ({proj_max:.1f} PPG)</span>"
+        else:
+            proj_max = None
+            proj_adv = "—"
+        for p in comparison_assets:
+            pj_v = p.get("proj_ppg")
+            pj_str = f"{float(pj_v):.1f} PPG" if pj_v is not None else "—"
+            is_pj_lead = (pj_v is not None and float(pj_v) == proj_max and proj_max > 0)
+            color = "#38bdf8" if is_pj_lead else "#94a3b8"
+            proj_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{pj_str}</td>"
+
         # FantasyPros ECR Row
         fp_cells = ""
         valid_fps = [(p, float(p.get("fp_ecr_overall") or 999.0)) for p in comparison_assets if p.get("fp_ecr_overall") and float(p.get("fp_ecr_overall")) < 500]
@@ -1340,21 +1357,21 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             color = "#fbbf24" if is_fp_lead else "#94a3b8"
             fp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fp_str}</td>"
 
-        # Sleeper Projections PPG Row
-        proj_cells = ""
-        valid_projs = [(p, float(p.get("proj_ppg") or 0.0)) for p in comparison_assets if p.get("proj_ppg") is not None]
-        if valid_projs and max(x[1] for x in valid_projs) > 0:
-            proj_lead, proj_max = max(valid_projs, key=lambda x: x[1])
-            proj_adv = f"<span style='color: #38bdf8; font-weight: 700;'>{proj_lead['name']} ({proj_max:.1f} PPG)</span>"
+        # ESPN Projections PPG Row
+        espn_cells = ""
+        valid_espns = [(p, float(p.get("espn_ppg") or 0.0)) for p in comparison_assets if p.get("espn_ppg") is not None]
+        if valid_espns and max(x[1] for x in valid_espns) > 0:
+            espn_lead, espn_max = max(valid_espns, key=lambda x: x[1])
+            espn_adv = f"<span style='color: #f87171; font-weight: 700;'>{espn_lead['name']} ({espn_max:.1f} PPG)</span>"
         else:
-            proj_max = None
-            proj_adv = "—"
+            espn_max = None
+            espn_adv = "—"
         for p in comparison_assets:
-            pj_v = p.get("proj_ppg")
-            pj_str = f"{float(pj_v):.1f} PPG" if pj_v is not None else "—"
-            is_pj_lead = (pj_v is not None and float(pj_v) == proj_max and proj_max > 0)
-            color = "#38bdf8" if is_pj_lead else "#94a3b8"
-            proj_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{pj_str}</td>"
+            ev = p.get("espn_ppg")
+            ev_str = f"{float(ev):.1f} PPG" if ev is not None else "—"
+            is_espn_lead = (ev is not None and float(ev) == espn_max and espn_max > 0)
+            color = "#f87171" if is_espn_lead else "#94a3b8"
+            espn_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{ev_str}</td>"
 
         rows_html = f"""
             <tr>
@@ -1373,9 +1390,9 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
                 <td style='text-align: center;'>{pos_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyCalc Trade Value</td>
-                {fc_cells}
-                <td style='text-align: center;'>{fc_adv}</td>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Sleeper Projected PPG</td>
+                {proj_cells}
+                <td style='text-align: center;'>{proj_adv}</td>
             </tr>
             <tr>
                 <td style='text-align: left; font-weight: 700; color: #f8fafc;'>FantasyPros Consensus ECR</td>
@@ -1383,9 +1400,9 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
                 <td style='text-align: center;'>{fp_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Sleeper Projected PPG</td>
-                {proj_cells}
-                <td style='text-align: center;'>{proj_adv}</td>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>ESPN Projected PPG</td>
+                {espn_cells}
+                <td style='text-align: center;'>{espn_adv}</td>
             </tr>
             <tr>
                 <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
@@ -2088,7 +2105,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v22_multi_week_ros_projections"):
+def fetch_market_database(_cache_version="v23_espn_tri_source_ros"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2100,10 +2117,10 @@ def fetch_market_database(_cache_version="v22_multi_week_ros_projections"):
     ktc_1qb = get_ktc_data_raw(is_superflex=False)
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-    fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
+    espn_raw = get_espn_data_raw(season="2024", scoring_period=1)
 
     nfl_state = get_nfl_state() or {}
-    season = nfl_state.get("season", "2026")
+    season = nfl_state.get("season", "2024")
     week = max(1, nfl_state.get("week", 1))
     projections_raw = get_weekly_projections(season, week)
     ros_projections_raw = get_ros_projections(season, start_week=week, end_week=17)
@@ -2122,7 +2139,14 @@ def fetch_market_database(_cache_version="v22_multi_week_ros_projections"):
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
-    enrich_lookup_with_redraft_values(base_redraft, fc_redraft_raw=fc_redraft, projections_raw=ros_projections_raw)
+    enrich_lookup_with_redraft_values(
+        base_redraft,
+        espn_raw=espn_raw,
+        projections_raw=ros_projections_raw,
+        player_ids_raw=player_ids,
+        start_week=week,
+        end_week=17,
+    )
 
     # Raw pick bundles for instant mode switching
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
@@ -2140,7 +2164,7 @@ def fetch_market_database(_cache_version="v22_multi_week_ros_projections"):
         "ktc_1qb": ktc_1qb,
         "fc_sf": fc_sf,
         "fc_1qb": fc_1qb,
-        "fc_redraft": fc_redraft,
+        "espn_raw": espn_raw,
         "projections_raw": projections_raw,
         "ros_projections_raw": ros_projections_raw,
         "dynasty_sf_lookup": base_dynasty_sf,
@@ -2176,6 +2200,9 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
         proj_ppg = p_data.get("proj_ppg")
         fp_o = p_data.get("fp_ecr_overall")
         fp_p = p_data.get("fp_ecr_pos")
+        espn_ppg = p_data.get("espn_ppg")
+        espn_o = p_data.get("espn_overall_rank")
+        espn_p = p_data.get("espn_pos_rank")
 
         pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
         overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
@@ -2214,11 +2241,17 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
             "DynastyProcess": f"{dp_v:,.0f}" if dp_v is not None else "—",
             "FantasyPros ECR": f"#{int(fp_o)}" if (fp_o is not None and float(fp_o) < 500) else "—",
             "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
+            "ESPN Proj PPG": f"{espn_ppg:.1f} PPG" if espn_ppg is not None else "—",
             "proj_ppg": proj_ppg,
             "fp_ecr_overall": fp_o,
             "fp_ecr_pos": fp_p,
+            "espn_ppg": espn_ppg,
+            "espn_overall_rank": espn_o,
+            "espn_pos_rank": espn_p,
             "_proj_ppg": float(proj_ppg or 0.0),
+            "_espn_ppg": float(espn_ppg or 0.0),
             "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
+            "_espn_o": float(espn_o) if (espn_o is not None and float(espn_o) < 500) else 9999.0,
             "ktc_val": ktc_v,
             "fc_val": fc_v,
             "dp_val": dp_v,
@@ -4348,7 +4381,7 @@ else:
                     st.html(evo_html)
 
         def render_ros_power_view():
-            st.caption("ROS Asset Power Formula: 70% Starters Value + 30% Bench Depth (Tri-Source Consensus: FantasyCalc Trades + FantasyPros ECR + Sleeper Quant Projections). Purely consultative.")
+            st.caption("ROS Asset Power Formula: 70% Starters Value + 30% Bench Depth (Tri-Source Consensus: Sleeper Multi-Week Projections + FantasyPros ECR + ESPN Projections). Purely consultative.")
             ros_res = compute_ros_power_rankings(all_ros_team_profiles, weight_starters=0.70, weight_bench=0.30)
             ranked_ros = sorted(ros_res.values(), key=lambda x: x["ros_score"], reverse=True)
 
@@ -5726,21 +5759,23 @@ else:
                             fp_disp = f"#{int(fp_o_val)}" if (fp_o_val and float(fp_o_val) < 500) else "—"
                             pj_val = asset.get("proj_ppg")
                             pj_disp = f"{pj_val:.1f} PPG" if pj_val is not None else "—"
+                            espn_val = asset.get("espn_ppg")
+                            espn_disp = f"{espn_val:.1f} PPG" if espn_val is not None else "—"
 
                             constituent_grid = f"""
-                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models</div>
+                            <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models (ROS)</div>
                             <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;'>
-                                <div style='background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.64rem; color: #34d399; font-weight: 700;'>FantasyCalc</div>
-                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fc_s}</div>
+                                <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.64rem; color: #38bdf8; font-weight: 700;'>Sleeper</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{pj_disp}</div>
                                 </div>
                                 <div style='background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 6px 8px;'>
                                     <div style='font-size: 0.64rem; color: #fbbf24; font-weight: 700;'>FantasyPros</div>
                                     <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fp_disp}</div>
                                 </div>
-                                <div style='background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.64rem; color: #38bdf8; font-weight: 700;'>Projections</div>
-                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{pj_disp}</div>
+                                <div style='background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 6px; padding: 6px 8px;'>
+                                    <div style='font-size: 0.64rem; color: #f87171; font-weight: 700;'>ESPN</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{espn_disp}</div>
                                 </div>
                             </div>
                             """

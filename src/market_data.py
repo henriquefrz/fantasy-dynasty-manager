@@ -125,6 +125,55 @@ def get_ktc_data_raw(is_superflex=True):
         return []
 
 
+ESPN_PROJECTIONS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leaguedefaults/1?scoringPeriodId={scoring_period}&view=kona_player_info"
+
+
+def get_espn_data_raw(season="2024", scoring_period=1):
+    """
+    Fetches raw multi-week player projections and stats from ESPN's public fantasy API.
+    Retrieves up to 1,500 players, covering the entire NFL player pool.
+    Caches to disk in .cache_data/market_csvs/ for offline resilience.
+    """
+    cache_path = os.path.join(CSV_CACHE_DIR, f"espn_projections_raw_{season}.json")
+    url = ESPN_PROJECTIONS_URL.format(season=season, scoring_period=scoring_period)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "x-fantasy-filter": json.dumps({
+            "players": {
+                "limit": 1500,
+                "sortPercOwned": {"sortAsc": False, "sortPriority": 1}
+            }
+        }),
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        players = data.get("players", [])
+        if players:
+            try:
+                os.makedirs(CSV_CACHE_DIR, exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(players, f)
+            except Exception:
+                pass
+            return players
+    except Exception as e:
+        print(f"Warning: Failed to fetch ESPN data: {e}")
+
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                print("Info: Loaded cached backup for ESPN projections")
+                return json.load(f)
+        except Exception as cache_err:
+            print(f"Warning: Failed to read cached ESPN projections: {cache_err}")
+
+    return []
+
+
+
 def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_superflex=False):
     fp_id_to_sleeper_id = {}
 
@@ -675,8 +724,7 @@ def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
 def _calculate_redraft_depth_value(blended_rank: float) -> float:
     """
     Computes smooth, continuous single-season (redraft/ROS) valuation for bench and depth players
-    beyond FantasyCalc's liquid trade threshold (rank > 160).
-    Uses a smooth exponential decay curve anchored at rank 160 = 160.0 pts that halves
+    beyond rank 160. Uses a smooth exponential decay curve anchored at rank 160 = 160.0 pts that halves
     approximately every 40 ranks (k = ln(2)/40).
     Ensures viable NFL contributors (e.g. Troy Franklin, Keon Coleman, Samaje Perine, Deshaun Watson)
     maintain meaningful, proportional fantasy values rather than collapsing to near 0.
@@ -690,11 +738,185 @@ def _calculate_redraft_depth_value(blended_rank: float) -> float:
     return round(val, 1)
 
 
+def _calculate_redraft_market_value(blended_rank: float) -> float:
+    """
+    Computes smooth, continuous single-season (redraft/ROS) valuation for all players
+    based on the 3-Pillar Consensus Overall Rank (Sleeper + FantasyPros + ESPN).
+    - Top tier (ranks 1 to 160): smooth exponential decay from 10,500 down to 160 pts.
+    - Depth tier (ranks > 160): continuous exponential decay ensuring deep bench/waiver targets
+      maintain proportional capital (80 pts at rank 200, 40 pts at rank 240, 20 pts at rank 280).
+    """
+    if blended_rank <= 1.0:
+        return 10500.0
+    if blended_rank <= 160.0:
+        k = math.log(10500.0 / 160.0) / 159.0
+        return round(10500.0 * math.exp(-k * (blended_rank - 1.0)), 1)
+    return _calculate_redraft_depth_value(blended_rank)
+
+
+ESPN_DST_TO_SLEEPER = {
+    "eagles d/st": "PHI",
+    "ravens d/st": "BAL",
+    "broncos d/st": "DEN",
+    "steelers d/st": "PIT",
+    "vikings d/st": "MIN",
+    "chiefs d/st": "KC",
+    "dolphins d/st": "MIA",
+    "packers d/st": "GB",
+    "49ers d/st": "SF",
+    "lions d/st": "DET",
+    "bills d/st": "BUF",
+    "browns d/st": "CLE",
+    "texans d/st": "HOU",
+    "bears d/st": "CHI",
+    "jets d/st": "NYJ",
+    "seahawks d/st": "SEA",
+    "cowboys d/st": "DAL",
+    "commanders d/st": "WAS",
+    "buccaneers d/st": "TB",
+    "colts d/st": "IND",
+    "chargers d/st": "LAC",
+    "cardinals d/st": "ARI",
+    "falcons d/st": "ATL",
+    "bengals d/st": "CIN",
+    "saints d/st": "NO",
+    "rams d/st": "LAR",
+    "jaguars d/st": "JAX",
+    "titans d/st": "TEN",
+    "raiders d/st": "LV",
+    "giants d/st": "NYG",
+    "patriots d/st": "NE",
+    "panthers d/st": "CAR",
+}
+
+
+def _extract_espn_pillar(espn_raw, player_ids_raw=None, lookup=None, start_week=1, end_week=17, is_superflex=False):
+    """
+    Extracts multi-week rest-of-season projected points, positional ranks,
+    and VORP-based overall ranks from ESPN's raw fantasy feed.
+    Acts as Pillar 3 in the Tri-Factor Redraft / ROS Consensus Engine.
+    """
+    if not espn_raw:
+        return {}
+
+    espn_to_sleeper = {}
+    name_pos_to_sleeper = {}
+
+    if player_ids_raw:
+        for row in player_ids_raw:
+            s_id = row.get("sleeper_id")
+            e_id = row.get("espn_id")
+            m_name = row.get("merge_name")
+            pos = row.get("position")
+            if s_id and s_id != "NA":
+                if e_id and e_id != "NA":
+                    espn_to_sleeper[str(e_id)] = str(s_id)
+                if m_name and pos:
+                    name_pos_to_sleeper[(m_name.lower(), pos.upper())] = str(s_id)
+
+    pos_map = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"}
+    scored_players = []
+    remaining_weeks = max(1, end_week - start_week + 1)
+
+    for item in espn_raw:
+        p = item.get("player") or {}
+        e_id = str(p.get("id") or "")
+        full_name = p.get("fullName", "")
+        clean_name = full_name.lower().strip()
+        pos_id = p.get("defaultPositionId")
+        pos = pos_map.get(pos_id, "UTIL")
+
+        s_id = None
+        if clean_name in ESPN_DST_TO_SLEEPER:
+            s_id = ESPN_DST_TO_SLEEPER[clean_name]
+            pos = "DEF"
+        elif e_id and e_id in espn_to_sleeper:
+            s_id = espn_to_sleeper[e_id]
+        else:
+            norm_name = "".join(c for c in clean_name if c.isalnum())
+            s_id = name_pos_to_sleeper.get((norm_name, pos))
+
+        if not s_id:
+            continue
+
+        stats = p.get("stats", [])
+        weekly_projs = {
+            s.get("scoringPeriodId"): float(s.get("appliedTotal", 0.0) or 0.0)
+            for s in stats
+            if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 1
+        }
+
+        ros_pts = sum(weekly_projs.get(w, 0.0) for w in range(start_week, end_week + 1))
+        if ros_pts <= 0.0:
+            s_proj = next((float(s.get("appliedTotal", 0.0) or 0.0) for s in stats if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 0), 0.0)
+            if s_proj > 0.0:
+                ros_pts = s_proj * (remaining_weeks / 17.0)
+
+        ppg = ros_pts / float(remaining_weeks)
+
+        if ros_pts > 0.0:
+            scored_players.append({
+                "pid": str(s_id),
+                "name": full_name,
+                "pos": pos,
+                "pts": ros_pts,
+                "ppg": ppg,
+            })
+
+    # Positional Ranks
+    by_pos = {}
+    for p in scored_players:
+        by_pos.setdefault(p["pos"], []).append(p)
+
+    for pos, p_list in by_pos.items():
+        p_list.sort(key=lambda x: x["pts"], reverse=True)
+        for rank_idx, p in enumerate(p_list, start=1):
+            p["pos_rank"] = rank_idx
+
+    # VORP Overall Ranks
+    qb_baseline_idx = 23 if is_superflex else 11
+    def _get_baseline_pts(pos_key, idx, default_pts):
+        p_list = by_pos.get(pos_key, [])
+        if len(p_list) > idx:
+            return p_list[idx]["ppg"]
+        return default_pts
+
+    baselines = {
+        "QB": _get_baseline_pts("QB", qb_baseline_idx, 14.0),
+        "RB": _get_baseline_pts("RB", 23, 8.0),
+        "WR": _get_baseline_pts("WR", 35, 8.0),
+        "TE": _get_baseline_pts("TE", 11, 6.0),
+        "K": _get_baseline_pts("K", 11, 6.0),
+        "DEF": _get_baseline_pts("DEF", 11, 6.0),
+    }
+
+    for p in scored_players:
+        b_ppg = baselines.get(p["pos"], 6.0)
+        if p["pos"] in ("K", "DEF"):
+            p["vorp"] = (p["ppg"] - b_ppg) - 4.0
+        else:
+            p["vorp"] = p["ppg"] - b_ppg
+
+    scored_players.sort(key=lambda x: x["vorp"], reverse=True)
+    for overall_idx, p in enumerate(scored_players, start=1):
+        p["overall_rank"] = overall_idx
+
+    return {
+        p["pid"]: {
+            "ppg": round(p["ppg"], 1),
+            "pts": round(p["pts"], 1),
+            "pos_rank": p["pos_rank"],
+            "overall_rank": p["overall_rank"],
+        }
+        for p in scored_players
+    }
+
+
 def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, is_superflex=False):
     """
     Computes statistical projected weekly points (PPG), positional ranks,
     and VORP-based overall ranks for all players in projections_raw.
-    Acts as Pillar 3 in the Tri-Factor Redraft / ROS Consensus Engine.
+    Acts as Pillar 1 in the Tri-Factor Redraft / ROS Consensus Engine.
     """
     from src.start_sit import calculate_weekly_projected_points
 
@@ -746,9 +968,6 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
             p["pos_rank"] = rank_idx
 
     # 2. Compute Overall Ranks via Value Over Replacement Player (VORP)
-    # Baseline replacement levels in a 12-team league:
-    # 1QB: QB12, RB24, WR36, TE12
-    # Superflex: QB24, RB24, WR36, TE12
     qb_baseline_idx = 23 if is_superflex else 11
 
     def _get_baseline_pts(pos_key, idx, default_pts):
@@ -790,56 +1009,23 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
 
 def enrich_lookup_with_redraft_values(
     lookup,
-    fc_redraft_raw=None,
+    espn_raw=None,
     projections_raw=None,
+    player_ids_raw=None,
     scoring_settings=None,
     is_superflex=False,
+    start_week=1,
+    end_week=17,
+    fc_redraft_raw=None,
 ):
     """
     Enriches redraft lookup with authentic 3-Pillar Consensus single-season market values:
-    - Pillar 1 (Market Trades): FantasyCalc Redraft Trade Values & Ranks
+    - Pillar 1 (Machine Projections): Sleeper Multi-Week Projections (Weekly PPG & VORP Ranks)
     - Pillar 2 (Expert Consensus): FantasyPros Redraft ECR & Positional Rankings
-    - Pillar 3 (Statistical Output): Sleeper Projections Model (Weekly PPG & VORP Ranks)
-    Interpolates for depth players using a calibrated exponential depth curve without inverted rank artifacts.
+    - Pillar 3 (Platform Projections): ESPN Fantasy Multi-Week Projections (PPG & VORP Ranks)
+    Assigns continuous, standardized market values (0-10,500 pts) based on the consensus curve.
     """
-    fc_player_map = {}
-    fc_curve = []
-
-    for item in (fc_redraft_raw or []):
-        p_info = item.get("player") or {}
-        sid = str(p_info.get("sleeperId") or item.get("sleeperId") or "")
-        v_raw = item.get("value")
-        o_raw = item.get("overallRank")
-        p_raw = item.get("positionRank")
-
-        try:
-            val = float(v_raw) if v_raw is not None else 0.0
-        except (ValueError, TypeError):
-            val = 0.0
-
-        try:
-            o_rank = float(o_raw) if (o_raw is not None and float(o_raw) > 0) else None
-        except (ValueError, TypeError):
-            o_rank = None
-
-        try:
-            p_rank = float(p_raw) if (p_raw is not None and float(p_raw) > 0) else None
-        except (ValueError, TypeError):
-            p_rank = None
-
-        if o_rank is not None and val > 0:
-            fc_curve.append((o_rank, val))
-
-        if sid and sid != "None":
-            fc_player_map[sid] = {
-                "val": val,
-                "overall_rank": o_rank,
-                "pos_rank": p_rank,
-            }
-
-    fc_curve.sort(key=lambda x: x[0])
-
-    # Extract Pillar 3: Sleeper Quant Projections Model
+    # Extract Pillar 1: Sleeper Quant Projections Model
     proj_map = _extract_projections_pillar(
         projections_raw=projections_raw,
         lookup=lookup,
@@ -847,11 +1033,21 @@ def enrich_lookup_with_redraft_values(
         is_superflex=is_superflex,
     )
 
+    # Extract Pillar 3: ESPN Quant Projections Model
+    espn_map = _extract_espn_pillar(
+        espn_raw=espn_raw,
+        player_ids_raw=player_ids_raw,
+        lookup=lookup,
+        start_week=start_week,
+        end_week=end_week,
+        is_superflex=is_superflex,
+    )
+
     for sleeper_id, p_data in lookup.items():
         pos = str(p_data.get("position", "")).upper()
         sid_str = str(sleeper_id)
 
-        # Projections data for this player
+        # Pillar 1: Sleeper Projections data for this player
         p_proj = proj_map.get(sid_str)
         proj_ppg = p_proj["ppg"] if p_proj else None
         proj_o = float(p_proj["overall_rank"]) if p_proj else None
@@ -861,77 +1057,68 @@ def enrich_lookup_with_redraft_values(
         p_data["proj_overall_rank"] = proj_o
         p_data["proj_pos_rank"] = proj_p
 
-        # Kickers and DSTs
-        if pos in ("K", "DST", "DEF"):
-            r_ecr = p_data.get("rank_ecr") or 1.0
-            if r_ecr < 900:
-                kv = max(25.0, min(140.0, round(140.0 - (float(r_ecr) - 1.0) * 5.0, 1)))
-            else:
-                kv = 25.0
-            p_data["market_value"] = kv
-            p_data["fc_val"] = kv
-            p_data["fc_overall_rank"] = None
-            p_data["fc_pos_rank"] = None
-            p_data["fp_ecr_overall"] = float(p_data.get("rank_ecr_overall") or 999.0)
-            p_data["fp_ecr_pos"] = float(p_data.get("rank_ecr_pos") or p_data.get("rank_ecr") or 999.0)
-            continue
-
+        # Pillar 2: FantasyPros ECR
         fp_o = float(p_data.get("rank_ecr_overall") or 999.0)
         fp_p = float(p_data.get("rank_ecr_pos") or p_data.get("rank_ecr") or 999.0)
         p_data["fp_ecr_overall"] = fp_o
         p_data["fp_ecr_pos"] = fp_p
 
-        fc_info = fc_player_map.get(sid_str)
-        if fc_info:
-            fc_o = fc_info["overall_rank"]
-            fc_p = fc_info["pos_rank"]
-            raw_fc_v = fc_info["val"]
-            p_data["fc_val"] = raw_fc_v
-            p_data["fc_overall_rank"] = fc_o
-            p_data["fc_pos_rank"] = fc_p
-        else:
-            fc_o = None
-            fc_p = None
-            raw_fc_v = 0.0
-            p_data["fc_val"] = None
-            p_data["fc_overall_rank"] = None
-            p_data["fc_pos_rank"] = None
+        # Pillar 3: ESPN Projections
+        espn_info = espn_map.get(sid_str)
+        espn_ppg = espn_info["ppg"] if espn_info else None
+        espn_pts = espn_info["pts"] if espn_info else None
+        espn_o = float(espn_info["overall_rank"]) if espn_info else None
+        espn_p = float(espn_info["pos_rank"]) if espn_info else None
 
-        # Tri-Factor Overall Consensus Rank (FC + FP + PROJ)
+        p_data["espn_ppg"] = espn_ppg
+        p_data["espn_pts"] = espn_pts
+        p_data["espn_overall_rank"] = espn_o
+        p_data["espn_pos_rank"] = espn_p
+
+        # Kickers and DSTs
+        if pos in ("K", "DST", "DEF"):
+            valid_k_p = [p for p in (proj_p, fp_p, espn_p) if p is not None and p < 200]
+            r_ecr = (sum(valid_k_p) / len(valid_k_p)) if valid_k_p else (p_data.get("rank_ecr") or 1.0)
+            if r_ecr < 900:
+                kv = max(25.0, min(140.0, round(140.0 - (float(r_ecr) - 1.0) * 5.0, 1)))
+            else:
+                kv = 25.0
+            p_data["market_value"] = kv
+            p_data["rank_ecr_overall"] = 999.0
+            p_data["rank_ecr_pos"] = round(r_ecr, 1)
+            p_data["rank_ecr"] = round(r_ecr, 1)
+            continue
+
+        # Tri-Pillar Overall Consensus Rank (Sleeper + FP + ESPN)
         valid_overall = []
-        if fc_o is not None and fc_o < 500:
-            valid_overall.append(fc_o)
-        if fp_o < 500:
-            valid_overall.append(fp_o)
         if proj_o is not None and proj_o < 500:
             valid_overall.append(proj_o)
+        if fp_o < 500:
+            valid_overall.append(fp_o)
+        if espn_o is not None and espn_o < 500:
+            valid_overall.append(espn_o)
 
         if valid_overall:
             blended_o = round(sum(valid_overall) / len(valid_overall), 1)
         else:
             blended_o = 999.0
 
-        # Tri-Factor Positional Consensus Rank (FC + FP + PROJ)
+        # Tri-Pillar Positional Consensus Rank (Sleeper + FP + ESPN)
         valid_pos = []
-        if fc_p is not None and fc_p < 200:
-            valid_pos.append(fc_p)
-        if fp_p < 200:
-            valid_pos.append(fp_p)
         if proj_p is not None and proj_p < 200:
             valid_pos.append(proj_p)
+        if fp_p < 200:
+            valid_pos.append(fp_p)
+        if espn_p is not None and espn_p < 200:
+            valid_pos.append(espn_p)
 
         if valid_pos:
             blended_p = round(sum(valid_pos) / len(valid_pos), 1)
         else:
             blended_p = 999.0
 
-        # Calculate Consensus Market Value
-        if blended_o <= 160 and fc_curve:
-            curve_v = _interpolate_value_from_ecr(fc_curve, blended_o)
-            p_data["market_value"] = round(max(raw_fc_v, curve_v * 0.85 if curve_v > 40 else curve_v), 1)
-        else:
-            depth_v = _calculate_redraft_depth_value(blended_o)
-            p_data["market_value"] = round(max(raw_fc_v, depth_v), 1)
+        # Calculate Consensus Market Value via continuous curve
+        p_data["market_value"] = _calculate_redraft_market_value(blended_o)
 
         p_data["rank_ecr_overall"] = blended_o
         p_data["rank_ecr_pos"] = blended_p

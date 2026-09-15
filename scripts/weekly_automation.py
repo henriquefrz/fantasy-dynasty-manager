@@ -35,6 +35,7 @@ from src.market_data import (
     get_values_picks_raw,
     get_ktc_data_raw,
     get_fantasycalc_data_raw,
+    get_espn_data_raw,
     build_consensus_picks_lookup,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
@@ -263,7 +264,7 @@ def main():
     ktc_1qb = get_ktc_data_raw(is_superflex=False)
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-    fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
+    espn_raw = get_espn_data_raw(season=active_season, scoring_period=1)
 
     dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty")
     enrich_lookup_with_consensus_values(dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
@@ -274,7 +275,14 @@ def main():
     weekly_proj = get_weekly_projections(active_season, active_week)
     ros_proj = get_ros_projections(active_season, start_week=active_week, end_week=17)
     redraft_lk = build_positional_lookup(fp_rankings, player_ids, "redraft")
-    enrich_lookup_with_redraft_values(redraft_lk, fc_redraft_raw=fc_redraft, projections_raw=ros_proj)
+    enrich_lookup_with_redraft_values(
+        redraft_lk,
+        espn_raw=espn_raw,
+        projections_raw=ros_proj,
+        player_ids_raw=player_ids,
+        start_week=active_week,
+        end_week=17,
+    )
 
     if args.routine in ["tuesday", "all"]:
         run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, redraft_lk, output_dir=args.output_dir)

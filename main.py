@@ -24,6 +24,7 @@ from src.market_data import (
     get_values_picks_raw,
     get_ktc_data_raw,
     get_fantasycalc_data_raw,
+    get_espn_data_raw,
     build_consensus_picks_lookup,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
@@ -147,9 +148,9 @@ ktc_sf = get_ktc_data_raw(is_superflex=True)
 ktc_1qb = get_ktc_data_raw(is_superflex=False)
 fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
 fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
+espn_raw = get_espn_data_raw(season="2024", scoring_period=1)
 nfl_state = get_nfl_state() or {}
-active_season = nfl_state.get("season", season)
+active_season = nfl_state.get("season", "2024")
 active_week = max(1, nfl_state.get("week", 1))
 projections_raw = get_weekly_projections(active_season, active_week)
 
@@ -161,10 +162,17 @@ dynasty_lookup_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty")
 enrich_lookup_with_consensus_values(dynasty_lookup_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
 redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "redraft")
-enrich_lookup_with_redraft_values(redraft_lookup, fc_redraft_raw=fc_redraft, projections_raw=projections_raw)
+enrich_lookup_with_redraft_values(
+    redraft_lookup,
+    espn_raw=espn_raw,
+    projections_raw=projections_raw,
+    player_ids_raw=player_ids,
+    start_week=active_week,
+    end_week=17,
+)
 
 print(f"Players with Dynasty consensus data loaded: {len(dynasty_lookup_sf)}")
-print(f"Players with Redraft data loaded: {len(redraft_lookup)}")
+print(f"Players with Redraft (3-Pillar: Sleeper + FP + ESPN) data loaded: {len(redraft_lookup)}")
 
 # Build pick market value lookups supporting Early, Mid, and Late tiers via 3-Pillar Consensus
 picks_lookup_sf = build_consensus_picks_lookup(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
