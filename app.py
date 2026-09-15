@@ -2106,7 +2106,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_market_database(_cache_version="v25_espn_2026_season_sync"):
+def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
     """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2179,7 +2179,7 @@ def fetch_market_database(_cache_version="v25_espn_2026_season_sync"):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1):
+def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1, _cache_version: str = "v26_fp_ecr_sf_redraft_sync"):
     """
     Returns a cached redraft/ROS valuation lookup customized for the league's exact
     scoring settings (PPR/Half-PPR, TE Premium, pass TD weight) and superflex format.
