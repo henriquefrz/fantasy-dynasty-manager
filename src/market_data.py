@@ -798,14 +798,90 @@ ESPN_DST_TO_SLEEPER = {
 }
 
 
-def _extract_espn_pillar(espn_raw, player_ids_raw=None, lookup=None, start_week=1, end_week=17, is_superflex=False):
+DEFAULT_REDRAFT_SCORING = {
+    "rec": 0.5,
+    "bonus_rec_te": 0.0,
+    "pass_td": 4.0,
+    "pass_yd": 0.04,
+    "rush_yd": 0.1,
+    "rec_yd": 0.1,
+    "rush_td": 6.0,
+    "rec_td": 6.0,
+    "pass_int": -2.0,
+    "fum_lost": -2.0,
+}
+
+
+def _calc_espn_stat_split_points(s, pos, active_scoring):
+    """
+    Computes projected fantasy points for an ESPN stat split (weekly or season)
+    based on active league scoring settings (PPR, Half-PPR, TE Premium, pass TD, INT).
+    Leverages ESPN appliedTotal (standard baseline including yardage, TDs, 2pt conversions,
+    and returns) and adjusts for scoring differentials and reception bonuses.
+    """
+    applied = float(s.get("appliedTotal", 0.0) or 0.0)
+    stats = s.get("stats") or {}
+    if not stats:
+        return applied
+
+    rec = float(stats.get("53", 0.0))
+    rec_val = float(active_scoring.get("rec", 0.5))
+    te_bonus = float(active_scoring.get("bonus_rec_te", 0.0) or active_scoring.get("te_bonus", 0.0))
+    pass_td_rate = float(active_scoring.get("pass_td", 4.0))
+    pass_int_rate = float(active_scoring.get("pass_int", -2.0))
+    pass_yd_rate = float(active_scoring.get("pass_yd", 0.04))
+    rush_yd_rate = float(active_scoring.get("rush_yd", 0.1))
+    rec_yd_rate = float(active_scoring.get("rec_yd", 0.1))
+    rush_td_rate = float(active_scoring.get("rush_td", 6.0))
+    rec_td_rate = float(active_scoring.get("rec_td", 6.0))
+    fum_rate = float(active_scoring.get("fum_lost", -2.0))
+
+    pts = applied + (rec * rec_val)
+    if pos == "TE" and te_bonus > 0.0:
+        pts += rec * te_bonus
+
+    if pass_td_rate != 4.0:
+        pts += float(stats.get("4", 0.0)) * (pass_td_rate - 4.0)
+    if pass_int_rate != -2.0:
+        pts += float(stats.get("20", 0.0)) * (pass_int_rate - (-2.0))
+    if pass_yd_rate != 0.04:
+        pts += float(stats.get("3", 0.0)) * (pass_yd_rate - 0.04)
+    if rush_yd_rate != 0.1:
+        pts += float(stats.get("24", 0.0)) * (rush_yd_rate - 0.1)
+    if rec_yd_rate != 0.1:
+        pts += float(stats.get("42", 0.0)) * (rec_yd_rate - 0.1)
+    if rush_td_rate != 6.0:
+        pts += float(stats.get("25", 0.0)) * (rush_td_rate - 6.0)
+    if rec_td_rate != 6.0:
+        pts += float(stats.get("43", 0.0)) * (rec_td_rate - 6.0)
+    if fum_rate != -2.0:
+        fum_lost = float(stats.get("72", stats.get("73", 0.0)))
+        pts += fum_lost * (fum_rate - (-2.0))
+
+    return max(0.0, pts)
+
+
+def _extract_espn_pillar(
+    espn_raw,
+    player_ids_raw=None,
+    lookup=None,
+    start_week=1,
+    end_week=17,
+    scoring_settings=None,
+    is_superflex=False,
+):
     """
     Extracts multi-week rest-of-season projected points, positional ranks,
     and VORP-based overall ranks from ESPN's raw fantasy feed.
     Acts as Pillar 3 in the Tri-Factor Redraft / ROS Consensus Engine.
+    Dynamically respects league scoring settings (PPR, Half-PPR, TE Premium, pass TD, INT).
     """
     if not espn_raw:
         return {}
+
+    active_scoring = dict(DEFAULT_REDRAFT_SCORING)
+    if scoring_settings:
+        active_scoring.update(scoring_settings)
 
     espn_to_sleeper = {}
     name_pos_to_sleeper = {}
@@ -849,16 +925,18 @@ def _extract_espn_pillar(espn_raw, player_ids_raw=None, lookup=None, start_week=
 
         stats = p.get("stats", [])
         weekly_projs = {
-            s.get("scoringPeriodId"): float(s.get("appliedTotal", 0.0) or 0.0)
+            s.get("scoringPeriodId"): _calc_espn_stat_split_points(s, pos, active_scoring)
             for s in stats
             if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 1
         }
 
         ros_pts = sum(weekly_projs.get(w, 0.0) for w in range(start_week, end_week + 1))
         if ros_pts <= 0.0:
-            s_proj = next((float(s.get("appliedTotal", 0.0) or 0.0) for s in stats if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 0), 0.0)
-            if s_proj > 0.0:
-                ros_pts = s_proj * (remaining_weeks / 17.0)
+            s_split = next((s for s in stats if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 0), None)
+            if s_split:
+                s_proj = _calc_espn_stat_split_points(s_split, pos, active_scoring)
+                if s_proj > 0.0:
+                    ros_pts = s_proj * (remaining_weeks / 17.0)
 
         ppg = ros_pts / float(remaining_weeks)
 
@@ -931,18 +1009,9 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
     if not projections_raw:
         return {}
 
-    default_scoring = {
-        "rec": 0.5,
-        "pass_td": 4.0,
-        "pass_yd": 0.04,
-        "rush_yd": 0.1,
-        "rec_yd": 0.1,
-        "rush_td": 6.0,
-        "rec_td": 6.0,
-        "pass_int": -2.0,
-        "fum_lost": -2.0,
-    }
-    active_scoring = scoring_settings if scoring_settings else default_scoring
+    active_scoring = dict(DEFAULT_REDRAFT_SCORING)
+    if scoring_settings:
+        active_scoring.update(scoring_settings)
 
     scored_players = []
     for pid, raw_proj in projections_raw.items():
@@ -1048,6 +1117,7 @@ def enrich_lookup_with_redraft_values(
         lookup=lookup,
         start_week=start_week,
         end_week=end_week,
+        scoring_settings=scoring_settings,
         is_superflex=is_superflex,
     )
 

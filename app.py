@@ -2178,6 +2178,61 @@ def fetch_market_database(_cache_version="v25_espn_2026_season_sync"):
     }
 
 
+@st.cache_data(ttl=900, show_spinner=False)
+def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1):
+    """
+    Returns a cached redraft/ROS valuation lookup customized for the league's exact
+    scoring settings (PPR/Half-PPR, TE Premium, pass TD weight) and superflex format.
+    Falls back directly to default 0.5 Half-PPR redraft lookup if settings match standard baseline.
+    """
+    scoring_dict = dict(scoring_tuple)
+    rec = scoring_dict.get("rec", 0.5)
+    tep = scoring_dict.get("bonus_rec_te", 0.0) or scoring_dict.get("te_bonus", 0.0)
+    pass_td = scoring_dict.get("pass_td", 4.0)
+    pass_yd = scoring_dict.get("pass_yd", 0.04)
+    rush_yd = scoring_dict.get("rush_yd", 0.1)
+    rec_yd = scoring_dict.get("rec_yd", 0.1)
+    rush_td = scoring_dict.get("rush_td", 6.0)
+    rec_td = scoring_dict.get("rec_td", 6.0)
+    pass_int = scoring_dict.get("pass_int", -2.0)
+    fum_lost = scoring_dict.get("fum_lost", -2.0)
+
+    # Check if league matches the global standard baseline
+    is_standard_baseline = (
+        rec == 0.5
+        and tep == 0.0
+        and pass_td == 4.0
+        and pass_yd == 0.04
+        and rush_yd == 0.1
+        and rec_yd == 0.1
+        and rush_td == 6.0
+        and rec_td == 6.0
+        and pass_int == -2.0
+        and fum_lost == -2.0
+        and not is_superflex
+    )
+    if is_standard_baseline:
+        return _market_db["redraft_lookup"]
+
+    base_lk = build_positional_lookup(
+        _market_db["fp_rankings"],
+        _market_db["player_ids"],
+        "redraft",
+        is_superflex=is_superflex,
+    )
+    enrich_lookup_with_redraft_values(
+        base_lk,
+        espn_raw=_market_db["espn_raw"],
+        projections_raw=_market_db["ros_projections_raw"],
+        player_ids_raw=_market_db["player_ids"],
+        scoring_settings=scoring_dict,
+        is_superflex=is_superflex,
+        start_week=week,
+        end_week=17,
+    )
+    return base_lk
+
+
 def build_market_assets_list(active_lookup, players_db, is_redraft=False):
     """
     Builds an enriched, sorted list of market assets (players & draft picks)
@@ -2778,14 +2833,16 @@ if st.session_state.get("selected_league_id") is None:
         tep_b = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0) or settings.get("tep_bonus", 0.0)
 
         # Accurately compute quick status, category, record, and synchronized ranks
+        lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
+        league_redraft_lookup = get_league_custom_redraft_lookup(market_db, lg_scoring_tuple, is_sf, active_week)
         league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
-        league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else market_db["redraft_lookup"]
+        league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else league_redraft_lookup
         if tep_b > 0 and is_dyn:
             league_lookup = apply_te_premium(league_lookup, bonus_rec_te=tep_b)
         league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
         league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
         t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
-            lid, user["user_id"], is_dyn, roster_pos, league_lookup, market_db["redraft_lookup"], players,
+            lid, user["user_id"], is_dyn, roster_pos, league_lookup, league_redraft_lookup, players,
             _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg, current_week=active_week
         )
 
@@ -2957,7 +3014,8 @@ else:
     if tep_bonus > 0:
         primary_lookup = apply_te_premium(primary_lookup, bonus_rec_te=tep_bonus)
 
-    redraft_lookup = market_db["redraft_lookup"]
+    scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
+    redraft_lookup = get_league_custom_redraft_lookup(market_db, scoring_tuple, is_superflex, active_week)
     picks_bundle = market_db["picks_bundle_sf"] if is_superflex else market_db["picks_bundle_1qb"]
     picks_lookup = compute_picks_lookup_from_bundle(picks_bundle, mode=selected_mode)
 
