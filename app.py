@@ -2463,6 +2463,251 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _pr
     return rows, total_leagues, league_summaries
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, active_week, _players, _leagues_data, _cache_version="v1_hub_lineup_alerts"):
+    """
+    Aggregates actionable lineup suggestions across all leagues for the connected user.
+    Reuses existing calculate_weekly_projected_points and audit_weekly_lineup engines.
+    Returns sorted list of league alert dicts.
+    """
+    weekly_proj = get_weekly_projections(active_season, active_week)
+    league_alerts = []
+
+    league_map = {str(lg.get("league_id")): lg for lg in _leagues_data}
+
+    for lid_raw in league_ids:
+        lid = str(lid_raw)
+        lg = league_map.get(lid)
+        if not lg:
+            continue
+        lname = lg.get("name", f"League {lid}")
+        rosters = get_league_rosters(lid)
+        u_roster = get_user_roster(rosters, user_id)
+        if not u_roster or not u_roster.get("players"):
+            continue
+
+        roster_pos = lg.get("roster_positions", [])
+        scoring = lg.get("scoring_settings", {})
+        r_players = get_roster_players(u_roster, _players)
+
+        proj_lookup = {}
+        for p in r_players:
+            pid = p.get("player_id")
+            raw = weekly_proj.get(pid)
+            proj_lookup[pid] = calculate_weekly_projected_points(pid, raw, scoring, p)
+
+        audit = audit_weekly_lineup(
+            user_roster=u_roster,
+            roster_players=r_players,
+            projections_lookup=proj_lookup,
+            roster_positions=roster_pos,
+            player_db=_players,
+        )
+
+        swaps = audit.get("start_sit_swaps", [])
+        raw_injuries = audit.get("injury_alerts", [])
+
+        # Filter actionable injuries:
+        # High urgency: Out / IR / PUP / Sus
+        # Medium urgency: Doubtful / Questionable where a healthy bench pivot exists
+        urgent_injuries = []
+        for inj in raw_injuries:
+            status = inj.get("status")
+            if status in ("Out", "IR", "PUP", "Sus"):
+                urgent_injuries.append({**inj, "urgency": "high"})
+            elif status in ("Doubtful", "Questionable") and inj.get("pivot"):
+                urgent_injuries.append({**inj, "urgency": "medium"})
+
+        # Only alert if there is a concrete start/sit swap or a starter ruled OUT/IR
+        if not swaps and not any(inj["urgency"] == "high" for inj in urgent_injuries):
+            continue
+
+        formatted_moves = []
+        copy_lines = []
+
+        # 1. Urgent injuries: active starter is Out / IR
+        for inj in urgent_injuries:
+            if inj["urgency"] == "high":
+                starter_name = inj["starter"].get("full_name") or inj["starter"].get("player_id")
+                slot = inj["slot"].replace("_", " ")
+                pivot = inj.get("pivot")
+                status = inj["status"].upper()
+                if pivot:
+                    pname = pivot[0].get("full_name")
+                    ppts = pivot[1]
+                    formatted_moves.append({
+                        "type": "injury_out",
+                        "slot": slot,
+                        "text": f"{slot}: {starter_name} is {status} — start {pname} from bench ({ppts:.1f} pts)",
+                        "text_clean": f"{starter_name} is {status} — start {pname} from bench ({ppts:.1f} pts)",
+                        "impact": ppts,
+                    })
+                    copy_lines.append(f"{slot}: start {pname} over {starter_name} ({status})")
+                else:
+                    formatted_moves.append({
+                        "type": "injury_out",
+                        "slot": slot,
+                        "text": f"{slot}: {starter_name} is {status} — No healthy bench pivot found!",
+                        "text_clean": f"{starter_name} is {status} — No healthy bench pivot found!",
+                        "impact": 5.0,
+                    })
+                    copy_lines.append(f"{slot}: {starter_name} is {status} (bench empty)")
+
+        # 2. Start/Sit swaps (gain >= 0.5 pts)
+        for s in swaps:
+            st_p = s["start_player"].get("full_name") or s["start_player"].get("player_id")
+            sit_p = s["sit_player"].get("full_name") or s["sit_player"].get("player_id")
+            slot = s["slot"].replace("_", " ")
+            gain = s["gain"]
+            formatted_moves.append({
+                "type": "swap",
+                "slot": slot,
+                "text": f"{slot}: start {st_p} over {sit_p} (+{gain:.1f} pts)",
+                "text_clean": f"start {st_p} over {sit_p} (+{gain:.1f} pts)",
+                "impact": gain,
+            })
+            copy_lines.append(f"{slot}: start {st_p} over {sit_p} (+{gain:.1f} pts)")
+
+        # 3. Contextual Questionable warnings alongside swaps
+        for inj in urgent_injuries:
+            if inj["urgency"] == "medium":
+                starter_name = inj["starter"].get("full_name") or inj["starter"].get("player_id")
+                slot = inj["slot"].replace("_", " ")
+                pivot = inj.get("pivot")
+                pname = pivot[0].get("full_name")
+                ppts = pivot[1]
+                formatted_moves.append({
+                    "type": "injury_q",
+                    "slot": slot,
+                    "text": f"{slot}: monitor {starter_name} (Q) — bench pivot ready: {pname} ({ppts:.1f} pts)",
+                    "text_clean": f"monitor {starter_name} (Q) — bench pivot ready: {pname} ({ppts:.1f} pts)",
+                    "impact": 0.5,
+                })
+                copy_lines.append(f"{slot}: monitor {starter_name} (Q) -> pivot {pname}")
+
+        total_impact = sum(m["impact"] for m in formatted_moves)
+        has_out = any(m["type"] == "injury_out" for m in formatted_moves)
+
+        league_alerts.append({
+            "league_id": lid,
+            "league_name": lname,
+            "moves": formatted_moves,
+            "copy_text": f"{lname}: " + "; ".join(copy_lines),
+            "total_impact": total_impact,
+            "has_out_injury": has_out,
+            "points_diff": audit.get("points_differential", 0.0),
+        })
+
+    league_alerts.sort(key=lambda x: (x["has_out_injury"], x["total_impact"]), reverse=True)
+    return league_alerts
+
+
+def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle):
+    """
+    Renders the consolidated executive heads-up lineup recommendations card.
+    Follows the dark card aesthetic with coral/orange-red accent border.
+    """
+    if not league_alerts:
+        return f"""
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-left: 4px solid #10b981; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.25rem;">✅</span>
+                <div>
+                    <div style="color: #34d399; font-weight: 800; font-size: 0.98rem;">All Starting Lineups Optimal — Week {active_week}</div>
+                    <div style="color: #94a3b8; font-size: 0.82rem; margin-top: 2px;">No suboptimal starters or unaddressed player injuries detected across your franchises.</div>
+                </div>
+            </div>
+        </div>
+        """
+
+    num_leagues = len(league_alerts)
+    league_word = "league" if num_leagues == 1 else "leagues"
+
+    rows_html = []
+    for a in league_alerts:
+        lid = a["league_id"]
+        lname = a["league_name"]
+        moves = a["moves"]
+        copy_text = a["copy_text"].replace("'", "\\'").replace('"', '&quot;')
+
+        moves_rendered = []
+        for m in moves:
+            slot = m["slot"]
+            mtype = m["type"]
+            text_clean = m["text_clean"]
+            if mtype == "injury_out":
+                parts = text_clean.split(" — ")
+                head_part = parts[0]
+                tail_part = f" — {parts[1]}" if len(parts) > 1 else ""
+                moves_rendered.append(f"""
+                <div style="margin-bottom: 4px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;">
+                    <span style="color: #94a3b8; font-weight: 600;">{slot}:</span> <strong style="color: #f87171;">{head_part}</strong>{tail_part}
+                </div>
+                """)
+            elif mtype == "swap":
+                moves_rendered.append(f"""
+                <div style="margin-bottom: 4px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;">
+                    <span style="color: #94a3b8; font-weight: 600;">{slot}:</span> {text_clean}
+                </div>
+                """)
+            else:
+                moves_rendered.append(f"""
+                <div style="margin-bottom: 4px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.84rem; color: #94a3b8; line-height: 1.5;">
+                    <span style="color: #64748b; font-weight: 600;">{slot}:</span> {text_clean}
+                </div>
+                """)
+
+        moves_block = "".join(moves_rendered)
+
+        rows_html.append(f"""
+        <div style="padding: 14px 0; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 260px;">
+                <div style="font-weight: 700; font-size: 1.02rem; color: #f8fafc; margin-bottom: 5px; letter-spacing: -0.01em;">
+                    {lname}
+                </div>
+                <div>
+                    {moves_block}
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0;">
+                <button onclick="navigator.clipboard.writeText('{copy_text}'); this.innerText='Copied!'; this.style.borderColor='#34d399'; this.style.color='#34d399'; setTimeout(() => {{ this.innerText='Copy moves'; this.style.borderColor='rgba(148, 163, 184, 0.25)'; this.style.color='#cbd5e1'; }}, 2000);"
+                        style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.25); color: #cbd5e1; border-radius: 20px; padding: 6px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; outline: none; white-space: nowrap;">
+                    Copy moves
+                </button>
+                <a href="?league={lid}&user={active_user_handle}" target="_self"
+                   style="color: #94a3b8; font-size: 0.84rem; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s ease;">
+                    Take a look →
+                </a>
+            </div>
+        </div>
+        """)
+
+    body_rows = "".join(rows_html)
+
+    card_html = f"""
+    <div style="background: #0d1512; border: 1px solid rgba(248, 113, 113, 0.2); border-left: 4px solid #f87171; border-radius: 12px; padding: 20px 24px; margin-bottom: 26px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+        <!-- Card Header -->
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px;">
+            <div style="color: #f87171; font-size: 1.15rem; line-height: 1.2;">⚠️</div>
+            <div>
+                <div style="color: #f87171; font-weight: 800; font-size: 1.12rem; letter-spacing: -0.01em;">
+                    Heads up — {num_leagues} {league_word} need a lineup look
+                </div>
+                <div style="color: #94a3b8; font-size: 0.88rem; margin-top: 4px;">
+                    Looks like a bench player might be a better call than who's starting somewhere, or someone's banged up. <span style="opacity: 0.6; cursor: help;" title="Lineup recommendations derived from Sleeper projected points, scoring rules, and active NFL injury designations">ⓘ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- League Action Rows -->
+        <div style="margin-top: 10px;">
+            {body_rows}
+        </div>
+    </div>
+    """
+    return card_html
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _redraft_lookup, _players, _picks_lookup=None, _weekly_proj=None, league_obj=None, current_week: int = 1, _cache_version: str = "v3_synchronized_ranks"):
     """Accurately calculates franchise status, category, record, and synchronized rank across leagues."""
@@ -2818,6 +3063,13 @@ if st.session_state.get("selected_league_id") is None:
         st.metric("Core Exposure Asset", f"{top_player}", f"{top_shares} Leagues")
 
     st.markdown("---")
+
+    # Consolidated Portfolio Lineup Recommendations Alert Card
+    hub_lineup_alerts = fetch_portfolio_lineup_recommendations(
+        user["user_id"], all_l_ids, active_season, active_week, players, sorted_leagues
+    )
+    st.html(render_hub_lineup_alerts_html(hub_lineup_alerts, active_week, active_user_handle))
+
     st.markdown("### League Workspaces")
     st.caption("Select any franchise to enter its dedicated analytical suite (Franchise Hub, Matchups & Start/Sit, Waivers, Power Rankings, Trade Center).")
 

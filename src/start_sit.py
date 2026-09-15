@@ -150,9 +150,9 @@ def simulate_optimal_weekly_lineup(
     starters: List[Tuple[Dict[str, Any], float, str]] = []
     used_pids: Set[str] = set()
 
-    # Pass 1: Fill primary dedicated slots (QB, RB, WR, TE, K, DEF)
+    # Pass 1: Fill primary dedicated slots (QB, RB, WR, TE, K, DEF, IDP)
     for slot in active_slots:
-        if slot in ("FLEX", "SUPER_FLEX", "WRRB_FLEX", "REC_FLEX"):
+        if slot in ("FLEX", "SUPER_FLEX", "WRRB_FLEX", "REC_FLEX", "IDP_FLEX"):
             continue
 
         best_cand = None
@@ -174,6 +174,7 @@ def simulate_optimal_weekly_lineup(
         "SUPER_FLEX": {"QB", "RB", "WR", "TE"},
         "WRRB_FLEX": {"RB", "WR"},
         "REC_FLEX": {"WR", "TE"},
+        "IDP_FLEX": {"DL", "LB", "DB", "DE", "DT", "CB", "S"},
     }
 
     for slot in active_slots:
@@ -265,6 +266,8 @@ def audit_weekly_lineup(
                     is_compatible = True
                 elif act_slot == "SUPER_FLEX" and pos in ("QB", "RB", "WR", "TE"):
                     is_compatible = True
+                elif act_slot == "IDP_FLEX" and pos in ("DL", "LB", "DB", "DE", "DT", "CB", "S"):
+                    is_compatible = True
 
                 if is_compatible and act_pts < min_pts:
                     min_pts = act_pts
@@ -291,7 +294,11 @@ def audit_weekly_lineup(
             pos = act_p.get("position")
             pivots = [
                 (bp, bpts) for bp, bpts in bench_players
-                if (bp.get("position") == pos or (slot in ("FLEX", "SUPER_FLEX") and bp.get("position") in ("RB", "WR", "TE")))
+                if (
+                    bp.get("position") == pos
+                    or (slot in ("FLEX", "SUPER_FLEX") and bp.get("position") in ("RB", "WR", "TE"))
+                    or (slot == "IDP_FLEX" and bp.get("position") in ("DL", "LB", "DB", "DE", "DT", "CB", "S"))
+                )
                 and bp.get("injury_status") not in ("Questionable", "Doubtful", "Out", "IR")
             ]
             best_pivot = pivots[0] if pivots else None
