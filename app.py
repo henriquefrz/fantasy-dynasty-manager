@@ -2204,7 +2204,10 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
     picks_bundle_1qb = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
-    freshness_info = get_market_data_freshness(fp_rankings, values_players, espn_raw=espn_raw)
+    freshness_info = get_market_data_freshness(
+        fp_rankings, values_players, espn_raw=espn_raw,
+        ktc_sf=ktc_sf, ktc_1qb=ktc_1qb, fc_sf=fc_sf, fc_1qb=fc_1qb,
+    )
 
     return {
         "players": players,
@@ -3164,6 +3167,17 @@ with st.container(key="topbar_nav_container"):
             st.rerun()
 
 st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
+
+# Market Data Freshness Alert: surfaces source fetch failures that used to only
+# be visible as a print() warning in the server console.
+_freshness_info = market_db.get("freshness", {})
+_failed_sources = [info.get("source", key) for key, info in _freshness_info.items() if not info.get("ok", True)]
+if _failed_sources:
+    st.warning(
+        f"⚠️ Some market data sources failed to refresh this session: **{', '.join(_failed_sources)}**. "
+        "Affected valuations may be based on stale or partial data. "
+        "See Settings → Market Data Freshness for details."
+    )
 
 # Prepare Primary Lookup
 players = market_db["players"]

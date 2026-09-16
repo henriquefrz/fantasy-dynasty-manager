@@ -529,9 +529,24 @@ def compute_composite_value(fc_val, ktc_val, dp_val, mode="equal", rank_ecr=None
     return round(composite, 1)
 
 
-def get_market_data_freshness(fp_raw=None, dp_raw=None, espn_raw=None):
+def get_market_data_freshness(
+    fp_raw=None,
+    dp_raw=None,
+    espn_raw=None,
+    ktc_sf=None,
+    ktc_1qb=None,
+    fc_sf=None,
+    fc_1qb=None,
+):
     """
-    Returns timestamp / scrape date status for each connected database.
+    Returns timestamp / scrape date status for each connected data source,
+    including whether the most recent fetch this session actually succeeded.
+
+    Every raw fetcher in this module (get_ktc_data_raw, get_fantasycalc_data_raw,
+    _download_csv-backed FP/DP feeds, get_espn_data_raw) returns an empty list on
+    failure instead of raising, so an empty payload here is the signal a source
+    failed to update - "ok" reflects that, and "status" surfaces it in plain text
+    instead of always claiming "Live Current" regardless of what happened.
     """
     from datetime import datetime
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -544,38 +559,51 @@ def get_market_data_freshness(fp_raw=None, dp_raw=None, espn_raw=None):
     if dp_raw and len(dp_raw) > 0:
         dp_date = dp_raw[0].get("scrape_date")
 
-    espn_status = f"Live Current ({len(espn_raw):,} players)" if espn_raw else "Live Current"
+    fp_ok = bool(fp_raw)
+    dp_ok = bool(dp_raw)
+    espn_ok = bool(espn_raw)
+    # Both Superflex and 1QB variants are fetched independently - only call the
+    # source "ok" if neither variant silently came back empty.
+    ktc_ok = bool(ktc_sf) and bool(ktc_1qb)
+    fc_ok = bool(fc_sf) and bool(fc_1qb)
+
+    espn_status = f"Live Current ({len(espn_raw):,} players)" if espn_ok else "Unavailable (fetch failed)"
 
     return {
         "fantasycalc": {
             "source": "FantasyCalc API",
             "type": "Live real-time trade data",
             "date": now_str,
-            "status": "Live Current",
+            "status": "Live Current" if fc_ok else "Unavailable (fetch failed)",
+            "ok": fc_ok,
         },
         "ktc": {
             "source": "KeepTradeCut",
             "type": "Live crowdsourced rankings",
             "date": now_str,
-            "status": "Live Current",
+            "status": "Live Current" if ktc_ok else "Unavailable (fetch failed)",
+            "ok": ktc_ok,
         },
         "dynastyprocess": {
             "source": "DynastyProcess ECR Model",
             "type": "Curated expert rankings & values",
             "date": dp_date or "2026-09-04",
-            "status": f"Updated ({dp_date or '2026-09-04'})",
+            "status": f"Updated ({dp_date or '2026-09-04'})" if dp_ok else "Unavailable (fetch failed)",
+            "ok": dp_ok,
         },
         "fantasypros": {
             "source": "FantasyPros ECR",
             "type": "Consensus redraft & dynasty ECR",
             "date": fp_date or "2026-09-04",
-            "status": f"Updated ({fp_date or '2026-09-04'})",
+            "status": f"Updated ({fp_date or '2026-09-04'})" if fp_ok else "Unavailable (fetch failed)",
+            "ok": fp_ok,
         },
         "espn": {
             "source": "ESPN Fantasy API",
             "type": "Live multi-week machine projections",
             "date": now_str,
             "status": espn_status,
+            "ok": espn_ok,
         },
     }
 
