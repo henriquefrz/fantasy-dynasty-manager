@@ -7,3 +7,4 @@ reports/
 .agents/
 *.log
 .cache_data/
+.streamlit/secrets.toml

@@ -14,6 +14,7 @@ Provides:
 
 import base64
 import copy
+import hmac
 import math
 import os
 import sys
@@ -287,6 +288,55 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+
+# -----------------------------------------------------------------------------
+# Password Gate (single shared password via st.secrets)
+# -----------------------------------------------------------------------------
+def _check_password():
+    """Blocks the app behind a single shared password stored in st.secrets['APP_PASSWORD'].
+
+    Validation happens once, on explicit form submit, instead of on every
+    text_input on_change event. A bare on_change handler fires on every
+    browser-side "change" event for the field - including intermediate,
+    partial events some browsers' password-manager autofill emits while
+    filling the value in - which caused spurious "incorrect password"
+    failures even when the final autofilled value was correct. st.form
+    batches input and only runs validation against the final submitted value.
+    """
+    if st.session_state.get("authenticated", False):
+        return True
+
+    try:
+        expected_password = st.secrets.get("APP_PASSWORD", "")
+    except Exception:
+        expected_password = ""
+
+    st.markdown("<div style='max-width:360px; margin: 15vh auto 0 auto;'>", unsafe_allow_html=True)
+    st.markdown("### 🔒 Fantasy Analytics")
+    with st.form("password_gate_form", clear_on_submit=True):
+        entered = st.text_input("Password", type="password", key="_password_input")
+        submitted = st.form_submit_button("Log in")
+
+    if submitted:
+        if expected_password and hmac.compare_digest(entered, expected_password):
+            st.session_state["authenticated"] = True
+            st.session_state["_password_error"] = False
+            st.rerun()
+        else:
+            st.session_state["_password_error"] = True
+
+    if not expected_password:
+        st.error("APP_PASSWORD not configured in st.secrets. Access blocked.")
+    elif st.session_state.get("_password_error"):
+        st.error("Incorrect password.")
+    st.markdown("</div>", unsafe_allow_html=True)
+    return False
+
+
+if not _check_password():
+    st.stop()
+
 
 st.markdown(
     """
@@ -2105,9 +2155,9 @@ def render_start_sit_card_html(swap):
 # -----------------------------------------------------------------------------
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=86400, show_spinner=False)
 def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
-    """Fetches all foundational market datasets and raw API feeds once per 30 minutes."""
+    """Fetches all foundational market datasets and raw API feeds once per 24 hours."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
     player_ids = get_player_ids_raw()
@@ -2621,7 +2671,11 @@ def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle
     100% aligned with Fantasy Dynasty Manager design system:
     - Uses .card-container with .card-alert styling (#111827 / slate background with amber #f59e0b accent).
     - Uses native micro-badges (.badge-pos, START, SIT, OUT).
-    - Uses brand secondary slate button for Copy Moves and primary Sky gradient for Open Workspace.
+    - Uses brand secondary slate button for Copy Moves.
+    - The "Open Workspace" action is rendered separately as a real st.button per
+      league (see the call site), so navigation goes through set_active_workspace()
+      instead of a raw <a href> link (a raw link would force a full page reload
+      and drop the authenticated session).
     """
     if not league_alerts:
         return f"""
@@ -2753,10 +2807,6 @@ def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle
                         style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); color: #e2e8f0; border-radius: 6px; padding: 6px 13px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;">
                     Copy Moves
                 </button>
-                <a href="?league={lid}&user={active_user_handle}" target="_self"
-                   style="display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 6px 14px; border-radius: 6px; font-weight: 800; font-size: 0.78rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25); transition: all 0.15s ease; white-space: nowrap;">
-                    Open Workspace →
-                </a>
             </div>
         </div>
         """)
@@ -2996,32 +3046,42 @@ with st.container(key="topbar_nav_container"):
     )
 
     with top_col_brand:
+        # Brand mark is static markup (no <a href>): a raw link would force a full
+        # page reload and drop the authenticated session. Returning to the portal
+        # is handled by the real st.button below, via set_active_workspace().
         if ICON_F_YARDS_B64:
             st.html(
                 f"""
-                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
+                <span style="display: inline-flex; align-items: center; gap: 10px; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
                     <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
                     <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
-                </a>
+                </span>
                 """
             )
         elif LOGO_HORIZONTAL_B64:
             st.html(
                 f"""
-                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; cursor: pointer;">
+                <span style="display: inline-flex; width: fit-content; max-width: fit-content; align-items: center;">
                     <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
-                </a>
+                </span>
                 """
             )
         else:
             st.html(
                 f"""
-                <a href="?user={active_user_handle}" target="_self" style="text-decoration: none; display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px; cursor: pointer;">
+                <span style="display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px;">
                     <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
                     <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
-                </a>
+                </span>
                 """
             )
+        st.button(
+            "🏠 Home",
+            key="brand_home_button",
+            on_click=set_active_workspace,
+            args=(None,),
+            help="Return to the portfolio portal",
+        )
 
     with top_col_nav:
         cur_lid = st.session_state.get("selected_league_id")
@@ -3154,6 +3214,18 @@ if st.session_state.get("selected_league_id") is None:
         user["user_id"], all_l_ids, active_season, active_week, players, sorted_leagues
     )
     st.html(render_hub_lineup_alerts_html(hub_lineup_alerts, active_week, active_user_handle))
+    if hub_lineup_alerts:
+        alert_btn_cols = st.columns(min(len(hub_lineup_alerts), 3))
+        for i, a in enumerate(hub_lineup_alerts):
+            with alert_btn_cols[i % len(alert_btn_cols)]:
+                st.button(
+                    f"Open {a['league_name']} →",
+                    key=f"open_workspace_hub_{a['league_id']}",
+                    on_click=set_active_workspace,
+                    args=(a["league_id"],),
+                    use_container_width=True,
+                    type="primary",
+                )
 
     st.markdown("### League Workspaces")
     st.caption("Select any franchise to enter its dedicated analytical suite (Franchise Hub, Matchups & Start/Sit, Waivers, Power Rankings, Trade Center).")
@@ -3251,13 +3323,14 @@ if st.session_state.get("selected_league_id") is None:
         title_badge = f"<span style='background: rgba(234, 179, 8, 0.18); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.45); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 800;'>🏆 {user_titles} Title{'s' if user_titles > 1 else ''}</span>" if user_titles > 0 else ""
         heritage_badge = f"<span style='background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 600;'>{heritage_txt}</span>"
 
+        # No <a href> here: a raw link would force a full page reload and drop the
+        # authenticated session. Navigation is a real st.button below, via
+        # set_active_workspace().
         card_html = f"""
-        <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
+        <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 8px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
             <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
                 <div>
-                    <a href='?league={lid}&user={active_user_handle}' target='_self' style='text-decoration: none; color: inherit;'>
-                        <h4 style='margin: 0; color: #f8fafc; font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
-                    </a>
+                    <h4 style='margin: 0; color: #f8fafc; font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em;'>{lname}</h4>
                     <div style='display: flex; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 4px;'>
                         <span style='color: #94a3b8; font-size: 0.78rem; font-weight: 500;'>{type_str}</span>
                         {tep_badge}
@@ -3273,7 +3346,7 @@ if st.session_state.get("selected_league_id") is None:
 
             {starter_badges}
 
-            <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;'>
+            <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;'>
                 <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
                     <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Record</div>
                     <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{w}-{l}</div>
@@ -3287,15 +3360,19 @@ if st.session_state.get("selected_league_id") is None:
                 {dyn_cell}
                 {season_cell}
             </div>
-
-            <a href='?league={lid}&user={active_user_handle}' target='_self' style='display: block; width: 100%; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; text-decoration: none; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25); transition: all 0.2s ease;'>
-                Open Workspace →
-            </a>
         </div>
         """
 
         with col:
             st.html("\n".join(line.lstrip() for line in card_html.splitlines()))
+            st.button(
+                "Open Workspace →",
+                key=f"open_workspace_card_{lid}",
+                on_click=set_active_workspace,
+                args=(lid,),
+                use_container_width=True,
+                type="primary",
+            )
 
 
 # =============================================================================
