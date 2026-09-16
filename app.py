@@ -949,6 +949,30 @@ st.markdown(
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
         }
 
+        /* Mobile Top Bar Layout: collapse the 4 stacked full-width blocks
+           (brand, league selector, settings, user) into a compact 2x2 grid
+           instead of 4 stacked rows - cuts the vertical space roughly in half. */
+        .st-key-topbar_nav_container [data-testid="stHorizontalBlock"] {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+        }
+        .st-key-topbar_nav_container [data-testid="column"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: unset !important;
+        }
+        .st-key-topbar_nav_container [data-testid="stMarkdownContainer"] span {
+            font-size: 0.95rem !important;
+        }
+        .st-key-topbar_nav_container button {
+            padding: 6px 10px !important;
+            font-size: 0.82rem !important;
+        }
+        .st-key-topbar_nav_container [data-baseweb="select"] {
+            font-size: 0.82rem !important;
+        }
+
         /* Mobile Matchup Arena Scoreboard Card */
         .matchup-arena-card {
             padding: 12px !important;
@@ -1036,6 +1060,49 @@ st.markdown(
     </style>
     """,
     unsafe_allow_html=True,
+)
+
+st.components.v1.html(
+    """
+    <script>
+    (function() {
+        // st.html() strips <script> tags entirely, so this runs inside a
+        // components.v1.html iframe instead (same-origin, so window.parent.document
+        // is reachable) purely to get real script execution; the listener is
+        // attached directly to the PARENT document, not this iframe's own one.
+        //
+        // Streamlit re-runs this whole block (and recreates this iframe) on every
+        // real script rerun, which kills the previous iframe's closures - so a
+        // "run once" guard stored on the parent document would leave a dead
+        // listener behind with nothing to replace it. Instead, always remove the
+        // previous (now-inert) listener and attach a fresh, working one each time.
+        var doc = window.parent.document;
+        if (doc.__tabScrollFixHandler) {
+            doc.removeEventListener('click', doc.__tabScrollFixHandler, true);
+        }
+
+        function scrollActiveTabIntoView() {
+            var selected = doc.querySelector('[role="tab"][aria-selected="true"]');
+            if (selected && typeof selected.scrollIntoView === 'function') {
+                selected.scrollIntoView({behavior: 'instant', inline: 'center', block: 'nearest'});
+            }
+        }
+
+        // Event delegation on document: works for tabs that don't exist yet at
+        // attach-time (e.g. after switching leagues), and for both the top-level
+        // tab strip and any nested sub-tabs (Franchise Hub, Power Rankings, etc).
+        doc.__tabScrollFixHandler = function(e) {
+            var tab = e.target.closest && e.target.closest('[role="tab"]');
+            if (tab) {
+                setTimeout(scrollActiveTabIntoView, 50);
+            }
+        };
+        doc.addEventListener('click', doc.__tabScrollFixHandler, true);
+    })();
+    </script>
+    """,
+    height=0,
+    width=0,
 )
 
 
@@ -1158,9 +1225,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
                     <th style='width: 27%; text-align: left;'>Player</th>
+                    <th style='width: 15%; text-align: center;'>Single-Season Value</th>
                     <th style='width: 11%; text-align: center;'>Overall Rank</th>
                     <th style='width: 11%; text-align: center;'>Pos Rank</th>
-                    <th style='width: 15%; text-align: center;'>Single-Season Value</th>
                     <th style='width: 12%; text-align: center;'>Sleeper Proj PPG</th>
                     <th style='width: 12%; text-align: center;'>FantasyPros ECR</th>
                     <th style='width: 12%; text-align: center;'>ESPN Proj PPG</th>
@@ -1177,9 +1244,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
                     <th style='width: 28%; text-align: left;'>Player</th>
+                    <th style='width: 16%; text-align: center;'>Consensus Value</th>
                     <th style='width: 12%; text-align: center;'>Overall Rank</th>
                     <th style='width: 12%; text-align: center;'>Pos Rank</th>
-                    <th style='width: 16%; text-align: center;'>Consensus Value</th>
                     <th style='width: 11%; text-align: center;'>KeepTradeCut</th>
                     <th style='width: 11%; text-align: center;'>FantasyCalc</th>
                     <th style='width: 10%; text-align: center;'>DynastyProcess</th>
@@ -1235,9 +1302,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                             </div>
                         </div>
                     </td>
+                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{proj}</td>
                     <td style='text-align: center; color: #fbbf24;'>{fp}</td>
                     <td style='text-align: center; color: #f87171; font-weight: 700;'>{espn}</td>
@@ -1259,9 +1326,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                             </div>
                         </div>
                     </td>
+                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                    <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{fc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{dp}</td>
@@ -1642,9 +1709,9 @@ def render_picks_table_html(pick_rows, show_equity=False):
         <thead>
             <tr>
                 <th style='width: 45%; text-align: left;'>Draft Pick Asset</th>
+                <th style='width: 25%; text-align: center;'>Consensus Market Value</th>
                 <th style='width: 15%; text-align: center;'>Season</th>
                 <th style='width: 15%; text-align: center;'>Round</th>
-                <th style='width: 25%; text-align: center;'>Consensus Market Value</th>
                 {eq_th}
             </tr>
         </thead>
@@ -1675,9 +1742,9 @@ def render_picks_table_html(pick_rows, show_equity=False):
                         </div>
                     </div>
                 </td>
+                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                 <td style='text-align: center; color: #f8fafc; font-weight: 700;'><span class='rank-pill'>{season}</span></td>
                 <td style='text-align: center; color: #cbd5e1;'><span class='rank-pill rank-pill-highlight'>{round_str}</span></td>
-                <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                 {eq_td}
             </tr>
         """
