@@ -9,31 +9,37 @@ BASE_URL = "https://api.sleeper.app/v1"
 def get_user(username):
     url = f"{BASE_URL}/user/{username}"
 
-    response = requests.get(url)
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch Sleeper user '{username}': {e}")
+        return {}
 
 
 def get_user_leagues(user_id, season):
     url = f"{BASE_URL}/user/{user_id}/leagues/nfl/{season}"
 
-    response = requests.get(url)
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch leagues for user {user_id} (season {season}): {e}")
+        return []
 
 
 def get_league_rosters(league_id):
     url = f"{BASE_URL}/league/{league_id}/rosters"
 
-    response = requests.get(url)
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch rosters for league {league_id}: {e}")
+        return []
 
 
 def get_user_roster(rosters, user_id):
@@ -47,11 +53,13 @@ def get_user_roster(rosters, user_id):
 def get_players():
     url = f"{BASE_URL}/players/nfl"
 
-    response = requests.get(url)
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch NFL players database: {e}")
+        return {}
 
 
 def get_roster_players(roster, players):
@@ -159,21 +167,25 @@ def get_free_agents(rosters, players, roster_positions=None):
 def get_traded_picks(league_id):
     url = f"{BASE_URL}/league/{league_id}/traded_picks"
 
-    response = requests.get(url)
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch traded picks for league {league_id}: {e}")
+        return []
 
 
 def get_league_users(league_id):
     url = f"{BASE_URL}/league/{league_id}/users"
 
-    response = requests.get(url)
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch users for league {league_id}: {e}")
+        return []
 
 
 def get_nfl_state():

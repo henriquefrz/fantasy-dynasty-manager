@@ -11,6 +11,7 @@ import random
 import hashlib
 from typing import Dict, List, Tuple, Any, Optional
 from src.start_sit import calculate_weekly_projected_points, simulate_optimal_weekly_lineup
+from src.sleeper_api import compute_historical_standings
 
 
 DEFAULT_WEEKLY_STD_DEV = 13.5  # Standard deviation in fantasy football weekly team scoring
@@ -720,8 +721,6 @@ def run_historical_simulation_snapshot(
     Simulates the season as it was projected at the start of `snapshot_week`.
     Reconstructs actual win/loss records through week `snapshot_week - 1`.
     """
-    from src.sleeper_api import compute_historical_standings
-
     if snapshot_week <= 1:
         custom_records = {r["roster_id"]: {"wins": 0, "losses": 0, "ties": 0, "pf": 0.0} for r in rosters}
     elif snapshot_week >= current_week and current_week > 1:

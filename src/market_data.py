@@ -7,6 +7,8 @@ import re
 import time
 import requests
 
+from src.start_sit import calculate_weekly_projected_points
+
 
 FPECR_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_fpecr_latest.csv"
 PLAYERIDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
@@ -1038,8 +1040,6 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
     and VORP-based overall ranks for all players in projections_raw.
     Acts as Pillar 1 in the Tri-Factor Redraft / ROS Consensus Engine.
     """
-    from src.start_sit import calculate_weekly_projected_points
-
     if not projections_raw:
         return {}
 

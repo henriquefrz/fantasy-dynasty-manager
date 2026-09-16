@@ -12,6 +12,7 @@ Implements:
 from typing import Dict, List, Tuple, Any, Optional
 from src.team_strength import simulate_optimal_lineup
 from src.draft_picks import project_pick_tier, get_single_pick_value
+from src.playoff_simulator import compute_dynasty_power_rankings
 
 
 STUD_MULTIPLIER = 1.15
@@ -850,7 +851,6 @@ def build_positional_room_leaderboard(
         missing_dyn = any("dynasty_score" not in p or "dynasty_rank" not in p for p in all_team_profiles)
         if missing_dyn:
             try:
-                from src.playoff_simulator import compute_dynasty_power_rankings
                 dyn_res = compute_dynasty_power_rankings(all_team_profiles)
                 ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
                 for idx, d in enumerate(ranked_dyn, 1):
