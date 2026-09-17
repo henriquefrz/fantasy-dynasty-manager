@@ -48,6 +48,20 @@ def classify_league(league, rosters):
     }
 
 
+def is_superflex_league(roster_positions):
+    """
+    Returns True if roster_positions indicates a Superflex format: an explicit
+    "SUPER_FLEX" slot, or 2+ dedicated "QB" slots. Single shared implementation
+    for every caller that needs this (previously reimplemented independently
+    in 8 places across app.py, main.py, trade_engine.py, and
+    weekly_automation.py, with no guarantee they'd stay in sync).
+    """
+    if not roster_positions:
+        return False
+
+    return "SUPER_FLEX" in roster_positions or roster_positions.count("QB") >= 2
+
+
 def get_starter_counts(league):
     roster_positions = league.get("roster_positions", [])
     counts = Counter(roster_positions)

@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple, Any, Optional
 from src.team_strength import simulate_optimal_lineup
 from src.draft_picks import project_pick_tier, get_single_pick_value
 from src.playoff_simulator import compute_dynasty_power_rankings
+from src.league_classifier import is_superflex_league
 
 
 STUD_MULTIPLIER = 1.15
@@ -220,7 +221,7 @@ def analyze_team_profile(
     pos_bench = {pos: [a for a in bench_assets if a["position"] == pos] for pos in positions}
 
     req_counts = {pos: roster_positions.count(pos) for pos in positions}
-    is_superflex = "SUPER_FLEX" in roster_positions or roster_positions.count("QB") >= 2
+    is_superflex = is_superflex_league(roster_positions)
 
     surpluses = []
     deficits = []
@@ -311,7 +312,7 @@ def is_position_saturated(
 
     req_counts = {p: roster_positions.count(p) for p in ("QB", "RB", "WR", "TE")} if roster_positions else {}
     base_req = req_counts.get(pos, 1)
-    is_superflex = bool(roster_positions and ("SUPER_FLEX" in roster_positions or roster_positions.count("QB") >= 2))
+    is_superflex = is_superflex_league(roster_positions)
 
     if pos == "TE":
         # In 1-TE leagues, holding 2 or more viable starting-tier TEs (or 3+ overall startable TEs) is saturated
@@ -834,7 +835,7 @@ def build_positional_room_leaderboard(
     """
     # Determine starter requirements per position
     if roster_positions:
-        is_sf = ("SUPER_FLEX" in roster_positions) or (roster_positions.count("QB") >= 2)
+        is_sf = is_superflex_league(roster_positions)
         s_qb = 2 if is_sf else max(1, roster_positions.count("QB"))
         s_rb = max(2, roster_positions.count("RB"))
         s_wr = max(3, roster_positions.count("WR"))

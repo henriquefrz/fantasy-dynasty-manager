@@ -15,7 +15,7 @@ from src.sleeper_api import (
     get_weekly_projections,
     get_league_schedule,
 )
-from src.league_classifier import classify_league, get_starter_counts
+from src.league_classifier import classify_league, get_starter_counts, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_player_ids_raw,
@@ -220,7 +220,7 @@ for league in leagues:
     }
 
     # Detect Superflex
-    is_superflex = "SUPER_FLEX" in roster_pos or roster_pos.count("QB") >= 2
+    is_superflex = is_superflex_league(roster_pos)
 
     # Detect TE Premium
     scoring = league.get("scoring_settings", {})

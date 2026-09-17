@@ -26,7 +26,7 @@ from src.sleeper_api import (
     get_weekly_projections,
     get_ros_projections,
 )
-from src.league_classifier import classify_league
+from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_player_ids_raw,
@@ -74,7 +74,7 @@ def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb,
 
         ltype = classify_league(league, rosters)
         roster_pos = league.get("roster_positions", [])
-        is_sf = "SUPER_FLEX" in roster_pos or roster_pos.count("QB") >= 2
+        is_sf = is_superflex_league(roster_pos)
         is_dyn = ltype["type"] != "redraft"
         scoring = league.get("scoring_settings", {})
         bonus_te = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
@@ -165,7 +165,7 @@ def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_
 
         ltype = classify_league(league, rosters)
         roster_pos = league.get("roster_positions", [])
-        is_sf = "SUPER_FLEX" in roster_pos or roster_pos.count("QB") >= 2
+        is_sf = is_superflex_league(roster_pos)
         is_dyn = ltype["type"] != "redraft"
         scoring = league.get("scoring_settings", {})
         bonus_te = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)

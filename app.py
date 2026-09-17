@@ -88,7 +88,7 @@ except ImportError:
     get_league_matchups = getattr(_s_api, "get_league_matchups")
     get_league_history = getattr(_s_api, "get_league_history")
     compute_historical_standings = getattr(_s_api, "compute_historical_standings", lambda lid, r, w: {})
-from src.league_classifier import classify_league, get_starter_counts
+from src.league_classifier import classify_league, get_starter_counts, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_player_ids_raw,
@@ -3329,7 +3329,7 @@ if st.session_state.get("selected_league_id") is None:
         is_dyn = (settings.get("type") == 2)
         total_rosters = lg.get("total_rosters", 12)
         roster_pos = lg.get("roster_positions", [])
-        is_sf = any(pos in ("SUPER_FLEX", "QB") for pos in roster_pos if roster_pos.count("QB") > 1 or pos == "SUPER_FLEX")
+        is_sf = is_superflex_league(roster_pos)
         scoring = lg.get("scoring_settings", {})
         tep_b = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0) or settings.get("tep_bonus", 0.0)
 
@@ -3508,7 +3508,7 @@ else:
     # League Classification & Scoring Adjustments
     ltype = classify_league(selected_league, rosters)
     is_dynasty = (ltype.get("type") != "redraft")
-    is_superflex = any(pos in ("SUPER_FLEX", "QB") for pos in roster_pos if roster_pos.count("QB") > 1 or pos == "SUPER_FLEX")
+    is_superflex = is_superflex_league(roster_pos)
     total_rosters = selected_league.get("total_rosters", len(rosters))
 
     scoring = selected_league.get("scoring_settings", {})
