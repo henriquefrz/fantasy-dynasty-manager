@@ -391,24 +391,71 @@ st.markdown(
     .badge-def{ background-color: #64748b; }
     .badge-pick{ background-color: #a855f7; }
 
-    /* Top Bar Brand Home Button */
-    .st-key-btn_brand_home button {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%) !important;
-        border: 1px solid rgba(56, 189, 248, 0.35) !important;
-        border-radius: 8px !important;
-        color: #f8fafc !important;
-        font-weight: 800 !important;
-        font-size: 1.05rem !important;
-        letter-spacing: -0.01em !important;
-        padding: 6px 14px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
-        transition: all 0.2s ease !important;
+    /* Top Bar Brand Logo - clickable as a single centered unit. The visible
+       logo (image + wordmark) is static markup; clicking it is handled by a
+       real st.button rendered as an invisible overlay on top of it, not an
+       <a href> link (a raw link forces a full page reload and drops the
+       authenticated session - see _check_password). Selectors are scoped
+       under .st-key-topbar_nav_container so they out-specificity the mobile
+       ".st-key-topbar_nav_container button" rule further down. */
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap {
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
     }
-    .st-key-btn_brand_home button:hover {
-        background: rgba(56, 189, 248, 0.2) !important;
-        border-color: rgba(56, 189, 248, 0.75) !important;
-        box-shadow: 0 0 14px rgba(56, 189, 248, 0.3) !important;
-        color: #ffffff !important;
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap .brand-logo-visual {
+        transition: filter 0.15s ease, transform 0.15s ease;
+    }
+    /* The pre-existing ".st-key-topbar_nav_container div[data-testid='stHtml']"
+       rule makes every stHtml block a flex row with no justify-content, which
+       left-aligns its content by default. Overridden here (scoped to this
+       wrap, so it doesn't affect other topbar stHtml blocks) to actually
+       center the logo, since .st-key-brand_logo_wrap's own justify-content
+       only centers this stHtml block's own box - which already fills the
+       full row width - not the fit-content logo markup inside it. */
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap [data-testid="stHtml"] {
+        justify-content: center !important;
+        width: 100% !important;
+    }
+    /* Streamlit gives every element-container its own `position: relative`,
+       which would otherwise become the button's containing block instead of
+       .st-key-brand_logo_wrap above, collapsing it to the button's own
+       (tiny, content-sized) box instead of the full logo area. Overriding
+       position here on the element-container itself (identified by the
+       button's own key= class) fixes that, and takes this element out of
+       the row flow so it overlaps the logo instead of sitting beside it. */
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap .st-key-brand_home_button {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 2 !important;
+    }
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap .st-key-brand_home_button .stButton,
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap .st-key-brand_home_button button {
+        width: 100% !important;
+        height: 100% !important;
+    }
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap .st-key-brand_home_button button {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+    }
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap .st-key-brand_home_button button * {
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap:has(.st-key-brand_home_button button:hover) .brand-logo-visual {
+        filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.55));
+        transform: scale(1.03);
+    }
+    .st-key-topbar_nav_container .st-key-brand_logo_wrap:has(.st-key-brand_home_button button:active) .brand-logo-visual {
+        transform: scale(0.98);
     }
 
     /* Typographic Status Capsules (Option 2 - Clean & Professional) */
@@ -460,6 +507,28 @@ st.markdown(
     .card-success {
         border-left: 3px solid #10b981;
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #111827 100%);
+    }
+
+    /* Heads Up Lineup Alerts Wrapper: replicates .card-container.card-alert on a
+       real st.container so each league's row can sit directly beside its own
+       real st.button (navigation needs a real widget, not <a href> - see
+       set_active_workspace comments) instead of every button being clustered
+       into one detached row below all the rows, which read as a bare,
+       context-less link list disconnected from the detail above it. */
+    .st-key-hub_lineup_alerts_wrap {
+        border-radius: 10px !important;
+        padding: 18px 20px 6px 20px !important;
+        margin-bottom: 22px !important;
+        border: 1px solid rgba(251, 191, 36, 0.25) !important;
+        border-left: 3px solid #f59e0b !important;
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35) !important;
+    }
+    .st-key-hub_lineup_alerts_wrap [data-testid="stHorizontalBlock"] {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding-top: 14px;
+        margin-bottom: 8px;
+        align-items: center !important;
     }
 
     /* Top Navigation Bar Container (Option 1: Linear & Vercel Glassmorphism) */
@@ -2740,42 +2809,71 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
     return league_alerts
 
 
-def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle):
+def render_hub_lineup_empty_card_html(active_week):
     """
-    Renders the consolidated executive heads-up lineup recommendations card.
-    100% aligned with Fantasy Dynasty Manager design system:
-    - Uses .card-container with .card-alert styling (#111827 / slate background with amber #f59e0b accent).
-    - Uses native micro-badges (.badge-pos, START, SIT, OUT).
-    - Uses brand secondary slate button for Copy Moves.
-    - The "Open Workspace" action is rendered separately as a real st.button per
-      league (see the call site), so navigation goes through set_active_workspace()
-      instead of a raw <a href> link (a raw link would force a full page reload
-      and drop the authenticated session).
+    Renders the "all lineups optimal" success card shown when no league needs
+    a lineup look this week. Self-contained (own .card-container chrome) since
+    there are no per-league rows or Open Workspace buttons in this state.
     """
-    if not league_alerts:
-        return f"""
-        <div class="card-container card-success" style="margin-bottom: 22px; padding: 16px 20px; border-radius: 10px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #111827 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-left: 3px solid #10b981;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.25rem;">⭐</span>
-                    <div>
-                        <div style="color: #34d399; font-weight: 800; font-size: 0.98rem; letter-spacing: -0.01em;">
-                            All Starting Lineups Optimal — Week {active_week}
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.82rem; margin-top: 2px;">
-                            No suboptimal starters or unaddressed player injuries detected across your franchises.
-                        </div>
+    return f"""
+    <div class="card-container card-success" style="margin-bottom: 22px; padding: 16px 20px; border-radius: 10px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, #111827 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-left: 3px solid #10b981;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.25rem;">⭐</span>
+                <div>
+                    <div style="color: #34d399; font-weight: 800; font-size: 0.98rem; letter-spacing: -0.01em;">
+                        All Starting Lineups Optimal — Week {active_week}
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.82rem; margin-top: 2px;">
+                        No suboptimal starters or unaddressed player injuries detected across your franchises.
                     </div>
                 </div>
-                <span class="status-capsule status-rebuild" style="font-size: 0.72rem;">100% READY</span>
             </div>
+            <span class="status-capsule status-rebuild" style="font-size: 0.72rem;">100% READY</span>
         </div>
-        """
+    </div>
+    """
 
-    num_leagues = len(league_alerts)
+
+def render_hub_lineup_header_html(num_leagues, total_actions, active_week):
+    """
+    Renders the title/intro of the Heads Up lineup-alerts panel. The outer
+    card chrome (background/border) comes from the .st-key-hub_lineup_alerts_wrap
+    CSS on the real st.container wrapping this call at the call site - each
+    league's row is rendered separately (render_hub_lineup_row_html) so a
+    real st.button can sit directly beside its own row, instead of every
+    "Open Workspace" button being clustered into one detached row below all
+    the rows, which read as a bare, context-less link list disconnected from
+    the detail above it.
+    """
     league_word = "Franchise" if num_leagues == 1 else "Franchises"
-    total_actions = sum(len(a["moves"]) for a in league_alerts)
+    return f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 9px;">
+            <span style="font-size: 1.15rem; color: #fbbf24;">⚡</span>
+            <span style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.01em;">
+                Heads Up — {num_leagues} {league_word} Need a Lineup Look
+            </span>
+            <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;">
+                {total_actions} Actions
+            </span>
+        </div>
+        <div style="color: #64748b; font-size: 0.75rem; font-weight: 600;">
+            Week {active_week} Projection Engine
+        </div>
+    </div>
+    <div style="color: #94a3b8; font-size: 0.84rem; margin-bottom: 4px;">
+        Suboptimal starters, higher-projected bench depth, or active starter injuries detected across your franchises.
+    </div>
+    """
 
+
+def render_hub_lineup_row_html(alert):
+    """
+    Renders one league's lineup-alert row (name, change count, move list,
+    Copy Moves button). Rendered in the same st.columns row as a real
+    st.button("Open Workspace") for that league - see the call site.
+    """
     def _get_slot_badge_class(s_name):
         s = s_name.upper()
         if "QB" in s:
@@ -2792,130 +2890,96 @@ def render_hub_lineup_alerts_html(league_alerts, active_week, active_user_handle
             return "badge-def"
         return "badge-wr"
 
-    rows_html = []
-    for a in league_alerts:
-        lid = a["league_id"]
-        lname = a["league_name"]
-        moves = a["moves"]
-        copy_text = a["copy_text"].replace("'", "\\'").replace('"', '&quot;')
+    lname = alert["league_name"]
+    moves = alert["moves"]
+    copy_text = alert["copy_text"].replace("'", "\\'").replace('"', '&quot;')
 
-        moves_rendered = []
-        for m in moves:
-            slot = m["slot"]
-            mtype = m["type"]
-            badge_cls = _get_slot_badge_class(slot)
+    moves_rendered = []
+    for m in moves:
+        slot = m["slot"]
+        mtype = m["type"]
+        badge_cls = _get_slot_badge_class(slot)
 
-            if mtype == "injury_out":
-                starter_name = m.get("starter_name", "")
-                pivot_name = m.get("pivot_name", "")
-                pivot_pts = m.get("pivot_pts", 0.0)
-                status = m.get("status", "OUT")
-                if pivot_name:
-                    pivot_snippet = f"""
-                    <span style="color: #64748b; margin: 0 2px;">➔</span>
-                    <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">START</span>
-                    <strong style="color: #38bdf8;">{pivot_name}</strong>
-                    <span style="color: #64748b; font-size: 0.8rem;">({pivot_pts:.1f} pts)</span>
-                    """
-                else:
-                    pivot_snippet = "<span style='color: #fb7185; font-size: 0.8rem;'>(No healthy bench pivot found)</span>"
-
-                moves_rendered.append(f"""
-                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.86rem; line-height: 1.4;">
-                    <span class="badge-pos {badge_cls}">{slot}</span>
-                    <span style="background: rgba(244, 63, 94, 0.18); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">{status}</span>
-                    <strong style="color: #f87171;">{starter_name}</strong>
-                    {pivot_snippet}
-                </div>
-                """)
-            elif mtype == "swap":
-                st_p = m.get("start_player", "")
-                sit_p = m.get("sit_player", "")
-                st_pts = m.get("start_proj", 0.0)
-                sit_pts = m.get("sit_proj", 0.0)
-                gain = m.get("gain", 0.0)
-                moves_rendered.append(f"""
-                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.86rem; line-height: 1.4;">
-                    <span class="badge-pos {badge_cls}">{slot}</span>
-                    <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">START</span>
-                    <strong style="color: #f8fafc;">{st_p}</strong>
-                    <span style="color: #64748b; font-size: 0.8rem;">({st_pts:.1f} pts)</span>
-                    <span style="color: #64748b; font-weight: 600; margin: 0 2px;">over</span>
-                    <span style="background: rgba(244, 63, 94, 0.12); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.25); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">SIT</span>
-                    <span style="color: #cbd5e1;">{sit_p}</span>
-                    <span style="color: #64748b; font-size: 0.8rem;">({sit_pts:.1f} pts)</span>
-                    <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; margin-left: 2px;">+{gain:.1f} PTS</span>
-                </div>
-                """)
+        if mtype == "injury_out":
+            starter_name = m.get("starter_name", "")
+            pivot_name = m.get("pivot_name", "")
+            pivot_pts = m.get("pivot_pts", 0.0)
+            status = m.get("status", "OUT")
+            if pivot_name:
+                pivot_snippet = f"""
+                <span style="color: #64748b; margin: 0 2px;">➔</span>
+                <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">START</span>
+                <strong style="color: #38bdf8;">{pivot_name}</strong>
+                <span style="color: #64748b; font-size: 0.8rem;">({pivot_pts:.1f} pts)</span>
+                """
             else:
-                starter_name = m.get("starter_name", "")
-                pivot_name = m.get("pivot_name", "")
-                pivot_pts = m.get("pivot_pts", 0.0)
-                moves_rendered.append(f"""
-                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.84rem; color: #94a3b8; line-height: 1.4;">
-                    <span class="badge-pos {badge_cls}" style="opacity: 0.85;">{slot}</span>
-                    <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">QUESTIONABLE</span>
-                    <span style="color: #cbd5e1;">Monitor <strong>{starter_name}</strong></span>
-                    <span style="color: #64748b;">— pivot: <strong style="color: #38bdf8;">{pivot_name}</strong> ready ({pivot_pts:.1f} pts)</span>
-                </div>
-                """)
+                pivot_snippet = "<span style='color: #fb7185; font-size: 0.8rem;'>(No healthy bench pivot found)</span>"
 
-        moves_block = "".join(moves_rendered)
-
-        rows_html.append(f"""
-        <div style="padding: 14px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 260px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-weight: 800; font-size: 1.02rem; color: #f8fafc; letter-spacing: -0.01em;">
-                        {lname}
-                    </span>
-                    <span style="color: #64748b; font-size: 0.78rem; font-weight: 600;">
-                        ({len(moves)} {'change' if len(moves) == 1 else 'changes'})
-                    </span>
-                </div>
-                <div>
-                    {moves_block}
-                </div>
+            moves_rendered.append(f"""
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.86rem; line-height: 1.4;">
+                <span class="badge-pos {badge_cls}">{slot}</span>
+                <span style="background: rgba(244, 63, 94, 0.18); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">{status}</span>
+                <strong style="color: #f87171;">{starter_name}</strong>
+                {pivot_snippet}
             </div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-                <button onclick="navigator.clipboard.writeText('{copy_text}'); this.innerText='Copied!'; this.style.borderColor='#34d399'; this.style.color='#34d399'; setTimeout(() => {{ this.innerText='Copy Moves'; this.style.borderColor='rgba(56, 189, 248, 0.25)'; this.style.color='#e2e8f0'; }}, 2000);"
-                        style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); color: #e2e8f0; border-radius: 6px; padding: 6px 13px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;">
-                    Copy Moves
-                </button>
+            """)
+        elif mtype == "swap":
+            st_p = m.get("start_player", "")
+            sit_p = m.get("sit_player", "")
+            st_pts = m.get("start_proj", 0.0)
+            sit_pts = m.get("sit_proj", 0.0)
+            gain = m.get("gain", 0.0)
+            moves_rendered.append(f"""
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.86rem; line-height: 1.4;">
+                <span class="badge-pos {badge_cls}">{slot}</span>
+                <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">START</span>
+                <strong style="color: #f8fafc;">{st_p}</strong>
+                <span style="color: #64748b; font-size: 0.8rem;">({st_pts:.1f} pts)</span>
+                <span style="color: #64748b; font-weight: 600; margin: 0 2px;">over</span>
+                <span style="background: rgba(244, 63, 94, 0.12); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.25); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">SIT</span>
+                <span style="color: #cbd5e1;">{sit_p}</span>
+                <span style="color: #64748b; font-size: 0.8rem;">({sit_pts:.1f} pts)</span>
+                <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; margin-left: 2px;">+{gain:.1f} PTS</span>
             </div>
-        </div>
-        """)
+            """)
+        else:
+            starter_name = m.get("starter_name", "")
+            pivot_name = m.get("pivot_name", "")
+            pivot_pts = m.get("pivot_pts", 0.0)
+            moves_rendered.append(f"""
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; font-size: 0.84rem; color: #94a3b8; line-height: 1.4;">
+                <span class="badge-pos {badge_cls}" style="opacity: 0.85;">{slot}</span>
+                <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">QUESTIONABLE</span>
+                <span style="color: #cbd5e1;">Monitor <strong>{starter_name}</strong></span>
+                <span style="color: #64748b;">— pivot: <strong style="color: #38bdf8;">{pivot_name}</strong> ready ({pivot_pts:.1f} pts)</span>
+            </div>
+            """)
 
-    body_rows = "".join(rows_html)
+    moves_block = "".join(moves_rendered)
 
-    card_html = f"""
-    <div class="card-container card-alert" style="margin-bottom: 22px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(15, 23, 42, 0.85) 100%); border: 1px solid rgba(251, 191, 36, 0.25); border-left: 3px solid #f59e0b; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);">
-        <!-- Card Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 9px;">
-                <span style="font-size: 1.15rem; color: #fbbf24;">⚡</span>
-                <span style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.01em;">
-                    Heads Up — {num_leagues} {league_word} Need a Lineup Look
+    return f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 260px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="font-weight: 800; font-size: 1.02rem; color: #f8fafc; letter-spacing: -0.01em;">
+                    {lname}
                 </span>
-                <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;">
-                    {total_actions} Actions
+                <span style="color: #64748b; font-size: 0.78rem; font-weight: 600;">
+                    ({len(moves)} {'change' if len(moves) == 1 else 'changes'})
                 </span>
             </div>
-            <div style="color: #64748b; font-size: 0.75rem; font-weight: 600;">
-                Week {active_week} Projection Engine
+            <div>
+                {moves_block}
             </div>
         </div>
-        <div style="color: #94a3b8; font-size: 0.84rem; margin-bottom: 12px;">
-            Suboptimal starters, higher-projected bench depth, or active starter injuries detected across your franchises.
-        </div>
-
-        <!-- League Action Rows -->
-        <div>
-            {body_rows}
+        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+            <button onclick="navigator.clipboard.writeText('{copy_text}'); this.innerText='Copied!'; this.style.borderColor='#34d399'; this.style.color='#34d399'; setTimeout(() => {{ this.innerText='Copy Moves'; this.style.borderColor='rgba(56, 189, 248, 0.25)'; this.style.color='#e2e8f0'; }}, 2000);"
+                    style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); color: #e2e8f0; border-radius: 6px; padding: 6px 13px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;">
+                Copy Moves
+            </button>
         </div>
     </div>
     """
-    return card_html
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -3121,42 +3185,43 @@ with st.container(key="topbar_nav_container"):
     )
 
     with top_col_brand:
-        # Brand mark is static markup (no <a href>): a raw link would force a full
-        # page reload and drop the authenticated session. Returning to the portal
-        # is handled by the real st.button below, via set_active_workspace().
-        if ICON_F_YARDS_B64:
-            st.html(
-                f"""
-                <span style="display: inline-flex; align-items: center; gap: 10px; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
-                    <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
-                    <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
-                </span>
-                """
+        with st.container(key="brand_logo_wrap"):
+            # Brand mark is static markup (no <a href>): a raw link would force
+            # a full page reload and drop the authenticated session. Clicking
+            # the logo returns to the portal via the real st.button below,
+            # rendered as an invisible overlay on top of this markup by CSS.
+            if ICON_F_YARDS_B64:
+                st.html(
+                    f"""
+                    <span class="brand-logo-visual" style="display: inline-flex; align-items: center; gap: 10px; width: fit-content; max-width: fit-content; vertical-align: middle; line-height: 1;">
+                        <img src="data:image/png;base64,{ICON_F_YARDS_B64}" style="height: 36px; width: auto; object-fit: contain; vertical-align: middle; display: block;" />
+                        <span style="font-weight: 900; font-size: 1.25rem; color: #f8fafc; letter-spacing: -0.01em; white-space: nowrap; line-height: 1;">Fantasy Analytics</span>
+                    </span>
+                    """
+                )
+            elif LOGO_HORIZONTAL_B64:
+                st.html(
+                    f"""
+                    <span class="brand-logo-visual" style="display: inline-flex; width: fit-content; max-width: fit-content; align-items: center;">
+                        <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
+                    </span>
+                    """
+                )
+            else:
+                st.html(
+                    f"""
+                    <span class="brand-logo-visual" style="display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px;">
+                        <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
+                        <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
+                    </span>
+                    """
+                )
+            st.button(
+                "Fantasy Analytics",
+                key="brand_home_button",
+                on_click=set_active_workspace,
+                args=(None,),
             )
-        elif LOGO_HORIZONTAL_B64:
-            st.html(
-                f"""
-                <span style="display: inline-flex; width: fit-content; max-width: fit-content; align-items: center;">
-                    <img src="data:image/png;base64,{LOGO_HORIZONTAL_B64}" style="height: 38px; width: auto; max-width: 220px; object-fit: contain; vertical-align: middle;" />
-                </span>
-                """
-            )
-        else:
-            st.html(
-                f"""
-                <span style="display: inline-flex; width: fit-content; max-width: fit-content; align-items: center; gap: 8px;">
-                    <span style="font-weight: 900; font-size: 1.22rem; color: #38bdf8; letter-spacing: -0.02em;">FA</span>
-                    <span style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: -0.01em;">Fantasy Analytics</span>
-                </span>
-                """
-            )
-        st.button(
-            "🏠 Home",
-            key="brand_home_button",
-            on_click=set_active_workspace,
-            args=(None,),
-            help="Return to the portfolio portal",
-        )
 
     with top_col_nav:
         cur_lid = st.session_state.get("selected_league_id")
@@ -3299,19 +3364,25 @@ if st.session_state.get("selected_league_id") is None:
     hub_lineup_alerts = fetch_portfolio_lineup_recommendations(
         user["user_id"], all_l_ids, active_season, active_week, players, sorted_leagues
     )
-    st.html(render_hub_lineup_alerts_html(hub_lineup_alerts, active_week, active_user_handle))
-    if hub_lineup_alerts:
-        alert_btn_cols = st.columns(min(len(hub_lineup_alerts), 3))
-        for i, a in enumerate(hub_lineup_alerts):
-            with alert_btn_cols[i % len(alert_btn_cols)]:
-                st.button(
-                    f"Open {a['league_name']} →",
-                    key=f"open_workspace_hub_{a['league_id']}",
-                    on_click=set_active_workspace,
-                    args=(a["league_id"],),
-                    use_container_width=True,
-                    type="primary",
-                )
+    if not hub_lineup_alerts:
+        st.html(render_hub_lineup_empty_card_html(active_week))
+    else:
+        with st.container(key="hub_lineup_alerts_wrap"):
+            total_actions = sum(len(a["moves"]) for a in hub_lineup_alerts)
+            st.html(render_hub_lineup_header_html(len(hub_lineup_alerts), total_actions, active_week))
+            for a in hub_lineup_alerts:
+                row_col, btn_col = st.columns([5, 1.3], vertical_alignment="center")
+                with row_col:
+                    st.html(render_hub_lineup_row_html(a))
+                with btn_col:
+                    st.button(
+                        "Open Workspace →",
+                        key=f"open_workspace_hub_{a['league_id']}",
+                        on_click=set_active_workspace,
+                        args=(a["league_id"],),
+                        use_container_width=True,
+                        type="primary",
+                    )
 
     st.markdown("### League Workspaces")
     st.caption("Select any franchise to enter its dedicated analytical suite (Franchise Hub, Matchups & Start/Sit, Waivers, Power Rankings, Trade Center).")
@@ -3332,82 +3403,113 @@ if st.session_state.get("selected_league_id") is None:
         is_sf = is_superflex_league(roster_pos)
         scoring = lg.get("scoring_settings", {})
         tep_b = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0) or settings.get("tep_bonus", 0.0)
-
-        # Accurately compute quick status, category, record, and synchronized ranks
-        lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
-        league_redraft_lookup = get_league_custom_redraft_lookup(market_db, lg_scoring_tuple, is_sf, active_week)
-        league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
-        league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else league_redraft_lookup
-        if tep_b > 0 and is_dyn:
-            league_lookup = apply_te_premium(league_lookup, bonus_rec_te=tep_b)
-        league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
-        league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
-        t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
-            lid, user["user_id"], is_dyn, roster_pos, league_lookup, league_redraft_lookup, players,
-            _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg, current_week=active_week
-        )
-
-        # Trajectory badge
-        if is_dyn:
-            if t_cat == "win":
-                badge_html = "<span class='status-capsule status-contender'>CONTENDER</span>"
-                border_accent = "border: 1px solid rgba(56, 189, 248, 0.35);"
-            elif t_cat == "rebuild":
-                badge_html = "<span class='status-capsule status-rebuild'>REBUILD</span>"
-                border_accent = "border: 1px solid rgba(244, 63, 94, 0.35);"
-            else:
-                badge_html = "<span class='status-capsule status-bubble'>BUBBLE</span>"
-                border_accent = "border: 1px solid rgba(245, 158, 11, 0.35);"
-        else:
-            badge_html = "<span class='status-capsule status-bubble'>REDRAFT</span>"
-            border_accent = "border: 1px solid rgba(56, 189, 248, 0.25);"
-
-        slots_str = format_starter_slots_summary(roster_pos)
-        tep_badge = f"<span style='background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 0.68rem; font-weight: 700; margin-left: 6px;'>+{tep_b:g} TEP</span>" if tep_b > 0 else ""
         type_str = f"{'Dynasty' if is_dyn else 'Redraft'} • {'Superflex' if is_sf else '1QB'} ({total_rosters} Teams)"
+        tep_badge = f"<span style='background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 0.68rem; font-weight: 700; margin-left: 6px;'>+{tep_b:g} TEP</span>" if tep_b > 0 else ""
 
-        # Starter slots preview
-        starter_badges = f"""
-        <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: #94a3b8; margin: 8px 0 12px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
-            <span style='color: #64748b; font-weight: 700;'>Starters:</span>
-            <span style='color: #38bdf8; font-weight: 600;'>{slots_str}</span>
-        </div>
-        """ if slots_str else ""
+        # Everything below derives from live Sleeper data (rosters, projections,
+        # league history network calls, valuation lookups) and can fail for a
+        # given league independently of the others - e.g. a transient Sleeper
+        # API hiccup, or a league whose data doesn't fit an assumption made
+        # elsewhere. A failure here must never drop this league's card entirely
+        # (previously an uncaught exception here would halt the whole grid loop
+        # mid-render); instead it degrades this one card's dynamic fields to
+        # "N/A" and keeps rendering every other league normally.
+        try:
+            # Accurately compute quick status, category, record, and synchronized ranks
+            lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
+            league_redraft_lookup = get_league_custom_redraft_lookup(market_db, lg_scoring_tuple, is_sf, active_week)
+            league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
+            league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else league_redraft_lookup
+            if tep_b > 0 and is_dyn:
+                league_lookup = apply_te_premium(league_lookup, bonus_rec_te=tep_b)
+            league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
+            league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
+            t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
+                lid, user["user_id"], is_dyn, roster_pos, league_lookup, league_redraft_lookup, players,
+                _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg, current_week=active_week
+            )
 
-        # 4-Cell Matrix
-        dyn_cell = f"""
-        <div style='background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 4px; text-align: center;'>
-            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #38bdf8; letter-spacing: 0.04em;'>Dynasty</div>
-            <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{d_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
-            <div style='font-size: 0.65rem; color: #38bdf8; opacity: 0.85; margin-top: 2px;'>Capital</div>
-        </div>
-        """ if is_dyn else f"""
-        <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
-            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Type</div>
-            <div style='font-size: 0.85rem; font-weight: 800; color: #f8fafc; margin-top: 4px;'>Redraft</div>
-            <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Annual</div>
-        </div>
-        """
+            # Trajectory badge
+            if is_dyn:
+                if t_cat == "win":
+                    badge_html = "<span class='status-capsule status-contender'>CONTENDER</span>"
+                    border_accent = "border: 1px solid rgba(56, 189, 248, 0.35);"
+                elif t_cat == "rebuild":
+                    badge_html = "<span class='status-capsule status-rebuild'>REBUILD</span>"
+                    border_accent = "border: 1px solid rgba(244, 63, 94, 0.35);"
+                else:
+                    badge_html = "<span class='status-capsule status-bubble'>BUBBLE</span>"
+                    border_accent = "border: 1px solid rgba(245, 158, 11, 0.35);"
+            else:
+                badge_html = "<span class='status-capsule status-bubble'>REDRAFT</span>"
+                border_accent = "border: 1px solid rgba(56, 189, 248, 0.25);"
 
-        season_subtext = "🏆 Favorite" if r_pos == 1 else ("Playoff Lock" if r_pos <= 4 else ("In the Hunt" if r_pos <= 7 else "Rebuilding"))
-        season_color = "#34d399" if r_pos <= 3 else ("#38bdf8" if r_pos <= 6 else "#94a3b8")
-        season_bg = "rgba(16, 185, 129, 0.08)" if r_pos <= 3 else "rgba(15, 23, 42, 0.7)"
-        season_border = "rgba(16, 185, 129, 0.25)" if r_pos <= 3 else "rgba(51, 65, 85, 0.5)"
+            slots_str = format_starter_slots_summary(roster_pos)
 
-        season_cell = f"""
-        <div style='background: {season_bg}; border: 1px solid {season_border}; border-radius: 8px; padding: 8px 4px; text-align: center;'>
-            <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: {season_color}; letter-spacing: 0.04em;'>Season</div>
-            <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{r_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
-            <div style='font-size: 0.65rem; color: {season_color}; font-weight: 600; margin-top: 2px;'>{season_subtext}</div>
-        </div>
-        """
+            # Starter slots preview
+            starter_badges = f"""
+            <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: #94a3b8; margin: 8px 0 12px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
+                <span style='color: #64748b; font-weight: 700;'>Starters:</span>
+                <span style='color: #38bdf8; font-weight: 600;'>{slots_str}</span>
+            </div>
+            """ if slots_str else ""
 
-        history = get_league_history(lid, lname, user["user_id"])
-        inaug_txt = f"Inaugural: {history.get('inaugural_season', '—')}"
-        heritage_txt = "Migrated" if history.get("is_migrated") else "Native Sleeper"
-        user_titles = history.get("user_titles", 0)
-        title_badge = f"<span style='background: rgba(234, 179, 8, 0.18); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.45); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 800;'>🏆 {user_titles} Title{'s' if user_titles > 1 else ''}</span>" if user_titles > 0 else ""
-        heritage_badge = f"<span style='background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 600;'>{heritage_txt}</span>"
+            # 4-Cell Matrix
+            dyn_cell = f"""
+            <div style='background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #38bdf8; letter-spacing: 0.04em;'>Dynasty</div>
+                <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{d_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
+                <div style='font-size: 0.65rem; color: #38bdf8; opacity: 0.85; margin-top: 2px;'>Capital</div>
+            </div>
+            """ if is_dyn else f"""
+            <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Type</div>
+                <div style='font-size: 0.85rem; font-weight: 800; color: #f8fafc; margin-top: 4px;'>Redraft</div>
+                <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Annual</div>
+            </div>
+            """
+
+            season_subtext = "🏆 Favorite" if r_pos == 1 else ("Playoff Lock" if r_pos <= 4 else ("In the Hunt" if r_pos <= 7 else "Rebuilding"))
+            season_color = "#34d399" if r_pos <= 3 else ("#38bdf8" if r_pos <= 6 else "#94a3b8")
+            season_bg = "rgba(16, 185, 129, 0.08)" if r_pos <= 3 else "rgba(15, 23, 42, 0.7)"
+            season_border = "rgba(16, 185, 129, 0.25)" if r_pos <= 3 else "rgba(51, 65, 85, 0.5)"
+
+            season_cell = f"""
+            <div style='background: {season_bg}; border: 1px solid {season_border}; border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: {season_color}; letter-spacing: 0.04em;'>Season</div>
+                <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{r_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
+                <div style='font-size: 0.65rem; color: {season_color}; font-weight: 600; margin-top: 2px;'>{season_subtext}</div>
+            </div>
+            """
+
+            history = get_league_history(lid, lname, user["user_id"])
+            inaug_txt = f"Inaugural: {history.get('inaugural_season', '—')}"
+            heritage_txt = "Migrated" if history.get("is_migrated") else "Native Sleeper"
+            user_titles = history.get("user_titles", 0)
+            title_badge = f"<span style='background: rgba(234, 179, 8, 0.18); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.45); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 800;'>🏆 {user_titles} Title{'s' if user_titles > 1 else ''}</span>" if user_titles > 0 else ""
+            heritage_badge = f"<span style='background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 600;'>{heritage_txt}</span>"
+            w_txt = f"{w}-{l}"
+            fpts_txt = f"{fpts:,.1f}"
+        except Exception:
+            na_badge_style = "background: rgba(148, 163, 184, 0.12); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; font-weight: 700;"
+            badge_html = f"<span style='{na_badge_style}'>DATA UNAVAILABLE</span>"
+            border_accent = "border: 1px solid rgba(148, 163, 184, 0.2);"
+            starter_badges = ""
+            na_cell = """
+            <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
+                <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>{label}</div>
+                <div style='font-size: 0.95rem; font-weight: 900; color: #64748b; margin-top: 2px;'>N/A</div>
+                <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Unavailable</div>
+            </div>
+            """
+            dyn_cell = na_cell.format(label="Dynasty" if is_dyn else "Type")
+            season_cell = na_cell.format(label="Season")
+            inaug_txt = "Inaugural: N/A"
+            heritage_badge = ""
+            title_badge = ""
+            w_txt = "N/A"
+            fpts_txt = "N/A"
+            history = {"total_seasons": "N/A"}
 
         # No <a href> here: a raw link would force a full page reload and drop the
         # authenticated session. Navigation is a real st.button below, via
@@ -3435,12 +3537,12 @@ if st.session_state.get("selected_league_id") is None:
             <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;'>
                 <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
                     <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Record</div>
-                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{w}-{l}</div>
+                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{w_txt}</div>
                     <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>Wk {active_week}</div>
                 </div>
                 <div style='background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 8px 4px; text-align: center;'>
                     <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;'>Points</div>
-                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{fpts:,.1f}</div>
+                    <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>{fpts_txt}</div>
                     <div style='font-size: 0.65rem; color: #64748b; margin-top: 2px;'>PF Scored</div>
                 </div>
                 {dyn_cell}

@@ -1,9 +1,20 @@
+import time
 from datetime import date
 
 import requests
 
 
 BASE_URL = "https://api.sleeper.app/v1"
+
+# How long an in-memory projections cache entry stays valid before a fresh
+# request is made. Kept shorter than fetch_market_database's 24h
+# @st.cache_data TTL in app.py so that every time that outer cache expires
+# and re-calls into this module, it is guaranteed to see an expired (or
+# already-expired-and-refreshed) entry here too - this cache never blocks
+# the outer one from getting genuinely fresh data. Within that 24h window,
+# this TTL still absorbs the redundant same-(season, week) calls that
+# happen when multiple leagues/workspaces are opened back to back.
+PROJECTIONS_CACHE_TTL_SECONDS = 6 * 60 * 60
 
 
 def get_user(username):
@@ -205,11 +216,17 @@ _ROS_PROJECTIONS_CACHE = {}
 def get_weekly_projections(season: str, week: int):
     """
     Returns live weekly player stats and fantasy projections from Sleeper.
-    Cached in-memory by (season, week) to avoid redundant requests across leagues.
+    Cached in-memory by (season, week) for PROJECTIONS_CACHE_TTL_SECONDS, to
+    avoid redundant requests across leagues while still picking up updated
+    projections (e.g. a player downgraded to "Doubtful" mid-week) within the
+    same game week instead of freezing until the process restarts.
     """
     cache_key = (str(season), int(week))
-    if cache_key in _WEEKLY_PROJECTIONS_CACHE:
-        return _WEEKLY_PROJECTIONS_CACHE[cache_key]
+    cached = _WEEKLY_PROJECTIONS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        if time.time() - cached_at < PROJECTIONS_CACHE_TTL_SECONDS:
+            return cached_data
 
     url = f"{BASE_URL}/projections/nfl/regular/{season}/{week}"
     try:
@@ -217,15 +234,18 @@ def get_weekly_projections(season: str, week: int):
         response.raise_for_status()
         data = response.json()
         if isinstance(data, dict):
-            _WEEKLY_PROJECTIONS_CACHE[cache_key] = data
+            _WEEKLY_PROJECTIONS_CACHE[cache_key] = (time.time(), data)
             return data
         elif isinstance(data, list):
             # Map list to dict keyed by player_id
             mapped = {item.get("player_id", str(i)): item for i, item in enumerate(data)}
-            _WEEKLY_PROJECTIONS_CACHE[cache_key] = mapped
+            _WEEKLY_PROJECTIONS_CACHE[cache_key] = (time.time(), mapped)
             return mapped
     except Exception as e:
         print(f"Warning: Failed to fetch weekly projections for {season} Week {week}: {e}")
+        if cached is not None:
+            print(f"Info: Falling back to stale cached weekly projections for {season} Week {week}")
+            return cached[1]
         return {}
 
 
@@ -241,7 +261,8 @@ def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
     - Zero-point weeks during team NFL bye weeks
     - Expected return-to-play timelines modeled by Sleeper
 
-    Cached in-memory by (season, start_week, end_week).
+    Cached in-memory by (season, start_week, end_week) for
+    PROJECTIONS_CACHE_TTL_SECONDS - see get_weekly_projections.
     """
     from collections import defaultdict
     import concurrent.futures
@@ -249,8 +270,11 @@ def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
     s_wk = max(1, int(start_week))
     e_wk = max(s_wk, int(end_week))
     cache_key = (str(season), s_wk, e_wk)
-    if cache_key in _ROS_PROJECTIONS_CACHE:
-        return _ROS_PROJECTIONS_CACHE[cache_key]
+    cached = _ROS_PROJECTIONS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        if time.time() - cached_at < PROJECTIONS_CACHE_TTL_SECONDS:
+            return cached_data
 
     weeks = list(range(s_wk, e_wk + 1))
     num_weeks = len(weeks)
@@ -287,7 +311,7 @@ def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
             ros_p[k] = round(total_val / num_weeks, 3)
         ros_projections[pid] = ros_p
 
-    _ROS_PROJECTIONS_CACHE[cache_key] = ros_projections
+    _ROS_PROJECTIONS_CACHE[cache_key] = (time.time(), ros_projections)
     return ros_projections
 
 
