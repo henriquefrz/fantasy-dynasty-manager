@@ -1769,11 +1769,11 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
             <tr>
                 <th style='width: 60px; text-align: center;'>Rank</th>
                 <th style='width: 22%; text-align: left;'>Manager / Team</th>
-                <th style='width: 10%; text-align: center;'>Playoff Odds</th>
                 <th style='width: 14%; text-align: center;'>Playoff Status</th>
                 <th style='width: 12%; text-align: center;'>Projected W-L</th>
                 <th style='width: 10%; text-align: center;'>Starters PPG</th>
                 <th style='width: 10%; text-align: center;'>Bench PPG</th>
+                <th style='width: 10%; text-align: center;'>Playoff Odds</th>
                 <th style='width: 10%; text-align: center;'>1st-Round Bye</th>
                 <th style='width: 10%; text-align: center;'>Champ Odds</th>
                 <th style='width: 10%; text-align: center;'>Power Score</th>
@@ -1820,14 +1820,14 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
-            <td class='val-pill' style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
             <td style='text-align: center;'>{status_pill}</td>
             <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
             <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{starters_val}</td>
             <td style='text-align: center; color: #94a3b8;'>{bench_val}</td>
+            <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
             <td style='text-align: center;'><span class='rank-pill'>{r['1st-Round Bye']}</span></td>
             <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{r['Champ Odds']}</span></td>
-            <td style='text-align: center;'>{r['Season Power Score']}</td>
+            <td class='val-pill' style='text-align: center;'>{r['Season Power Score']}</td>
         </tr>
         """
     html += """
