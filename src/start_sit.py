@@ -12,6 +12,8 @@ Provides:
 
 from typing import Dict, List, Tuple, Any, Optional, Set
 
+from src.team_strength import FLEX_RULES
+
 
 STREAMING_POSITIONS = {"DEF", "K", "TE", "QB"}
 PROTECTED_MARKET_VALUE_THRESHOLD = 1800.0
@@ -168,14 +170,10 @@ def simulate_optimal_weekly_lineup(
             starters.append(best_cand)
             used_pids.add(best_cand[0].get("player_id"))
 
-    # Pass 2: Fill flex slots
-    flex_eligible = {
-        "FLEX": {"RB", "WR", "TE"},
-        "SUPER_FLEX": {"QB", "RB", "WR", "TE"},
-        "WRRB_FLEX": {"RB", "WR"},
-        "REC_FLEX": {"WR", "TE"},
-        "IDP_FLEX": {"DL", "LB", "DB", "DE", "DT", "CB", "S"},
-    }
+    # Pass 2: Fill flex slots. Eligibility rules are the single source of
+    # truth in team_strength.py (FLEX_RULES) - this module used to keep its
+    # own separate copy, which had silently drifted out of sync on IDP_FLEX.
+    flex_eligible = dict(FLEX_RULES)
 
     for slot in active_slots:
         if slot not in flex_eligible:

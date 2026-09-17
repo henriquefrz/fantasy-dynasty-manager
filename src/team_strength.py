@@ -4,13 +4,30 @@ from src.matching import match_players_by_sleeper_id
 
 FIXED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"}
 
+# Sleeper's player.position field for IDP players is the specific real-world
+# position (e.g. "DE", "OLB", "FS"), not the broad fantasy group ("DL"/"LB"/
+# "DB") that IDP_FLEX slots are actually scored against - Sleeper exposes
+# that broad grouping separately via player.fantasy_positions. Since the
+# lineup simulators here match on the raw position field, IDP_FLEX has to
+# enumerate every specific position that belongs to each group; confirmed
+# against Sleeper's live player DB (scratch/test_idp_flex_unification.py) -
+# e.g. Myles Garrett/Maxx Crosby/Nick Bosa all report position="DE", and
+# OLB/ILB/NT/FS/SS each appear on hundreds of real players. A narrower list
+# (e.g. just "DL") silently benches real IDP starters whose exact position
+# isn't in the set.
+IDP_FLEX_ELIGIBLE_POSITIONS = {
+    "DL", "DE", "DT", "NT",           # Defensive line group
+    "LB", "OLB", "ILB", "MLB",        # Linebacker group
+    "DB", "CB", "S", "SS", "FS",      # Defensive back group
+}
+
 FLEX_RULES = [
     # Slot name, eligible positions, order of filling (most specific first)
     ("WRRB_FLEX", {"RB", "WR"}),
     ("REC_FLEX", {"WR", "TE"}),
     ("FLEX", {"RB", "WR", "TE"}),
     ("SUPER_FLEX", {"QB", "RB", "WR", "TE"}),
-    ("IDP_FLEX", {"DL", "LB", "DB"}),
+    ("IDP_FLEX", IDP_FLEX_ELIGIBLE_POSITIONS),
 ]
 
 
