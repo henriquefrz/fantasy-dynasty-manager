@@ -1133,20 +1133,20 @@ def render_player_table_html(player_rows, show_equity=True):
         header_cols = """
             <th style='width: 95px; text-align: center;'>Slot</th>
             <th style='width: 32%; text-align: left;'>Player</th>
+            <th style='width: 18%; text-align: center;'>Consensus Value</th>
             <th style='width: 60px; text-align: center;'>Age</th>
             <th style='width: 14%; text-align: center;'>Overall ECR</th>
             <th style='width: 14%; text-align: center;'>Pos ECR</th>
-            <th style='width: 18%; text-align: center;'>Consensus Value</th>
             <th style='width: 12%; text-align: center;'>Equity</th>
         """
     else:
         header_cols = """
             <th style='width: 95px; text-align: center;'>Slot</th>
             <th style='width: 38%; text-align: left;'>Player</th>
+            <th style='width: 20%; text-align: center;'>Consensus Value</th>
             <th style='width: 65px; text-align: center;'>Age</th>
             <th style='width: 15%; text-align: center;'>Overall ECR</th>
             <th style='width: 15%; text-align: center;'>Pos ECR</th>
-            <th style='width: 20%; text-align: center;'>Consensus Value</th>
         """
 
     html = f"""
@@ -1193,10 +1193,10 @@ def render_player_table_html(player_rows, show_equity=True):
                         </div>
                     </div>
                 </td>
+                <td class='val-pill' style='text-align: center;'>{val}</td>
                 <td style='color: #94a3b8; text-align: center;'>{age}</td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                <td class='val-pill' style='text-align: center;'>{val}</td>
                 {equity_td}
             </tr>
         """
@@ -1632,9 +1632,9 @@ def render_portfolio_table_html(portfolio_rows):
         <thead>
             <tr>
                 <th style='width: 28%; text-align: left;'>Player</th>
-                <th style='width: 60px; text-align: center;'>Age</th>
-                <th style='width: 10%; text-align: center;'>Shares</th>
                 <th style='width: 11%; text-align: center;'>Exposure</th>
+                <th style='width: 10%; text-align: center;'>Shares</th>
+                <th style='width: 60px; text-align: center;'>Age</th>
                 <th style='width: 11%; text-align: center;'>Overall Rank</th>
                 <th style='width: 11%; text-align: center;'>Pos Rank</th>
                 <th style='width: 14%; text-align: center;'>Consensus Value</th>
@@ -1675,9 +1675,9 @@ def render_portfolio_table_html(portfolio_rows):
                         </div>
                     </div>
                 </td>
-                <td style='color: #94a3b8; text-align: center;'>{age}</td>
-                <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{shares}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{exp}</span></td>
+                <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{shares}</span></td>
+                <td style='color: #94a3b8; text-align: center;'>{age}</td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                 <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
@@ -1769,11 +1769,11 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
             <tr>
                 <th style='width: 60px; text-align: center;'>Rank</th>
                 <th style='width: 22%; text-align: left;'>Manager / Team</th>
+                <th style='width: 10%; text-align: center;'>Playoff Odds</th>
                 <th style='width: 14%; text-align: center;'>Playoff Status</th>
                 <th style='width: 12%; text-align: center;'>Projected W-L</th>
                 <th style='width: 10%; text-align: center;'>Starters PPG</th>
                 <th style='width: 10%; text-align: center;'>Bench PPG</th>
-                <th style='width: 10%; text-align: center;'>Playoff Odds</th>
                 <th style='width: 10%; text-align: center;'>1st-Round Bye</th>
                 <th style='width: 10%; text-align: center;'>Champ Odds</th>
                 <th style='width: 10%; text-align: center;'>Power Score</th>
@@ -1820,14 +1820,14 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
+            <td class='val-pill' style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
             <td style='text-align: center;'>{status_pill}</td>
             <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
             <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{starters_val}</td>
             <td style='text-align: center; color: #94a3b8;'>{bench_val}</td>
-            <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{r['Playoff Odds']}</span></td>
             <td style='text-align: center;'><span class='rank-pill'>{r['1st-Round Bye']}</span></td>
             <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{r['Champ Odds']}</span></td>
-            <td class='val-pill' style='text-align: center;'>{r['Season Power Score']}</td>
+            <td style='text-align: center;'>{r['Season Power Score']}</td>
         </tr>
         """
     html += """
@@ -1937,41 +1937,12 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
     Renders the League-Wide Positional Room Leaderboard table.
     Highlights user's franchise row, and displays rank pills for each position room.
     When show_picks=False (e.g. Redraft leagues or ROS scope), excludes Draft Capital column.
-    """
-    if show_picks:
-        headers_html = """
-                <th style='width: 65px; text-align: center;'>Rank</th>
-                <th style='width: 22%; text-align: left;'>Manager / Team</th>
-                <th style='width: 13%; text-align: center;'>QB Room</th>
-                <th style='width: 13%; text-align: center;'>RB Room</th>
-                <th style='width: 13%; text-align: center;'>WR Room</th>
-                <th style='width: 13%; text-align: center;'>TE Room</th>
-                <th style='width: 13%; text-align: center;'>Draft Capital</th>
-                <th style='width: 13%; text-align: center;'>Total Franchise</th>
-        """
-    else:
-        headers_html = """
-                <th style='width: 65px; text-align: center;'>Rank</th>
-                <th style='width: 25%; text-align: left;'>Manager / Team</th>
-                <th style='width: 15%; text-align: center;'>QB Room</th>
-                <th style='width: 15%; text-align: center;'>RB Room</th>
-                <th style='width: 15%; text-align: center;'>WR Room</th>
-                <th style='width: 15%; text-align: center;'>TE Room</th>
-                <th style='width: 15%; text-align: center;'>Total Roster</th>
-        """
 
-    html = f"""
-    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full room rankings</div>
-    <div class='table-responsive-wrapper'>
-    <table class='roster-table roster-table-power'>
-        <thead>
-            <tr>
-                {headers_html}
-            </tr>
-        </thead>
-        <tbody>
+    There is no single fixed "most important" column here - comparing QB/RB/WR/TE
+    rooms side by side is the whole point of the table. Instead, whichever column
+    matches the active sort_col is moved right after Manager/Team, so the metric
+    the user is currently sorting by is always visible on mobile without swiping.
     """
-
     def rank_pill(rank_val, is_active_col=False):
         if rank_val <= 3:
             bg = "rgba(16, 185, 129, 0.15)"
@@ -1988,24 +1959,58 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
         hl_style = "border: 1px solid #38bdf8; font-weight: 800;" if is_active_col else f"border: 1px solid {border};"
         return f"<span style='background: {bg}; color: {color}; {hl_style} border-radius: 4px; padding: 1px 6px; font-size: 0.70rem; font-weight: 700; margin-left: 4px;'>#{rank_val}</span>"
 
+    total_label = "Total Franchise" if show_picks else "Total Roster"
+
+    # Data-driven column definitions in their default order. The one matching
+    # sort_col gets moved to the front (right after Manager/Team) below.
+    columns = [
+        ("qb_val", "QB Room", lambda r: f"<span style='color: #f8fafc; font-weight: 700;'>{r['qb_val']:,.0f}</span> {rank_pill(r['qb_rank'], sort_col == 'qb_val')}"),
+        ("rb_val", "RB Room", lambda r: f"<span style='color: #f8fafc; font-weight: 700;'>{r['rb_val']:,.0f}</span> {rank_pill(r['rb_rank'], sort_col == 'rb_val')}"),
+        ("wr_val", "WR Room", lambda r: f"<span style='color: #f8fafc; font-weight: 700;'>{r['wr_val']:,.0f}</span> {rank_pill(r['wr_rank'], sort_col == 'wr_val')}"),
+        ("te_val", "TE Room", lambda r: f"<span style='color: #f8fafc; font-weight: 700;'>{r['te_val']:,.0f}</span> {rank_pill(r['te_rank'], sort_col == 'te_val')}"),
+    ]
+    if show_picks:
+        columns.append(("picks_val", "Draft Capital", lambda r: f"<span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col == 'picks_val')}"))
+    columns.append(("total_val", total_label, lambda r: f"<span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{r['total_val']:,.0f}</span> {rank_pill(r['total_rank'], sort_col == 'total_val')}"))
+
+    active_idx = next((i for i, c in enumerate(columns) if c[0] == sort_col), None)
+    if active_idx is not None and active_idx != 0:
+        columns.insert(0, columns.pop(active_idx))
+
+    col_width = "13%" if show_picks else "15%"
+    name_col_width = "22%" if show_picks else "25%"
+    header_cells = "".join(f"<th style='width: {col_width}; text-align: center;'>{label}</th>" for _, label, _ in columns)
+    headers_html = f"""
+                <th style='width: 65px; text-align: center;'>Rank</th>
+                <th style='width: {name_col_width}; text-align: left;'>Manager / Team</th>
+                {header_cells}
+    """
+
+    html = f"""
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full room rankings</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
+        <thead>
+            <tr>
+                {headers_html}
+            </tr>
+        </thead>
+        <tbody>
+    """
+
     for r in room_rows:
         is_me = (r.get("roster_id") == user_roster_id)
         row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
         name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
         rank_disp = r.get("disp_rank", r.get("total_rank", 1))
 
-        picks_td = f"<td style='text-align: center;'><span style='color: #c084fc; font-weight: 700;'>{r['picks_val']:,.0f}</span> {rank_pill(r['picks_rank'], sort_col=='picks_val')}</td>" if show_picks else ""
+        row_cells = "".join(f"<td style='text-align: center;'>{cell_fn(r)}</td>" for _, _, cell_fn in columns)
 
         html += f"""
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>#{rank_disp}</td>
             <td style='text-align: left; {name_weight}'>{r['manager_name']}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['qb_val']:,.0f}</span> {rank_pill(r['qb_rank'], sort_col=='qb_val')}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['rb_val']:,.0f}</span> {rank_pill(r['rb_rank'], sort_col=='rb_val')}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['wr_val']:,.0f}</span> {rank_pill(r['wr_rank'], sort_col=='wr_val')}</td>
-            <td style='text-align: center;'><span style='color: #f8fafc; font-weight: 700;'>{r['te_val']:,.0f}</span> {rank_pill(r['te_rank'], sort_col=='te_val')}</td>
-            {picks_td}
-            <td style='text-align: center;'><span class='val-pill' style='color: #38bdf8; font-weight: 800;'>{r['total_val']:,.0f}</span> {rank_pill(r['total_rank'], sort_col=='total_val')}</td>
+            {row_cells}
         </tr>
         """
 
@@ -2090,8 +2095,8 @@ def render_opponent_lineup_html(opp_rows):
             <tr>
                 <th style='width: 70px;'>Slot</th>
                 <th>Player</th>
-                <th>NFL Team</th>
                 <th>Projected</th>
+                <th>NFL Team</th>
             </tr>
         </thead>
         <tbody>
@@ -2114,8 +2119,8 @@ def render_opponent_lineup_html(opp_rows):
                         </div>
                     </div>
                 </td>
-                <td style='color: #94a3b8;'>{team}</td>
                 <td class='val-pill' style='color: #38bdf8;'>{proj}</td>
+                <td style='color: #94a3b8;'>{team}</td>
             </tr>
         """
     html += """
