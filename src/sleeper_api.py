@@ -2,6 +2,7 @@ import time
 from datetime import date
 
 import requests
+import streamlit as st
 
 
 BASE_URL = "https://api.sleeper.app/v1"
@@ -458,9 +459,10 @@ MANUAL_LEAGUE_HISTORY = {
     },
 }
 
-_LEAGUE_HISTORY_CACHE = {}
+LEAGUE_HISTORY_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
+@st.cache_data(ttl=LEAGUE_HISTORY_CACHE_TTL_SECONDS, show_spinner=False)
 def get_league_history(league_id: str, league_name: str = "", user_id: str = None):
     """
     Traverses Sleeper previous_league_id chain to compute:
@@ -469,15 +471,21 @@ def get_league_history(league_id: str, league_name: str = "", user_id: str = Non
     - List of past seasons and championship winners
     - Number of titles won by user and title years
     Supports manual overrides for leagues migrated from external platforms.
-    """
-    cache_key = (str(league_id), str(user_id or ""))
-    if cache_key in _LEAGUE_HISTORY_CACHE:
-        return _LEAGUE_HISTORY_CACHE[cache_key]
 
+    Cached via st.cache_data (7 days) rather than a plain module-level dict:
+    completed-season history is immutable, so a long TTL is safe, and unlike
+    a bare dict this survives correctly across Streamlit's caching layer
+    (a bare dict looked like a cache but measured no faster on repeat calls -
+    see PROJECTIONS_CACHE_TTL_SECONDS above for the same lesson learned with
+    get_weekly_projections). This also walks several sequential live Sleeper
+    API requests per league (one per past season, plus a winners_bracket and
+    rosters call for each completed one), so caching it matters a lot for
+    the League Workspaces grid, which calls this once per league.
+    """
     # Check for manual overrides for migrated leagues
     for key, manual_data in MANUAL_LEAGUE_HISTORY.items():
         if key.lower() in league_name.lower():
-            res = {
+            return {
                 "total_seasons": manual_data["total_seasons"],
                 "inaugural_season": manual_data["inaugural_season"],
                 "user_titles": manual_data["user_titles"],
@@ -487,8 +495,6 @@ def get_league_history(league_id: str, league_name: str = "", user_id: str = Non
                 "champions": manual_data.get("champions", []),
                 "seasons": [],
             }
-            _LEAGUE_HISTORY_CACHE[cache_key] = res
-            return res
 
     seasons_history = []
     curr_id = league_id
@@ -557,5 +563,4 @@ def get_league_history(league_id: str, league_name: str = "", user_id: str = Non
         "notes": "",
         "seasons": seasons_history,
     }
-    _LEAGUE_HISTORY_CACHE[cache_key] = result
     return result

@@ -13,8 +13,8 @@ Provides:
 """
 
 import base64
+import concurrent.futures
 import copy
-import hmac
 import math
 import os
 import sys
@@ -290,54 +290,6 @@ st.set_page_config(
 )
 
 
-# -----------------------------------------------------------------------------
-# Password Gate (single shared password via st.secrets)
-# -----------------------------------------------------------------------------
-def _check_password():
-    """Blocks the app behind a single shared password stored in st.secrets['APP_PASSWORD'].
-
-    Validation happens once, on explicit form submit, instead of on every
-    text_input on_change event. A bare on_change handler fires on every
-    browser-side "change" event for the field - including intermediate,
-    partial events some browsers' password-manager autofill emits while
-    filling the value in - which caused spurious "incorrect password"
-    failures even when the final autofilled value was correct. st.form
-    batches input and only runs validation against the final submitted value.
-    """
-    if st.session_state.get("authenticated", False):
-        return True
-
-    try:
-        expected_password = st.secrets.get("APP_PASSWORD", "")
-    except Exception:
-        expected_password = ""
-
-    st.markdown("<div style='max-width:360px; margin: 15vh auto 0 auto;'>", unsafe_allow_html=True)
-    st.markdown("### 🔒 Fantasy Analytics")
-    with st.form("password_gate_form", clear_on_submit=True):
-        entered = st.text_input("Password", type="password", key="_password_input")
-        submitted = st.form_submit_button("Log in")
-
-    if submitted:
-        if expected_password and hmac.compare_digest(entered, expected_password):
-            st.session_state["authenticated"] = True
-            st.session_state["_password_error"] = False
-            st.rerun()
-        else:
-            st.session_state["_password_error"] = True
-
-    if not expected_password:
-        st.error("APP_PASSWORD not configured in st.secrets. Access blocked.")
-    elif st.session_state.get("_password_error"):
-        st.error("Incorrect password.")
-    st.markdown("</div>", unsafe_allow_html=True)
-    return False
-
-
-if not _check_password():
-    st.stop()
-
-
 st.markdown(
     """
     <style>
@@ -394,10 +346,11 @@ st.markdown(
     /* Top Bar Brand Logo - clickable as a single centered unit. The visible
        logo (image + wordmark) is static markup; clicking it is handled by a
        real st.button rendered as an invisible overlay on top of it, not an
-       <a href> link (a raw link forces a full page reload and drops the
-       authenticated session - see _check_password). Selectors are scoped
-       under .st-key-topbar_nav_container so they out-specificity the mobile
-       ".st-key-topbar_nav_container button" rule further down. */
+       <a href> link (a raw link forces a full page reload, which drops
+       st.session_state - active league, selected valuation mode, etc.).
+       Selectors are scoped under .st-key-topbar_nav_container so they
+       out-specificity the mobile ".st-key-topbar_nav_container button" rule
+       further down. */
     .st-key-topbar_nav_container .st-key-brand_logo_wrap {
         position: relative !important;
         display: flex !important;
@@ -3187,9 +3140,9 @@ with st.container(key="topbar_nav_container"):
     with top_col_brand:
         with st.container(key="brand_logo_wrap"):
             # Brand mark is static markup (no <a href>): a raw link would force
-            # a full page reload and drop the authenticated session. Clicking
-            # the logo returns to the portal via the real st.button below,
-            # rendered as an invisible overlay on top of this markup by CSS.
+            # a full page reload and drop st.session_state. Clicking the logo
+            # returns to the portal via the real st.button below, rendered as
+            # an invisible overlay on top of this markup by CSS.
             if ICON_F_YARDS_B64:
                 st.html(
                     f"""
@@ -3389,10 +3342,21 @@ if st.session_state.get("selected_league_id") is None:
 
     weekly_proj_all = get_weekly_projections(active_season, active_week)
 
-    # League Cards Grid (2-column responsive layout)
-    grid_cols = st.columns(2)
-    for idx, lg in enumerate(sorted_leagues):
-        col = grid_cols[idx % 2]
+    def _build_league_card_html(lg):
+        """
+        Computes and returns one league's card HTML for the League Workspaces
+        grid below. Only reads from the closed-over market_db/players/
+        weekly_proj_all/selected_mode/active_week/user - never mutates them
+        (apply_valuation_mode/apply_te_premium already return new dicts
+        instead of mutating their input, so concurrent calls for different
+        leagues can't cross-contaminate each other's valuations the way a
+        shared-mutation bug once did here) - so this is safe to run
+        concurrently for every league via ThreadPoolExecutor below. Most of
+        its cost is waiting on live Sleeper API calls (rosters, schedule,
+        league history), not CPU, which is exactly what a thread pool helps
+        with (the GIL releases during I/O waits) - same rationale as
+        get_ros_projections's per-week parallel fetch in sleeper_api.py.
+        """
         lid = lg["league_id"]
         lname = lg["name"]
 
@@ -3511,8 +3475,8 @@ if st.session_state.get("selected_league_id") is None:
             fpts_txt = "N/A"
             history = {"total_seasons": "N/A"}
 
-        # No <a href> here: a raw link would force a full page reload and drop the
-        # authenticated session. Navigation is a real st.button below, via
+        # No <a href> here: a raw link would force a full page reload and drop
+        # st.session_state. Navigation is a real st.button below, via
         # set_active_workspace().
         card_html = f"""
         <div class='card-container' style='border-radius: 12px; padding: 16px 18px; margin-bottom: 8px; {border_accent} background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);'>
@@ -3551,8 +3515,44 @@ if st.session_state.get("selected_league_id") is None:
         </div>
         """
 
+        return "\n".join(line.lstrip() for line in card_html.splitlines())
+
+    # Compute every league's card concurrently: each call is dominated by
+    # waiting on live Sleeper API requests (rosters, schedule, league
+    # history), not CPU, so a thread pool cuts the grid's total load time
+    # roughly from "sum of all 12 leagues" to "the slowest one". Only the
+    # actual Streamlit rendering below stays on the main thread, in the
+    # original league order - st.html/st.button aren't safe to call from
+    # worker threads.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(sorted_leagues))) as executor:
+        future_to_league_id = {
+            executor.submit(_build_league_card_html, lg): lg["league_id"] for lg in sorted_leagues
+        }
+        card_html_by_league_id = {}
+        for future in concurrent.futures.as_completed(future_to_league_id):
+            l_id = future_to_league_id[future]
+            try:
+                card_html_by_league_id[l_id] = future.result()
+            except Exception:
+                # _build_league_card_html already catches its own failures
+                # and degrades to an "N/A" card - this only guards against
+                # something failing outside that try/except entirely, so a
+                # single league can never take down the whole grid render.
+                card_html_by_league_id[l_id] = (
+                    "<div class='card-container' style='border-radius: 12px; padding: 16px 18px; "
+                    "margin-bottom: 8px; border: 1px solid rgba(148, 163, 184, 0.2);'>"
+                    "<h4 style='margin: 0; color: #f8fafc;'>League unavailable</h4>"
+                    "<p style='color: #94a3b8; font-size: 0.85rem;'>Could not load this league's card.</p>"
+                    "</div>"
+                )
+
+    # League Cards Grid (2-column responsive layout)
+    grid_cols = st.columns(2)
+    for idx, lg in enumerate(sorted_leagues):
+        col = grid_cols[idx % 2]
+        lid = lg["league_id"]
         with col:
-            st.html("\n".join(line.lstrip() for line in card_html.splitlines()))
+            st.html(card_html_by_league_id[lid])
             st.button(
                 "Open Workspace →",
                 key=f"open_workspace_card_{lid}",
