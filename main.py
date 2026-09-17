@@ -254,7 +254,7 @@ for league in leagues:
         base_lookup = dynasty_lookup_sf if is_superflex else dynasty_lookup_1qb
         primary_lookup = copy.deepcopy(base_lookup)
         if tep_bonus > 0:
-            apply_te_premium(primary_lookup, tep_bonus)
+            primary_lookup = apply_te_premium(primary_lookup, tep_bonus)
             print(f"  ⚡ TE Premium active (+{tep_bonus} PPR bonus applied to TEs)")
 
         primary_label = "Dynasty"

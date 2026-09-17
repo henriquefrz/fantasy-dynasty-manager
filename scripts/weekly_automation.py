@@ -81,7 +81,7 @@ def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb,
 
         lookup = dynasty_sf if is_sf else dynasty_1qb
         if bonus_te > 0:
-            lookup = apply_te_premium(dict(lookup), bonus_te)
+            lookup = apply_te_premium(lookup, bonus_te)
 
         fmt_type = f"{'Dynasty' if is_dyn else 'Redraft'} {'Superflex' if is_sf else '1QB'}"
         lines.append(f"\n🏆 League: {league_name.upper()} ({fmt_type})")
@@ -172,7 +172,7 @@ def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_
 
         lookup = dynasty_sf if is_sf else dynasty_1qb
         if bonus_te > 0:
-            lookup = apply_te_premium(dict(lookup), bonus_te)
+            lookup = apply_te_premium(lookup, bonus_te)
 
         roster_players = get_roster_players(user_roster, players)
         proj_lookup = {}

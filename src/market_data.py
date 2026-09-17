@@ -774,11 +774,18 @@ def recompute_consensus_ranks(lookup):
 
 def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
     """
-    Dynamically recalculates 'market_value' for all players in an existing lookup
-    using their stored fc_val, ktc_val, and dp_val without re-fetching from APIs.
+    Returns a new lookup with 'market_value' recalculated for all players from
+    their stored fc_val, ktc_val, and dp_val, without re-fetching from APIs.
     Optionally re-applies TE Premium. Recomputes consensus ranks.
+
+    Does not mutate the input lookup - it builds and returns an independent
+    copy. This matters because callers repeatedly pass the same shared base
+    lookup (e.g. market_db["dynasty_sf_lookup"]) for many leagues in a row;
+    mutating it in place would let one league's mode/TEP leak into every
+    other league sharing that same object.
     """
-    for pid, p in lookup.items():
+    new_lookup = {pid: dict(p) for pid, p in lookup.items()}
+    for pid, p in new_lookup.items():
         fc_val = p.get("fc_val")
         ktc_val = p.get("ktc_val")
         dp_val = p.get("dp_val")
@@ -787,10 +794,10 @@ def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
         p["market_value"] = compute_composite_value(fc_val, ktc_val, dp_val, mode=mode, rank_ecr=rank_ecr, position=pos)
 
     if bonus_rec_te and bonus_rec_te > 0:
-        apply_te_premium(lookup, bonus_rec_te)
+        new_lookup = apply_te_premium(new_lookup, bonus_rec_te)
 
-    recompute_consensus_ranks(lookup)
-    return lookup
+    recompute_consensus_ranks(new_lookup)
+    return new_lookup
 
 
 def _calculate_redraft_depth_value(blended_rank: float) -> float:
@@ -1274,17 +1281,27 @@ enrich_lookup_with_market_values = enrich_lookup_with_consensus_values
 
 def apply_te_premium(lookup, bonus_rec_te):
     """
-    Applies a realistic volume-tiered boost to tight ends based on TE Premium bonus.
+    Returns a new lookup with a realistic volume-tiered boost applied to tight
+    end market values, based on the league's actual TE Premium bonus.
+
+    Does not mutate the input lookup - it builds and returns an independent
+    copy (a shallow dict(lookup) is NOT enough, since the per-player dicts
+    themselves would still be shared and get mutated). This matters because
+    the same base lookup is reused across many leagues with different TEP
+    settings; mutating it in place would leak one league's boost into every
+    other league sharing that object.
 
     Tiers:
     - Elite TEs (>4,000 pts): +20% for 0.5 TEP | +35% for 1.0 TEP
     - Starting TEs (1,500-4,000 pts): +15% for 0.5 TEP | +25% for 1.0 TEP
     - Backup/Depth TEs (<1,500 pts): +8% for 0.5 TEP | +15% for 1.0 TEP
     """
-    if not bonus_rec_te or bonus_rec_te <= 0:
-        return lookup
+    new_lookup = {player_id: dict(data) for player_id, data in lookup.items()}
 
-    for player_id, data in lookup.items():
+    if not bonus_rec_te or bonus_rec_te <= 0:
+        return new_lookup
+
+    for player_id, data in new_lookup.items():
         if data.get("position") != "TE":
             continue
 
@@ -1302,7 +1319,7 @@ def apply_te_premium(lookup, bonus_rec_te):
         data["market_value"] = round(curr_val * (1.0 + rate), 1)
         data["tep_boost_applied"] = rate
 
-    return lookup
+    return new_lookup
 
 
 def _build_ecr_to_value_curve(values_players_raw, is_superflex=True):
