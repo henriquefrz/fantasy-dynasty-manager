@@ -1910,7 +1910,7 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
 def render_ros_power_table_html(ros_rows, user_roster_id):
     """
     Renders Rest-of-Season (ROS) Asset Power Rankings table with subtle cyan highlighting
-    for the user's franchise row, displaying 70% Starters + 30% Bench consensus values.
+    for the user's franchise row, displaying 85% Starters + 15% Bench consensus values.
     """
     html = """
     <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
@@ -1921,8 +1921,8 @@ def render_ros_power_table_html(ros_rows, user_roster_id):
                 <th style='width: 70px; text-align: center;'>Rank</th>
                 <th style='width: 26%; text-align: left;'>Manager / Team</th>
                 <th style='width: 15%; text-align: center;'>ROS Score</th>
-                <th style='width: 15%; text-align: center;'>Starters (70%)</th>
-                <th style='width: 15%; text-align: center;'>Bench (30%)</th>
+                <th style='width: 15%; text-align: center;'>Starters (85%)</th>
+                <th style='width: 15%; text-align: center;'>Bench (15%)</th>
                 <th style='width: 15%; text-align: center;'>Total ROS Value</th>
                 <th style='width: 14%; text-align: center;'>Tier</th>
             </tr>
@@ -1940,8 +1940,8 @@ def render_ros_power_table_html(ros_rows, user_roster_id):
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
             <td class='val-pill' style='text-align: center; color: #38bdf8;'>{r['ROS Score']}</td>
-            <td style='text-align: center;'>{r['Starters Val (70%)']}</td>
-            <td style='text-align: center; color: #94a3b8;'>{r['Bench Val (30%)']}</td>
+            <td style='text-align: center;'>{r['Starters Val (85%)']}</td>
+            <td style='text-align: center; color: #94a3b8;'>{r['Bench Val (15%)']}</td>
             <td style='text-align: center; color: #38bdf8; font-weight: 600;'>{r['Total ROS Value']}</td>
             <td style='text-align: center;'><span class='status-capsule {tier_cls}'>{tier}</span></td>
         </tr>
@@ -5068,8 +5068,8 @@ else:
                     st.html(evo_html)
 
         def render_ros_power_view():
-            st.caption("ROS Asset Power Formula: 70% Starters Value + 30% Bench Depth (Tri-Source Consensus: Sleeper Multi-Week Projections + FantasyPros ECR + ESPN Projections). Purely consultative.")
-            ros_res = compute_ros_power_rankings(all_ros_team_profiles, weight_starters=0.70, weight_bench=0.30)
+            st.caption("ROS Asset Power Formula: 85% Starters Value + 15% Bench Depth (Tri-Source Consensus: Sleeper Multi-Week Projections + FantasyPros ECR + ESPN Projections). Purely consultative.")
+            ros_res = compute_ros_power_rankings(all_ros_team_profiles, weight_starters=0.85, weight_bench=0.15)
             ranked_ros = sorted(ros_res.values(), key=lambda x: x["ros_score"], reverse=True)
 
             ros_data = []
@@ -5080,8 +5080,8 @@ else:
                     "Rank": f"#{rank_idx}",
                     "Manager / Team": t["manager_name"],
                     "ROS Score": f"{t['ros_score']:.1f} / 100",
-                    "Starters Val (70%)": f"{t['starters_val']:,.0f} pts",
-                    "Bench Val (30%)": f"{t['bench_val']:,.0f} pts",
+                    "Starters Val (85%)": f"{t['starters_val']:,.0f} pts",
+                    "Bench Val (15%)": f"{t['bench_val']:,.0f} pts",
                     "Total ROS Value": f"{t['total_val']:,.0f} pts",
                     "Competitive Tier": t["status"].split("(")[0].strip() if t.get("status") else "Active",
                 })

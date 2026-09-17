@@ -571,13 +571,15 @@ def compute_dynasty_power_rankings(
 
 def compute_ros_power_rankings(
     team_profiles: List[Dict[str, Any]],
-    weight_starters: float = 0.70,
-    weight_bench: float = 0.30,
+    weight_starters: float = 0.85,
+    weight_bench: float = 0.15,
 ) -> Dict[int, Dict[str, Any]]:
     """
     Computes Rest-of-Season (ROS) Asset Power Rankings based on 3-source consensus redraft valuations:
-    - 70% Starters Value: Optimal starting lineup market value for single-season impact.
-    - 30% Bench Depth: Active bench market value for injury resilience and bye-week protection.
+    - 85% Starters Value: Optimal starting lineup market value for single-season impact - the bench
+      doesn't score points, so this is weighted heavily toward who actually takes the field.
+    - 15% Bench Depth: Active bench market value for injury resilience and bye-week protection - still
+      relevant, but a distant second to starting production for a rest-of-season metric.
     (Draft capital is 0% as future picks do not generate points in the current season).
     """
     ros_results = {}
