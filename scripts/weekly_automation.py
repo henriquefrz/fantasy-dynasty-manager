@@ -24,6 +24,7 @@ from src.sleeper_api import (
     get_free_agents,
     get_nfl_state,
     get_weekly_projections,
+    get_weekly_stats,
     get_ros_projections,
 )
 from src.league_classifier import classify_league, is_superflex_league
@@ -144,7 +145,7 @@ def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb,
         print(f"\n[+] Report written to {fname}")
 
 
-def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, weekly_proj, active_season, active_week, output_dir=None):
+def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, weekly_proj, weekly_stats, active_season, active_week, output_dir=None):
     """
     Thursday Afternoon: Checks upcoming matchups, starter health, bench pivots,
     and stud-protected streaming options ahead of Thursday Night Football.
@@ -186,6 +187,7 @@ def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_
             projections_lookup=proj_lookup,
             roster_positions=roster_pos,
             player_db=players,
+            weekly_stats=weekly_stats,
         )
 
         fmt_type = f"{'Dynasty' if is_dyn else 'Redraft'} {'Superflex' if is_sf else '1QB'}"
@@ -272,6 +274,7 @@ def main():
     enrich_lookup_with_consensus_values(dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
     weekly_proj = get_weekly_projections(active_season, active_week)
+    weekly_stats = get_weekly_stats(active_season, active_week)
     ros_proj = get_ros_projections(active_season, start_week=active_week, end_week=17)
     redraft_lk = build_positional_lookup(fp_rankings, player_ids, "redraft")
     enrich_lookup_with_redraft_values(
@@ -287,7 +290,7 @@ def main():
         run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, redraft_lk, output_dir=args.output_dir)
 
     if args.routine in ["thursday", "all"]:
-        run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, weekly_proj, active_season, active_week, output_dir=args.output_dir)
+        run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, weekly_proj, weekly_stats, active_season, active_week, output_dir=args.output_dir)
 
 
 if __name__ == "__main__":

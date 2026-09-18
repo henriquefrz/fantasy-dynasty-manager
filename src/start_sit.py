@@ -20,6 +20,16 @@ PROTECTED_MARKET_VALUE_THRESHOLD = 1800.0
 PROTECTED_REDRAFT_ECR_THRESHOLD = 60.0
 
 
+def has_game_started(player_id: str, weekly_stats: Dict[str, Any]) -> bool:
+    """
+    True once player_id's real-world game for the week has kicked off (see
+    get_weekly_stats). A player on a bye, or whose game just hasn't started
+    yet, simply has no entry - harmless here, since that player stays
+    normally eligible either way.
+    """
+    return player_id in weekly_stats
+
+
 def calculate_weekly_projected_points(
     player_id: str,
     raw_proj: Optional[Dict[str, Any]],
@@ -207,10 +217,18 @@ def audit_weekly_lineup(
     projections_lookup: Dict[str, float],
     roster_positions: List[str],
     player_db: Dict[str, Any],
+    weekly_stats: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
     Audits the manager's active Sleeper starting lineup against the optimal projected lineup.
     Detects sub-optimal starts, computes projected point differentials, and flags injury risks.
+
+    weekly_stats (see get_weekly_stats) excludes any player whose game has
+    already started from both start/sit swap suggestions and injury pivots:
+    once a player's own game kicks off, Sleeper locks that player's lineup
+    slot individually, so "sit" or "pivot off" them is no longer an action
+    the manager can actually take, and the recommendation would be nonsense
+    (e.g. suggesting to bench a player who already got hurt mid-game).
     """
     active_starter_pids = user_roster.get("starters") or []
     active_slots = [pos for pos in roster_positions if pos not in ("BN", "IR", "TAXI")]
@@ -244,6 +262,8 @@ def audit_weekly_lineup(
 
     for opt_p, opt_pts, slot in optimal_starters:
         opt_pid = opt_p.get("player_id")
+        if has_game_started(opt_pid, weekly_stats):
+            continue  # can't start a player whose own game already happened
         # If this optimal starter is currently sitting on the manager's bench
         if opt_pid not in active_starter_pids:
             # Find which active starter in a compatible slot has fewer projected points
@@ -254,6 +274,8 @@ def audit_weekly_lineup(
                 act_pid = act_p.get("player_id")
                 if act_pid in optimal_starter_pids:
                     continue  # This starter is already part of the optimal lineup
+                if has_game_started(act_pid, weekly_stats):
+                    continue  # this starter's slot is already locked - can't be sat
 
                 # Compatibility check
                 pos = opt_p.get("position")
@@ -287,8 +309,9 @@ def audit_weekly_lineup(
     injury_alerts = []
     for act_p, act_pts, slot in active_starter_objs:
         status = act_p.get("injury_status")
-        if status in ("Questionable", "Doubtful", "Out", "IR", "PUP", "Sus"):
-            # Find best healthy bench pivot
+        act_pid = act_p.get("player_id")
+        if status in ("Questionable", "Doubtful", "Out", "IR", "PUP", "Sus") and not has_game_started(act_pid, weekly_stats):
+            # Find best healthy bench pivot whose own game also hasn't started yet
             pos = act_p.get("position")
             pivots = [
                 (bp, bpts) for bp, bpts in bench_players
@@ -298,6 +321,7 @@ def audit_weekly_lineup(
                     or (slot == "IDP_FLEX" and bp.get("position") in ("DL", "LB", "DB", "DE", "DT", "CB", "S"))
                 )
                 and bp.get("injury_status") not in ("Questionable", "Doubtful", "Out", "IR")
+                and not has_game_started(bp.get("player_id"), weekly_stats)
             ]
             best_pivot = pivots[0] if pivots else None
 
@@ -327,6 +351,7 @@ def find_streaming_recommendations(
     projections_lookup: Dict[str, float],
     roster_positions: List[str],
     primary_lookup: Dict[str, Any],
+    weekly_stats: Dict[str, Any],
     top_n: int = 3,
 ) -> List[Dict[str, Any]]:
     """
@@ -335,6 +360,11 @@ def find_streaming_recommendations(
     - Never suggests dropping a player based on a single-week 0.0 projection.
     - Protected starters and core assets are immune from being cut.
     - Droppable candidates must be low season-long market value bench fliers or existing streamers.
+
+    weekly_stats (see get_weekly_stats) excludes any free agent whose own
+    game already started (can't be started this week) and any currently
+    active starter whose game already started (their slot is locked, so
+    they can't be swapped out this week either).
     """
     active_starter_pids = set(user_roster.get("starters") or [])
     reserve_pids = set(user_roster.get("reserve") or [])
@@ -384,13 +414,20 @@ def find_streaming_recommendations(
             continue
 
         fa_pid = fa.get("player_id")
+        if has_game_started(fa_pid, weekly_stats):
+            continue  # can't start this free agent - their game already happened
+
         fa_proj = projections_lookup.get(fa_pid, 0.0)
 
         if fa_proj <= 5.0:
             continue
 
-        # Find current starter at this position
-        current_starters = starters_by_pos.get(pos, [])
+        # Find current starter at this position, excluding anyone whose slot
+        # is already locked because their own game has started
+        current_starters = [
+            p for p in starters_by_pos.get(pos, [])
+            if not has_game_started(p.get("player_id"), weekly_stats)
+        ]
         if not current_starters:
             continue
 

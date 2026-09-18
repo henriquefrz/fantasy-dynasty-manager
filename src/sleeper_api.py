@@ -212,6 +212,13 @@ def get_nfl_state():
 
 _WEEKLY_PROJECTIONS_CACHE = {}
 _ROS_PROJECTIONS_CACHE = {}
+_WEEKLY_STATS_CACHE = {}
+
+# Real (already-played) stats move live during games, unlike the static
+# pre-kickoff numbers in get_weekly_projections, so this cache is kept much
+# shorter - long enough to absorb repeat calls across leagues in the same
+# Streamlit rerun, short enough to pick up a game finishing an hour ago.
+LIVE_STATS_CACHE_TTL_SECONDS = 20 * 60
 
 
 def get_weekly_projections(season: str, week: int):
@@ -246,6 +253,48 @@ def get_weekly_projections(season: str, week: int):
         print(f"Warning: Failed to fetch weekly projections for {season} Week {week}: {e}")
         if cached is not None:
             print(f"Info: Falling back to stale cached weekly projections for {season} Week {week}")
+            return cached[1]
+        return {}
+
+
+def get_weekly_stats(season: str, week: int):
+    """
+    Returns REAL (not projected) weekly player stats from Sleeper. A player_id
+    only appears in this dict once their team's game for the week has
+    actually kicked off - absent means their game hasn't started yet (or
+    they're on a bye), which doubles as a reliable "has this player already
+    played this week" signal without needing a separate schedule/scoreboard
+    lookup or team-abbreviation cross-referencing (confirmed live: a player
+    whose game just finished shows a real stat line here with gp=1, while a
+    player whose game hasn't started has no entry at all).
+
+    Cached in-memory by (season, week) for LIVE_STATS_CACHE_TTL_SECONDS -
+    much shorter than get_weekly_projections' TTL, since these numbers
+    change live during games instead of staying static pre-kickoff.
+    """
+    cache_key = (str(season), int(week))
+    cached = _WEEKLY_STATS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        if time.time() - cached_at < LIVE_STATS_CACHE_TTL_SECONDS:
+            return cached_data
+
+    url = f"{BASE_URL}/stats/nfl/regular/{season}/{week}"
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, dict):
+            _WEEKLY_STATS_CACHE[cache_key] = (time.time(), data)
+            return data
+        elif isinstance(data, list):
+            mapped = {item.get("player_id", str(i)): item for i, item in enumerate(data)}
+            _WEEKLY_STATS_CACHE[cache_key] = (time.time(), mapped)
+            return mapped
+    except Exception as e:
+        print(f"Warning: Failed to fetch weekly stats for {season} Week {week}: {e}")
+        if cached is not None:
+            print(f"Info: Falling back to stale cached weekly stats for {season} Week {week}")
             return cached[1]
         return {}
 

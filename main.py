@@ -13,6 +13,7 @@ from src.sleeper_api import (
     get_league_users,
     get_nfl_state,
     get_weekly_projections,
+    get_weekly_stats,
     get_league_schedule,
 )
 from src.league_classifier import classify_league, is_superflex_league
@@ -185,7 +186,8 @@ nfl_state = get_nfl_state()
 active_nfl_season = nfl_state.get("season", "2026")
 active_nfl_week = nfl_state.get("week", 1)
 weekly_projections = get_weekly_projections(active_nfl_season, active_nfl_week)
-print(f"NFL State loaded: Season {active_nfl_season} | Week {active_nfl_week} ({len(weekly_projections)} player projections)")
+weekly_stats = get_weekly_stats(active_nfl_season, active_nfl_week)
+print(f"NFL State loaded: Season {active_nfl_season} | Week {active_nfl_week} ({len(weekly_projections)} player projections, {len(weekly_stats)} players with games already underway)")
 
 print()
 print("=" * 60)
@@ -504,6 +506,7 @@ for league in leagues:
             projections_lookup=proj_lookup,
             roster_positions=roster_pos,
             player_db=players,
+            weekly_stats=weekly_stats,
         )
 
         print(f"  ⚡ Week {active_nfl_week} Lineup Outlook:")
@@ -548,6 +551,7 @@ for league in leagues:
                 projections_lookup=combined_projs,
                 roster_positions=roster_pos,
                 primary_lookup=primary_lookup,
+                weekly_stats=weekly_stats,
                 top_n=2,
             )
             if streams:

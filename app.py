@@ -62,6 +62,7 @@ try:
         get_league_users,
         get_nfl_state,
         get_weekly_projections,
+        get_weekly_stats,
         get_ros_projections,
         get_league_schedule,
         get_league_matchups,
@@ -83,6 +84,7 @@ except ImportError:
     get_league_users = getattr(_s_api, "get_league_users")
     get_nfl_state = getattr(_s_api, "get_nfl_state")
     get_weekly_projections = getattr(_s_api, "get_weekly_projections")
+    get_weekly_stats = getattr(_s_api, "get_weekly_stats")
     get_ros_projections = getattr(_s_api, "get_ros_projections")
     get_league_schedule = getattr(_s_api, "get_league_schedule")
     get_league_matchups = getattr(_s_api, "get_league_matchups")
@@ -2503,6 +2505,7 @@ def fetch_league_data(league_id, season, week):
     schedule = get_league_schedule(league_id, start_week=1, end_week=18)
     traded_picks = get_traded_picks(league_id)
     projections = get_weekly_projections(season, week)
+    stats = get_weekly_stats(season, week)
     matchups = get_league_matchups(league_id, week)
     return {
         "rosters": rosters,
@@ -2510,6 +2513,7 @@ def fetch_league_data(league_id, season, week):
         "schedule": schedule,
         "traded_picks": traded_picks,
         "projections": projections,
+        "stats": stats,
         "matchups": matchups,
     }
 
@@ -2618,13 +2622,14 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _pr
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, active_week, _players, _leagues_data, _cache_version="v2_hub_lineup_alerts_aligned"):
+def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, active_week, _players, _leagues_data, _cache_version="v3_game_started_filter"):
     """
     Aggregates actionable lineup suggestions across all leagues for the connected user.
     Reuses existing calculate_weekly_projected_points and audit_weekly_lineup engines.
     Returns sorted list of league alert dicts with structured move fields.
     """
     weekly_proj = get_weekly_projections(active_season, active_week)
+    weekly_stats = get_weekly_stats(active_season, active_week)
     league_alerts = []
 
     league_map = {str(lg.get("league_id")): lg for lg in _leagues_data}
@@ -2656,6 +2661,7 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
             projections_lookup=proj_lookup,
             roster_positions=roster_pos,
             player_db=_players,
+            weekly_stats=weekly_stats,
         )
 
         swaps = audit.get("start_sit_swaps", [])
@@ -3621,6 +3627,7 @@ else:
     schedule = league_data["schedule"]
     traded_picks = league_data["traded_picks"]
     weekly_projections = league_data["projections"]
+    weekly_stats = league_data["stats"]
     scoring = selected_league.get("scoring_settings", {})
     roster_pos = selected_league.get("roster_positions", [])
 
@@ -4339,6 +4346,7 @@ else:
             projections_lookup=proj_lookup,
             roster_positions=roster_pos,
             player_db=players,
+            weekly_stats=weekly_stats,
         )
 
         week_matchups = league_data.get("matchups") or []
