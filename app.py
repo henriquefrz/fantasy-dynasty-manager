@@ -5434,8 +5434,8 @@ else:
         if is_dynasty:
             sub_mc, sub_ros, sub_dyn, sub_rooms = st.tabs([
                 "Season Standings & Playoff Simulation (Monte Carlo)",
-                "ROS Asset Power Rankings (70/30)",
-                "Dynasty Asset Power Rankings (50/30/20)",
+                "ROS Asset Power Rankings",
+                "Dynasty Asset Power Rankings",
                 "Positional Room & Draft Capital Leaderboard",
             ])
             with sub_mc:
@@ -5449,7 +5449,7 @@ else:
         else:
             sub_mc, sub_ros, sub_rooms = st.tabs([
                 "Season Standings & Playoff Simulation (Monte Carlo)",
-                "ROS Asset Power Rankings (70/30)",
+                "ROS Asset Power Rankings",
                 "Positional Room Leaderboard",
             ])
             with sub_mc:
