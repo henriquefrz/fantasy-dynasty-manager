@@ -229,11 +229,12 @@ def rank_teams_by_record(rosters):
 
 def calculate_dynamic_record_weight(games_played: int, season_length: int = 14) -> float:
     """
-    Dynamically scales the weight of actual regular-season W-L record vs. paper roster value.
-    - Pre-season (0 games): 0% record (100% paper roster)
-    - Early season (Weeks 1-3): 15% - 25% record (small sample variance protection)
-    - Mid season (Weeks 4-8): 35% - 65% record (balanced sample)
-    - Late season (Weeks 9-14+): 75% - 90% record (standings reality dominates)
+    Dynamically scales the weight of the current-situation signal (simulated
+    playoff probability, in get_current_strength_tier) vs. paper roster value.
+    - Pre-season (0 games): 0% situation (100% paper roster)
+    - Early season (Weeks 1-3): 15% - 25% situation (small sample variance protection)
+    - Mid season (Weeks 4-8): 35% - 65% situation (balanced sample)
+    - Late season (Weeks 9-14+): 75% - 90% situation (playoff-odds reality dominates)
     """
     if games_played <= 0:
         return 0.0
@@ -270,28 +271,39 @@ def get_current_strength_tier(
     playoff_pct=None,
     is_eliminated=False,
 ):
+    """
+    Blends roster strength (redraft_score, from the ROS asset power rank) with a
+    "current situation" signal into a single 0-1 tier score.
+
+    The situation signal is the Monte Carlo simulated playoff probability
+    (playoff_pct / 100.0), not a raw win-loss record percentile. A blunt
+    win-loss percentile treats every 1-0 or 0-1 start the same regardless of
+    who was actually played or how tough the remaining schedule is, so it can
+    tag a team "Contender" off a lucky early win against a weak opponent (or
+    "Rebuild" off an unlucky loss) even when the underlying simulation - which
+    already accounts for opponent strength, remaining schedule, and scoring
+    variance - says its real playoff odds are near zero (or near-certain).
+    playoff_pct replaces that percentile outright rather than being added
+    alongside it, since redraft_score/ros_rank already carries the
+    roster-strength signal - summing a third signal here would double-count.
+    """
     if not redraft_total or not redraft_position:
         return "medium", 0
 
     redraft_score = percentile_score(redraft_position, redraft_total)
     games_played = total_games_played(user_roster)
-    record_score = None
 
-    if games_played > 0 and rosters:
-        ranked = rank_teams_by_record(rosters)
-        total = len(ranked)
-
-        for position, roster in enumerate(ranked, start=1):
-            if roster["roster_id"] == user_roster["roster_id"]:
-                record_score = percentile_score(position, total)
-                break
-
-    if record_score is None or games_played == 0:
+    # playoff_pct is None (not 0.0) whenever the caller has no Monte Carlo result to
+    # offer (e.g. no schedule fetched yet) - treating that as "0% odds" would wrongly
+    # drag every such team toward "low" once games_played > 0, so it falls back to
+    # roster strength alone instead, same as the original record_score-unavailable case.
+    if games_played == 0 or playoff_pct is None:
         blended_score = redraft_score
     else:
-        # Dynamic record scaling: small sample early, standings reality late
-        record_weight = calculate_dynamic_record_weight(games_played, season_length)
-        blended_score = record_weight * record_score + (1 - record_weight) * redraft_score
+        # Dynamic situational weighting: small sample early, playoff-odds reality late
+        situational_weight = calculate_dynamic_record_weight(games_played, season_length)
+        situation_score = playoff_pct / 100.0
+        blended_score = situational_weight * situation_score + (1 - situational_weight) * redraft_score
 
     tier = score_to_tier(blended_score)
 

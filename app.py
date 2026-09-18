@@ -3001,6 +3001,13 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         season_length = max(1, playoff_start - 1)
         schedule = get_league_schedule(lid, 1, season_length) if league_obj else {}
 
+        # my_playoff_pct/my_is_elim default to "unknown" (get_current_strength_tier
+        # treats a None playoff_pct as 0.0 in the situation_score blend, matching the
+        # pre-simulation behavior) and are only filled in below when the Monte Carlo
+        # simulation actually runs (schedule available).
+        my_playoff_pct = None
+        my_is_elim = False
+
         if _weekly_proj:
             expectations = {
                 r["roster_id"]: compute_team_lineup_expectation(
@@ -3021,6 +3028,10 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
                 ranked_sim = sorted(sim_res.values(), key=lambda x: x.get("power_score", 0.0), reverse=True)
                 redraft_pos = next((i for i, x in enumerate(ranked_sim, 1) if x["roster_id"] == my_r["roster_id"]), 0)
                 redraft_total = tot_rosters
+
+                my_sim = sim_res.get(my_r["roster_id"], {})
+                my_playoff_pct = my_sim.get("playoff_pct")
+                my_is_elim = my_sim.get("is_eliminated", False)
 
                 # Calibrate team_tiers using simulation-backed strength for draft capital projection
                 for r in rosters:
@@ -3044,7 +3055,12 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
             _, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
 
         my_ros_pos = ros_rank_map.get(my_r["roster_id"], tot_rosters)
-        current_tier, _ = get_current_strength_tier(my_r, rosters, my_ros_pos, len(ros_rank_map) or tot_rosters)
+        current_tier, _ = get_current_strength_tier(
+            my_r, rosters, my_ros_pos, len(ros_rank_map) or tot_rosters,
+            season_length=season_length,
+            playoff_pct=my_playoff_pct,
+            is_eliminated=my_is_elim,
+        )
 
         if is_dyn:
             # 2. Dynasty rank based on 50% Starters + 30% Bench + 20% Draft Capital (exact match with Tab 4)
