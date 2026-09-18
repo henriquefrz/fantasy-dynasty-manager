@@ -44,7 +44,6 @@ from src.market_data import (
 from src.matching import match_players_by_sleeper_id
 from src.analysis_engine import (
     build_intelligent_waiver_suggestions,
-    enrich_with_alt_ranking,
 )
 from src.start_sit import (
     audit_weekly_lineup,
@@ -223,7 +222,7 @@ def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_
             for st in streaming[:2]:
                 lines.append(f"    - STREAM {st['fa_player']['full_name']} (Proj: {st['fa_proj']:.1f}) -> Drop Safe Bench {st['safe_drop_player']['full_name']}")
 
-        if not injuries and not recs and not streaming:
+        if not injuries and not swaps and not streaming:
             lines.append("  ✅ Active lineup matches optimal projection. No changes needed.")
 
     report = "\n".join(lines)

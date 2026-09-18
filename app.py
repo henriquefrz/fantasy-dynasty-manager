@@ -88,7 +88,7 @@ except ImportError:
     get_league_matchups = getattr(_s_api, "get_league_matchups")
     get_league_history = getattr(_s_api, "get_league_history")
     compute_historical_standings = getattr(_s_api, "compute_historical_standings", lambda lid, r, w: {})
-from src.league_classifier import classify_league, get_starter_counts, is_superflex_league
+from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_player_ids_raw,
@@ -173,7 +173,6 @@ except Exception:
     pass
 from src.analysis_engine import (
     build_intelligent_waiver_suggestions,
-    enrich_with_alt_ranking,
 )
 from src.start_sit import (
     calculate_weekly_projected_points,

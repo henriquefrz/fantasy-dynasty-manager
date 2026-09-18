@@ -15,7 +15,7 @@ from src.sleeper_api import (
     get_weekly_projections,
     get_league_schedule,
 )
-from src.league_classifier import classify_league, get_starter_counts, is_superflex_league
+from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_player_ids_raw,
@@ -33,7 +33,6 @@ from src.market_data import (
 from src.matching import match_players_by_sleeper_id
 from src.analysis_engine import (
     build_intelligent_waiver_suggestions,
-    enrich_with_alt_ranking,
 )
 from src.start_sit import (
     calculate_weekly_projected_points,
@@ -211,7 +210,6 @@ for league in leagues:
         continue
 
     roster_pos = league.get("roster_positions", [])
-    starter_counts = get_starter_counts(league)
 
     all_rosters_players = {
         r["roster_id"]: get_roster_players(r, players)

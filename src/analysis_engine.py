@@ -406,49 +406,4 @@ def build_intelligent_waiver_suggestions(
         "positional_options": positional_options,
     }
 
-
-# Backwards compatibility alias
-def build_add_drop_suggestions(matched_roster, matched_free_agents, starter_count, min_gain=1.0):
-    """
-    Legacy wrapper for same-position suggestions.
-    """
-    if not matched_roster:
-        return []
-
-    roster_sorted = sorted(matched_roster, key=lambda pr: pr[1]["rank_ecr"])
-    worst_starter_rank = roster_sorted[min(starter_count, len(roster_sorted)) - 1][1]["rank_ecr"] if starter_count > 0 else None
-
-    suggestions = []
-    for fa_player, fa_ranking in matched_free_agents:
-        for roster_player, roster_ranking in matched_roster:
-            rank_diff = roster_ranking["rank_ecr"] - fa_ranking["rank_ecr"]
-            if rank_diff < min_gain:
-                continue
-
-            priority = "starter" if worst_starter_rank and fa_ranking["rank_ecr"] < worst_starter_rank else "bench"
-            suggestions.append({
-                "add_player_id": fa_player.get("player_id"),
-                "add_name": fa_player.get("full_name") or fa_player.get("player_id"),
-                "add_rank": fa_ranking["rank_ecr"],
-                "drop_player_id": roster_player.get("player_id"),
-                "drop_name": roster_player.get("full_name") or roster_player.get("player_id"),
-                "drop_rank": roster_ranking["rank_ecr"],
-                "value_gained": rank_diff,
-                "priority": priority,
-            })
-
-    suggestions.sort(key=lambda s: (s["priority"] != "starter", -s["value_gained"]))
-    return suggestions
-
-
-def enrich_with_alt_ranking(suggestions, alt_lookup):
-    for suggestion in suggestions:
-        add_alt = alt_lookup.get(suggestion.get("add_player_id")) if alt_lookup else None
-        drop_alt = alt_lookup.get(suggestion.get("drop_player_id")) if alt_lookup else None
-
-        suggestion["add_alt_rank"] = (add_alt.get("rank_ecr_overall") or add_alt.get("rank_ecr")) if add_alt else None
-        suggestion["add_alt_pos_rank"] = (add_alt.get("rank_ecr_pos") or add_alt.get("rank_ecr")) if add_alt else None
-        suggestion["drop_alt_rank"] = (drop_alt.get("rank_ecr_overall") or drop_alt.get("rank_ecr")) if drop_alt else None
-        suggestion["drop_alt_pos_rank"] = (drop_alt.get("rank_ecr_pos") or drop_alt.get("rank_ecr")) if drop_alt else None
-
     return suggestions
