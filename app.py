@@ -204,7 +204,6 @@ try:
         classify_redraft_team,
         percentile_score,
         score_to_tier,
-        calculate_dynamic_record_weight,
         get_rebuild_ceiling_meta,
         simulate_optimal_lineup,
     )
@@ -218,7 +217,6 @@ except ImportError:
     classify_redraft_team = getattr(_ts, "classify_redraft_team")
     percentile_score = getattr(_ts, "percentile_score")
     score_to_tier = getattr(_ts, "score_to_tier")
-    calculate_dynamic_record_weight = getattr(_ts, "calculate_dynamic_record_weight")
     get_rebuild_ceiling_meta = getattr(_ts, "get_rebuild_ceiling_meta")
     simulate_optimal_lineup = getattr(_ts, "simulate_optimal_lineup")
 
@@ -1886,7 +1884,12 @@ def render_dynasty_power_table_html(dyn_rows, user_roster_id):
         row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
         name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
         tier = r.get("Competitive Tier", "Active")
-        tier_cls = "status-contender" if "Contender" in tier else ("status-rebuild" if "Rebuild" in tier else "status-bubble")
+        # Color by the actual win/neutral/rebuild category (not a substring
+        # match on the tier name), since most granular tier names - e.g.
+        # "Dominant Empire", "Win-Now Favorite", "Productive Struggle" -
+        # don't literally contain the words "Contender" or "Rebuild".
+        cat = r.get("Category", "neutral")
+        tier_cls = "status-contender" if cat == "win" else ("status-rebuild" if cat == "rebuild" else "status-bubble")
         html += f"""
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
@@ -1933,7 +1936,12 @@ def render_ros_power_table_html(ros_rows, user_roster_id):
         row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
         name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
         tier = r.get("Competitive Tier", "Active")
-        tier_cls = "status-contender" if "Contender" in tier else ("status-rebuild" if "Rebuild" in tier else "status-bubble")
+        # Color by the actual win/neutral/rebuild category (not a substring
+        # match on the tier name), since most granular tier names - e.g.
+        # "Dominant Empire", "Win-Now Favorite", "Productive Struggle" -
+        # don't literally contain the words "Contender" or "Rebuild".
+        cat = r.get("Category", "neutral")
+        tier_cls = "status-contender" if cat == "win" else ("status-rebuild" if cat == "rebuild" else "status-bubble")
         html += f"""
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
@@ -2961,50 +2969,14 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         for pos_idx, item in enumerate(redraft_ranked, start=1):
             team_tiers[item[0]] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
 
-        # Rest-of-Season Asset Power Ranking, computed independent of the Monte Carlo
-        # simulation, so it can serve as the pure roster-strength signal for
-        # get_current_strength_tier below. The Monte Carlo power_score rank (used for the
-        # "Season" badge shown on the Portal card) already blends in simulated wins seeded
-        # from each team's real current record - feeding that same rank into
-        # get_current_strength_tier would double-count real record alongside record_score
-        # in the same weighted average (same bug already fixed for the League Workspace
-        # view's 5 get_current_strength_tier call sites, via this identical ros_rank_map pattern).
-        ros_quick_profiles = []
-        for r in rosters:
-            rid = r["roster_id"]
-            if rid not in all_rosters_players:
-                continue
-            ros_quick_profiles.append(
-                analyze_team_profile(
-                    roster=r,
-                    roster_players=all_rosters_players[rid],
-                    owned_picks=[],
-                    primary_lookup=_redraft_lookup,
-                    redraft_lookup=_redraft_lookup,
-                    picks_lookup={},
-                    team_tiers={},
-                    roster_positions=roster_pos,
-                    is_dynasty=False,
-                    status="Unknown",
-                    category="neutral",
-                    manager_name=f"Team {rid}",
-                    total_rosters=tot_rosters,
-                )
-            )
-        ros_quick_results = compute_ros_power_rankings(ros_quick_profiles, weight_starters=0.85, weight_bench=0.15)
-        ranked_ros_quick = sorted(ros_quick_results.values(), key=lambda x: x["ros_score"], reverse=True)
-        ros_rank_map = {d["roster_id"]: idx for idx, d in enumerate(ranked_ros_quick, 1)}
-
         # 1. Season rank based on live Monte Carlo simulation if schedule available, or lineup expectations
         scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
         playoff_start = league_obj.get("settings", {}).get("playoff_week_start", 15) if league_obj else 15
         season_length = max(1, playoff_start - 1)
         schedule = get_league_schedule(lid, 1, season_length) if league_obj else {}
 
-        # my_playoff_pct/my_is_elim default to "unknown" (get_current_strength_tier
-        # treats a None playoff_pct as 0.0 in the situation_score blend, matching the
-        # pre-simulation behavior) and are only filled in below when the Monte Carlo
-        # simulation actually runs (schedule available).
+        # my_playoff_pct/my_is_elim default to "unknown" and are only filled in
+        # below when the Monte Carlo simulation actually runs (schedule available).
         my_playoff_pct = None
         my_is_elim = False
 
@@ -3026,7 +2998,8 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
                     num_simulations=1000,
                 )
                 ranked_sim = sorted(sim_res.values(), key=lambda x: x.get("power_score", 0.0), reverse=True)
-                redraft_pos = next((i for i, x in enumerate(ranked_sim, 1) if x["roster_id"] == my_r["roster_id"]), 0)
+                power_score_rank_map = {x["roster_id"]: idx for idx, x in enumerate(ranked_sim, 1)}
+                redraft_pos = power_score_rank_map.get(my_r["roster_id"], 0)
                 redraft_total = tot_rosters
 
                 my_sim = sim_res.get(my_r["roster_id"], {})
@@ -3039,10 +3012,9 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
                     r_sim = sim_res.get(rid, {})
                     r_playoff_pct = r_sim.get("playoff_pct")
                     r_is_elim = r_sim.get("is_eliminated", False)
-                    r_ros_pos = ros_rank_map.get(rid, tot_rosters)
+                    r_sps_pos = power_score_rank_map.get(rid, tot_rosters)
                     c_tier, _ = get_current_strength_tier(
-                        r, rosters, r_ros_pos, tot_rosters,
-                        season_length=season_length,
+                        r, r_sps_pos, tot_rosters,
                         playoff_pct=r_playoff_pct,
                         is_eliminated=r_is_elim,
                     )
@@ -3054,10 +3026,11 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         else:
             _, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
 
-        my_ros_pos = ros_rank_map.get(my_r["roster_id"], tot_rosters)
+        # redraft_pos/redraft_total is already the Season Power Score rank computed
+        # above (the same signal shown on the "Season" card badge), so current_tier
+        # and that badge are guaranteed to reflect the exact same underlying data.
         current_tier, _ = get_current_strength_tier(
-            my_r, rosters, my_ros_pos, len(ros_rank_map) or tot_rosters,
-            season_length=season_length,
+            my_r, redraft_pos, redraft_total,
             playoff_pct=my_playoff_pct,
             is_eliminated=my_is_elim,
         )
@@ -3443,20 +3416,22 @@ if st.session_state.get("selected_league_id") is None:
                 _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg, current_week=active_week
             )
 
-            # Trajectory badge
-            if is_dyn:
-                if t_cat == "win":
-                    badge_html = "<span class='status-capsule status-contender'>CONTENDER</span>"
-                    border_accent = "border: 1px solid rgba(56, 189, 248, 0.35);"
-                elif t_cat == "rebuild":
-                    badge_html = "<span class='status-capsule status-rebuild'>REBUILD</span>"
-                    border_accent = "border: 1px solid rgba(244, 63, 94, 0.35);"
-                else:
-                    badge_html = "<span class='status-capsule status-bubble'>BUBBLE</span>"
-                    border_accent = "border: 1px solid rgba(245, 158, 11, 0.35);"
+            # Trajectory badge - shows the real Franchise Trajectory tier name
+            # (e.g. "Dominant Empire", "Fragile Bubble Team"), color-coded by its
+            # win/neutral/rebuild macro category. Applies to both dynasty and
+            # redraft leagues: evaluate_league_quick_status already routes
+            # redraft through classify_redraft_team, so t_status/t_cat are
+            # always populated for both league types.
+            clean_t_status = t_status.split("(")[0].strip() if t_status else "Active"
+            if t_cat == "win":
+                badge_html = f"<span class='status-capsule status-contender'>{clean_t_status}</span>"
+                border_accent = "border: 1px solid rgba(56, 189, 248, 0.35);"
+            elif t_cat == "rebuild":
+                badge_html = f"<span class='status-capsule status-rebuild'>{clean_t_status}</span>"
+                border_accent = "border: 1px solid rgba(244, 63, 94, 0.35);"
             else:
-                badge_html = "<span class='status-capsule status-bubble'>REDRAFT</span>"
-                border_accent = "border: 1px solid rgba(56, 189, 248, 0.25);"
+                badge_html = f"<span class='status-capsule status-bubble'>{clean_t_status}</span>"
+                border_accent = "border: 1px solid rgba(245, 158, 11, 0.35);"
 
             slots_str = format_starter_slots_summary(roster_pos)
 
@@ -3483,7 +3458,11 @@ if st.session_state.get("selected_league_id") is None:
             </div>
             """
 
-            season_subtext = "🏆 Favorite" if r_pos == 1 else ("Playoff Lock" if r_pos <= 4 else ("In the Hunt" if r_pos <= 7 else "Rebuilding"))
+            # Static descriptor only (no classification text): this cell shows
+            # the Season Power Score rank, a signal distinct from both Playoff
+            # Status and Franchise Trajectory. Top-3 still gets a highlight
+            # accent, matching the "Capital"/"Annual" descriptor pattern used
+            # by the Dynasty/Type cell above.
             season_color = "#34d399" if r_pos <= 3 else ("#38bdf8" if r_pos <= 6 else "#94a3b8")
             season_bg = "rgba(16, 185, 129, 0.08)" if r_pos <= 3 else "rgba(15, 23, 42, 0.7)"
             season_border = "rgba(16, 185, 129, 0.25)" if r_pos <= 3 else "rgba(51, 65, 85, 0.5)"
@@ -3492,7 +3471,7 @@ if st.session_state.get("selected_league_id") is None:
             <div style='background: {season_bg}; border: 1px solid {season_border}; border-radius: 8px; padding: 8px 4px; text-align: center;'>
                 <div style='font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: {season_color}; letter-spacing: 0.04em;'>Season</div>
                 <div style='font-size: 0.95rem; font-weight: 900; color: #f8fafc; margin-top: 2px;'>#{r_pos} <span style='font-size: 0.68rem; font-weight: 500; color: #64748b;'>/ {total_rosters}</span></div>
-                <div style='font-size: 0.65rem; color: {season_color}; font-weight: 600; margin-top: 2px;'>{season_subtext}</div>
+                <div style='font-size: 0.65rem; color: {season_color}; font-weight: 600; margin-top: 2px;'>Power Score</div>
             </div>
             """
 
@@ -3693,7 +3672,6 @@ else:
 
     # Live Season Simulation & Playoff Elimination Detection (Unified across Tabs)
     playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
-    season_length = max(1, playoff_start - 1)
     team_expectations = {}
     for r in rosters:
         rid = r["roster_id"]
@@ -3715,40 +3693,13 @@ else:
         num_simulations=1000,
     )
 
+    # Season Power Score rank (position, power_score) per roster - the sole input
+    # to get_current_strength_tier below, and also the source for the "In-Season
+    # Contender Rank" display further down, so both stay on the exact same data.
     sim_rank_map = {}
     if live_sim_results:
         ranked_sim = sorted(live_sim_results.values(), key=lambda t: t.get("power_score", 0.0), reverse=True)
         sim_rank_map = {t["roster_id"]: (idx, t.get("power_score", 0.0)) for idx, t in enumerate(ranked_sim, 1)}
-
-    # Rest-of-Season Asset Power Ranking, computed early and independent of the Monte Carlo
-    # simulation, so it can serve as the pure roster-strength signal for get_current_strength_tier.
-    # The Season Power Score (sim_rank_map) already blends in simulated wins, so using it there
-    # would double-count real record alongside record_score in the same weighted average.
-    ros_prepass_profiles = []
-    for r in rosters:
-        rid = r["roster_id"]
-        if rid not in all_rosters_players:
-            continue
-        ros_prepass_profiles.append(
-            analyze_team_profile(
-                roster=r,
-                roster_players=all_rosters_players[rid],
-                owned_picks=[],
-                primary_lookup=redraft_lookup,
-                redraft_lookup=redraft_lookup,
-                picks_lookup={},
-                team_tiers={},
-                roster_positions=roster_pos,
-                is_dynasty=False,
-                status="Unknown",
-                category="neutral",
-                manager_name=user_map.get(r.get("owner_id"), f"Team {rid}"),
-                total_rosters=total_rosters,
-            )
-        )
-    ros_prepass_results = compute_ros_power_rankings(ros_prepass_profiles, weight_starters=0.85, weight_bench=0.15)
-    ranked_ros_prepass = sorted(ros_prepass_results.values(), key=lambda x: x["ros_score"], reverse=True)
-    ros_rank_map = {d["roster_id"]: (idx, d["ros_score"]) for idx, d in enumerate(ranked_ros_prepass, 1)}
 
     user_rid = user_roster["roster_id"]
     user_sim = live_sim_results.get(user_rid, {})
@@ -3757,15 +3708,48 @@ else:
 
     # Team Ranks & Profiles
     if is_dynasty:
-        dynasty_ranked = rank_teams_in_league(all_rosters_players, primary_lookup, roster_pos, is_dynasty=True)
-        dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_ranked)
+        picks_ownership = build_picks_ownership(selected_league, traded_picks)
+
+        # Dynasty Asset Power Rank prepass (50% starters + 30% bench + 20% picks) -
+        # the single source of truth for dynasty_tier everywhere in this view: the
+        # hero "Franchise Trajectory" badge below, the per-team profile loop that
+        # feeds the Positional Room leaderboard, and the "Dynasty Asset Power
+        # Rankings" table (render_dynasty_power_view) all read this same rank, so
+        # a team can no longer see one dynasty tier on its badge and a different
+        # one implied by its own Dynasty Score rank elsewhere on the same page.
+        dynasty_prepass_profiles = []
+        for r in rosters:
+            rid = r["roster_id"]
+            if rid not in all_rosters_players:
+                continue
+            dynasty_prepass_profiles.append(
+                analyze_team_profile(
+                    roster=r,
+                    roster_players=all_rosters_players[rid],
+                    owned_picks=get_picks_for_roster(picks_ownership, rid),
+                    primary_lookup=primary_lookup,
+                    redraft_lookup=redraft_lookup,
+                    picks_lookup=picks_lookup,
+                    team_tiers={},
+                    roster_positions=roster_pos,
+                    is_dynasty=True,
+                    status="Unknown",
+                    category="neutral",
+                    manager_name=user_map.get(r.get("owner_id"), f"Team {rid}"),
+                    total_rosters=total_rosters,
+                )
+            )
+        dynasty_prepass_results = compute_dynasty_power_rankings(dynasty_prepass_profiles)
+        ranked_dynasty_prepass = sorted(dynasty_prepass_results.values(), key=lambda x: x["dynasty_score"], reverse=True)
+        dynasty_score_pairs = [(d["roster_id"], d["dynasty_score"]) for d in ranked_dynasty_prepass]
+        dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_score_pairs)
+
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-        user_ros_pos = ros_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
-        if redraft_total and user_ros_pos:
+        user_sps_pos = sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
+        if redraft_total and user_sps_pos:
             current_tier, games_played = get_current_strength_tier(
-                user_roster, rosters, user_ros_pos, redraft_total,
-                season_length=season_length,
+                user_roster, user_sps_pos, redraft_total,
                 playoff_pct=user_playoff_pct,
                 is_eliminated=user_is_elim,
             )
@@ -3780,24 +3764,20 @@ else:
             r_playoff_pct = r_sim.get("playoff_pct")
             r_is_elim = r_sim.get("is_eliminated", False)
             _, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            r_ros_pos = ros_rank_map.get(rid, (r_pos, 0.0))[0] if ros_rank_map else r_pos
+            r_sps_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0] if sim_rank_map else r_pos
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_ros_pos, r_tot or len(rosters),
-                season_length=season_length,
+                r, r_sps_pos, r_tot or len(rosters),
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
             )
             team_tiers[rid] = c_tier
-
-        picks_ownership = build_picks_ownership(selected_league, traded_picks)
     else:
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-        user_ros_pos = ros_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
-        if redraft_total and user_ros_pos:
+        user_sps_pos = sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
+        if redraft_total and user_sps_pos:
             current_tier, games_played = get_current_strength_tier(
-                user_roster, rosters, user_ros_pos, redraft_total,
-                season_length=season_length,
+                user_roster, user_sps_pos, redraft_total,
                 playoff_pct=user_playoff_pct,
                 is_eliminated=user_is_elim,
             )
@@ -3831,12 +3811,11 @@ else:
         r_is_elim = r_sim.get("is_eliminated", False)
 
         if is_dynasty:
-            d_tier, _, _ = get_strength_tier(rid, dynasty_ranked)
+            d_tier, _, _ = get_strength_tier(rid, dynasty_score_pairs)
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            r_ros_pos = ros_rank_map.get(rid, (r_pos, 0.0))[0]
+            r_sps_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0]
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_ros_pos, r_tot,
-                season_length=season_length,
+                r, r_sps_pos, r_tot,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
             )
@@ -3844,10 +3823,9 @@ else:
             owned_picks = get_picks_for_roster(picks_ownership, rid)
         else:
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            r_ros_pos = ros_rank_map.get(rid, (r_pos, 0.0))[0]
+            r_sps_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0]
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_ros_pos, r_tot,
-                season_length=season_length,
+                r, r_sps_pos, r_tot,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
             )
@@ -5164,6 +5142,7 @@ else:
                     "Bench Val (15%)": f"{t['bench_val']:,.0f} pts",
                     "Total ROS Value": f"{t['total_val']:,.0f} pts",
                     "Competitive Tier": t["status"].split("(")[0].strip() if t.get("status") else "Active",
+                    "Category": t.get("category", "neutral"),
                 })
 
             st.html(render_ros_power_table_html(ros_data, user_roster["roster_id"]))
@@ -5251,6 +5230,7 @@ else:
                     "Bench Val (30%)": f"{t['bench_val']:,.0f} pts",
                     "Picks Capital (20%)": f"{t['picks_val']:,.0f} pts",
                     "Competitive Tier": t["status"].split("(")[0].strip() if t.get("status") else "Active",
+                    "Category": t.get("category", "neutral"),
                 })
 
             st.html(render_dynasty_power_table_html(dyn_data, user_roster["roster_id"]))

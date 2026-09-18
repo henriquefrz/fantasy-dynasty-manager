@@ -215,99 +215,34 @@ def total_games_played(roster):
     return settings.get("wins", 0) + settings.get("losses", 0) + settings.get("ties", 0)
 
 
-def rank_teams_by_record(rosters):
-    def record_key(roster):
-        settings = roster.get("settings", {})
-        wins = settings.get("wins", 0)
-        ties = settings.get("ties", 0)
-        fpts = settings.get("fpts", 0) + settings.get("fpts_decimal", 0) / 100
-
-        return (-(wins * 2 + ties), -fpts)
-
-    return sorted(rosters, key=record_key)
-
-
-def calculate_dynamic_record_weight(games_played: int, season_length: int = 14) -> float:
-    """
-    Dynamically scales the weight of the current-situation signal (simulated
-    playoff probability, in get_current_strength_tier) vs. paper roster value.
-    - Pre-season (0 games): 0% situation (100% paper roster)
-    - Early season (Weeks 1-3): 15% - 25% situation (small sample variance protection)
-    - Mid season (Weeks 4-8): 35% - 65% situation (balanced sample)
-    - Late season (Weeks 9-14+): 75% - 90% situation (playoff-odds reality dominates)
-    """
-    if games_played <= 0:
-        return 0.0
-    elif games_played == 1:
-        return 0.15
-    elif games_played == 2:
-        return 0.20
-    elif games_played == 3:
-        return 0.25
-    elif games_played == 4:
-        return 0.35
-    elif games_played == 5:
-        return 0.45
-    elif games_played == 6:
-        return 0.55
-    elif games_played == 7:
-        return 0.65
-    elif games_played == 8:
-        return 0.72
-    elif games_played == 9:
-        return 0.80
-    elif games_played == 10:
-        return 0.85
-    else:
-        return 0.90
-
-
 def get_current_strength_tier(
     user_roster,
-    rosters,
-    redraft_position,
-    redraft_total,
-    season_length=14,
+    power_score_position,
+    power_score_total,
     playoff_pct=None,
     is_eliminated=False,
 ):
     """
-    Blends roster strength (redraft_score, from the ROS asset power rank) with a
-    "current situation" signal into a single 0-1 tier score.
-
-    The situation signal is the Monte Carlo simulated playoff probability
-    (playoff_pct / 100.0), not a raw win-loss record percentile. A blunt
-    win-loss percentile treats every 1-0 or 0-1 start the same regardless of
-    who was actually played or how tough the remaining schedule is, so it can
-    tag a team "Contender" off a lucky early win against a weak opponent (or
-    "Rebuild" off an unlucky loss) even when the underlying simulation - which
-    already accounts for opponent strength, remaining schedule, and scoring
-    variance - says its real playoff odds are near zero (or near-certain).
-    playoff_pct replaces that percentile outright rather than being added
-    alongside it, since redraft_score/ros_rank already carries the
-    roster-strength signal - summing a third signal here would double-count.
+    Determines a team's "current situation" tier directly from its Season
+    Power Score rank (run_monte_carlo_simulation's power_score - a
+    season-phase-weighted blend of simulated Starters PPG, projected wins,
+    playoff odds, and bench depth; see playoff_simulator.py). No blending
+    with roster/dynasty asset value happens here: that lives entirely on the
+    separate dynasty_tier axis, and mixing it back in would double-count
+    roster strength across both axes of the Franchise Trajectory matrix.
     """
-    if not redraft_total or not redraft_position:
+    if not power_score_total or not power_score_position:
         return "medium", 0
 
-    redraft_score = percentile_score(redraft_position, redraft_total)
+    tier = score_to_tier(percentile_score(power_score_position, power_score_total))
     games_played = total_games_played(user_roster)
 
-    # playoff_pct is None (not 0.0) whenever the caller has no Monte Carlo result to
-    # offer (e.g. no schedule fetched yet) - treating that as "0% odds" would wrongly
-    # drag every such team toward "low" once games_played > 0, so it falls back to
-    # roster strength alone instead, same as the original record_score-unavailable case.
-    if games_played == 0 or playoff_pct is None:
-        blended_score = redraft_score
-    else:
-        # Dynamic situational weighting: small sample early, playoff-odds reality late
-        situational_weight = calculate_dynamic_record_weight(games_played, season_length)
-        situation_score = playoff_pct / 100.0
-        blended_score = situational_weight * situation_score + (1 - situational_weight) * redraft_score
-
-    tier = score_to_tier(blended_score)
-
-    # Hard mathematical rebuild ceiling:
+    # Hard mathematical rebuild ceiling. These stay even though current_tier
+    # is now rank-based, because they check absolute thresholds (raw
+    # playoff-odds percentage, raw win count) that a purely RELATIVE rank
+    # doesn't guarantee: a team can still post a mid-pack Season Power Score
+    # rank - via decent weekly scoring/bench depth relative to a bunched
+    # league - while mathematically eliminated or sitting on a 1-6 record.
     # 1. Mathematically eliminated teams are locked into rebuild
     # 2. Teams with <= 5.0% playoff odds after at least 4 games played are locked into rebuild
     # 3. Fallback: Teams with <= 1 win after at least 7 games played

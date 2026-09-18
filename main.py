@@ -224,6 +224,47 @@ for league in leagues:
     scoring = league.get("scoring_settings", {})
     tep_bonus = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
 
+    # Season Power Score (Monte Carlo): current_tier now reads directly off this
+    # rank (see get_current_strength_tier), so it has to run unconditionally
+    # here rather than only under --simulate/--all. Reused below by the
+    # Playoff Simulator section instead of being recomputed.
+    playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
+    schedule = get_league_schedule(league["league_id"], start_week=active_nfl_week, end_week=playoff_start - 1)
+    team_expectations = {
+        r["roster_id"]: compute_team_lineup_expectation(
+            roster=r,
+            roster_players=all_rosters_players[r["roster_id"]],
+            weekly_projections=weekly_projections,
+            scoring_settings=scoring,
+            roster_positions=roster_pos,
+        )
+        for r in league_rosters
+        if r["roster_id"] in all_rosters_players
+    }
+    if schedule:
+        sim_results = run_monte_carlo_simulation(
+            league=league,
+            rosters=league_rosters,
+            schedule=schedule,
+            team_expectations=team_expectations,
+            current_week=active_nfl_week,
+            playoff_week_start=playoff_start,
+            num_simulations=1000,
+        )
+        power_score_rank_map = {
+            rid: idx for idx, rid in enumerate(
+                sorted(sim_results, key=lambda rid: sim_results[rid].get("power_score", 0.0), reverse=True), 1
+            )
+        }
+    else:
+        sim_results = {}
+        ranked_pts = sorted(team_expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
+        power_score_rank_map = {x["roster_id"]: idx for idx, x in enumerate(ranked_pts, 1)}
+    power_score_total = len(power_score_rank_map) or len(league_rosters)
+
+    my_sim = sim_results.get(user_roster["roster_id"], {})
+    my_sps_pos = power_score_rank_map.get(user_roster["roster_id"], power_score_total)
+
     if classification["type"] == "redraft":
         is_dynasty = False
         primary_lookup, primary_label = redraft_lookup, "Redraft"
@@ -233,7 +274,9 @@ for league in leagues:
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
 
         current_tier, games_played = get_current_strength_tier(
-            user_roster, league_rosters, redraft_pos, redraft_total
+            user_roster, my_sps_pos, power_score_total,
+            playoff_pct=my_sim.get("playoff_pct"),
+            is_eliminated=my_sim.get("is_eliminated", False),
         )
 
         status = classify_redraft_team(current_tier)
@@ -268,7 +311,9 @@ for league in leagues:
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
 
         current_tier, games_played = get_current_strength_tier(
-            user_roster, league_rosters, redraft_pos, redraft_total
+            user_roster, my_sps_pos, power_score_total,
+            playoff_pct=my_sim.get("playoff_pct"),
+            is_eliminated=my_sim.get("is_eliminated", False),
         )
 
         # Build team tiers for pick projection based on REDRAFT strength
@@ -328,15 +373,24 @@ for league in leagues:
         owner_id = r.get("owner_id")
         manager_label = user_map.get(owner_id, f"Team {rid}")
 
+        r_sim = sim_results.get(rid, {})
+        r_sps_pos = power_score_rank_map.get(rid, power_score_total)
+
         if is_dynasty:
             d_tier, _, _ = get_strength_tier(rid, dynasty_ranked)
-            r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            c_tier, _ = get_current_strength_tier(r, league_rosters, r_pos, r_tot)
+            c_tier, _ = get_current_strength_tier(
+                r, r_sps_pos, power_score_total,
+                playoff_pct=r_sim.get("playoff_pct"),
+                is_eliminated=r_sim.get("is_eliminated", False),
+            )
             team_status, team_cat = classify_dynasty_team(c_tier, d_tier)
             owned_picks = get_picks_for_roster(picks_ownership, rid)
         else:
-            r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            c_tier, _ = get_current_strength_tier(r, league_rosters, r_pos, r_tot)
+            c_tier, _ = get_current_strength_tier(
+                r, r_sps_pos, power_score_total,
+                playoff_pct=r_sim.get("playoff_pct"),
+                is_eliminated=r_sim.get("is_eliminated", False),
+            )
             team_status = classify_redraft_team(c_tier)
             team_cat = "win" if c_tier == "high" else ("rebuild" if c_tier == "low" else "neutral")
             owned_picks = []
@@ -363,29 +417,9 @@ for league in leagues:
     # -------------------------------------------------------------
     # Monte Carlo Playoff & Power Rankings Simulator (Phase 5)
     # -------------------------------------------------------------
-    if args.simulate or args.all:
-        playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
-        schedule = get_league_schedule(league["league_id"], start_week=active_nfl_week, end_week=playoff_start - 1)
-        team_expectations = {
-            r["roster_id"]: compute_team_lineup_expectation(
-                roster=r,
-                roster_players=all_rosters_players[r["roster_id"]],
-                weekly_projections=weekly_projections,
-                scoring_settings=scoring,
-                roster_positions=roster_pos,
-            )
-            for r in league_rosters
-            if r["roster_id"] in all_rosters_players
-        }
-        sim_results = run_monte_carlo_simulation(
-            league=league,
-            rosters=league_rosters,
-            schedule=schedule,
-            team_expectations=team_expectations,
-            current_week=active_nfl_week,
-            playoff_week_start=playoff_start,
-            num_simulations=1000,
-        )
+    # sim_results/schedule were already computed unconditionally above (current_tier
+    # depends on the Season Power Score rank now), so this just prints the table.
+    if (args.simulate or args.all) and sim_results:
         table = format_power_rankings_table(
             sim_results=sim_results,
             user_roster_id=user_roster["roster_id"],
