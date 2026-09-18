@@ -304,9 +304,31 @@ for league in leagues:
         alt_lookup, alt_label = redraft_lookup, "Redraft"
         picks_lookup = picks_lookup_sf if is_superflex else picks_lookup_1qb
 
-        # Rank teams in dynasty based on 70% Starters + 30% Bench Depth
-        dynasty_ranked = rank_teams_in_league(all_rosters_players, primary_lookup, roster_pos, is_dynasty=True)
-        dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_ranked)
+        traded_picks = get_traded_picks(league["league_id"])
+        picks_ownership = build_picks_ownership(league, traded_picks, future_years=3)
+
+        # Dynasty Asset Power Rank prepass (50% starters + 30% bench + 20% picks) -
+        # the single source of truth for dynasty_tier, matching the same
+        # compute_dynasty_power_rankings formula already unified in app.py's
+        # Portal and League Workspace (rank_teams_in_league, used here before,
+        # ignores picks entirely and had drifted out of sync with it).
+        dynasty_prepass_profiles = []
+        for r in league_rosters:
+            rid = r["roster_id"]
+            if rid not in all_rosters_players:
+                continue
+            dynasty_prepass_profiles.append(analyze_team_profile(
+                roster=r, roster_players=all_rosters_players[rid],
+                owned_picks=get_picks_for_roster(picks_ownership, rid),
+                primary_lookup=primary_lookup, redraft_lookup=redraft_lookup, picks_lookup=picks_lookup,
+                team_tiers={}, roster_positions=roster_pos, is_dynasty=True,
+                status="Unknown", category="neutral", manager_name=f"Team {rid}",
+                total_rosters=league.get("total_rosters", 12),
+            ))
+        dynasty_prepass_results = compute_dynasty_power_rankings(dynasty_prepass_profiles)
+        ranked_dynasty_prepass = sorted(dynasty_prepass_results.values(), key=lambda x: x["dynasty_score"], reverse=True)
+        dynasty_score_pairs = [(d["roster_id"], d["dynasty_score"]) for d in ranked_dynasty_prepass]
+        dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_score_pairs)
 
         # Calculate Redraft strength for immediate scoring (THIS season's competitiveness)
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
@@ -325,8 +347,6 @@ for league in leagues:
             rid = item[0]
             team_tiers[rid] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
 
-        traded_picks = get_traded_picks(league["league_id"])
-        picks_ownership = build_picks_ownership(league, traded_picks, future_years=3)
         my_picks = get_picks_for_roster(picks_ownership, user_roster["roster_id"])
         total_rosters = league.get("total_rosters", 12)
         my_picks_points = get_picks_capital_value(my_picks, picks_lookup, team_tiers, target_season="2027", total_rosters=total_rosters)
@@ -379,7 +399,7 @@ for league in leagues:
         r_sps_pos = power_score_rank_map.get(rid, power_score_total)
 
         if is_dynasty:
-            d_tier, _, _ = get_strength_tier(rid, dynasty_ranked)
+            d_tier, _, _ = get_strength_tier(rid, dynasty_score_pairs)
             c_tier, _ = get_current_strength_tier(
                 r, r_sps_pos, power_score_total,
                 playoff_pct=r_sim.get("playoff_pct"),

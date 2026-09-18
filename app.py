@@ -5558,6 +5558,16 @@ else:
             give_chips = render_asset_chips(gives)
             recv_chips = render_asset_chips(recvs)
 
+            injury_warnings = eval_res.get("injury_warnings") or []
+            injury_warning_html = ""
+            if injury_warnings:
+                warning_lines = "".join(f"<div style='margin-top: 2px;'>{w}</div>" for w in injury_warnings)
+                injury_warning_html = f"""
+                <div style='background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.35); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.8rem; color: #fca5a5;'>
+                    {warning_lines}
+                </div>
+                """
+
             tier = get_trade_prop_tier(prop)
             if tier == "Blockbuster":
                 tier_badge = "<span class='status-capsule' style='background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);'>⭐ BLOCKBUSTER</span>"
@@ -5608,6 +5618,8 @@ else:
                         Stud Adj (Send: {eff_give:,.0f} pts | Recv: {eff_recv:,.0f} pts)
                     </div>
                 </div>
+
+                {injury_warning_html}
 
                 <p style='margin: 0; font-size: 0.82rem; color: #94a3b8; line-height: 1.4;'>
                     <strong style='color: #cbd5e1;'>Strategic Rationale:</strong> {why}
@@ -5975,6 +5987,15 @@ else:
                 </div>
                 """
                 st.html(meter_html)
+
+                injury_warnings = eval_res.get("injury_warnings") or []
+                if injury_warnings:
+                    warning_lines = "".join(f"<div style='margin-top: 2px;'>{w}</div>" for w in injury_warnings)
+                    st.html(
+                        f"<div style='background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.35); "
+                        f"border-radius: 6px; padding: 8px 12px; margin-bottom: 16px; font-size: 0.82rem; color: #fca5a5;'>"
+                        f"{warning_lines}</div>"
+                    )
 
                 # Two-column detailed cards
                 c_card_a, c_card_b = st.columns(2)

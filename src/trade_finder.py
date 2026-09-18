@@ -68,13 +68,23 @@ def resolve_asset_from_query(
     # 2. Search across player assets in all team profiles
     matching_owners = []
     sample_asset = None
+    seen_owner_pids = set()
 
     for prof in all_profiles:
-        all_players = prof.get("starter_assets", []) + prof.get("bench_assets", [])
+        # bench_assets already includes taxi-squad players (analyze_team_profile
+        # only excludes reserve_ids there, not taxi_ids), so taxi_assets is
+        # searched too purely to catch teams where a taxi player isn't otherwise
+        # reachable - the seen-set below stops that overlap from double-listing
+        # the same roster as an owner.
+        all_players = prof.get("starter_assets", []) + prof.get("bench_assets", []) + prof.get("taxi_assets", [])
         for p in all_players:
             p_name = p.get("name", "").lower()
             # Exact match or substring match
             if q == p_name or q in p_name:
+                owner_key = (prof.get("roster_id"), p.get("player_id"))
+                if owner_key in seen_owner_pids:
+                    continue
+                seen_owner_pids.add(owner_key)
                 matching_owners.append({"profile": prof, "asset": p})
                 if sample_asset is None or q == p_name:
                     sample_asset = p

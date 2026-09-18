@@ -22,6 +22,26 @@ FAIRNESS_MIN_RATIO = 0.88
 FAIRNESS_MAX_RATIO = 1.12
 MAX_DIFF_TOLERANCE = 800.0
 
+# Same injury_status set audit_weekly_lineup already flags for active starters -
+# reused here purely as an informational trade warning, never a value discount.
+TRADE_INJURY_WARNING_STATUSES = {"Questionable", "Doubtful", "Out", "IR", "PUP", "Sus"}
+
+
+def get_trade_injury_warnings(assets: List[Dict[str, Any]]) -> List[str]:
+    """
+    Informational-only injury flags for player assets on either side of a trade.
+    Never touches market_value or fairness_ratio - same gate/alert principle
+    already used for waiver drop protection (src/analysis_engine.py).
+    """
+    warnings = []
+    for a in assets:
+        if a.get("type") != "player":
+            continue
+        status = (a.get("player_obj") or {}).get("injury_status")
+        if status in TRADE_INJURY_WARNING_STATUSES:
+            warnings.append(f"⚠️ {a.get('name')} is listed as {status} — consider this before finalizing.")
+    return warnings
+
 
 def calculate_effective_trade_value(
     assets: List[Dict[str, Any]],
@@ -74,6 +94,7 @@ def evaluate_trade_fairness(
             "net_diff": 0.0,
             "stud_asset": None,
             "stud_side": None,
+            "injury_warnings": [],
         }
 
     raw_give = sum(a.get("market_value", 0.0) for a in give_assets)
@@ -116,6 +137,7 @@ def evaluate_trade_fairness(
         "net_diff": round(net_diff, 1),
         "stud_asset": stud_asset,
         "stud_side": stud_side,
+        "injury_warnings": get_trade_injury_warnings(give_assets + receive_assets),
     }
 
 
