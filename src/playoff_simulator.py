@@ -240,6 +240,10 @@ def run_monte_carlo_simulation(
     playoff_teams_count = league.get("settings", {}).get("playoff_teams", 6)
     roster_ids = [r["roster_id"] for r in rosters]
 
+    # Division assignment per roster (static across simulations), used for division-aware
+    # playoff seeding. Only leagues with 2+ configured divisions trigger that logic.
+    divisions_by_roster = {r["roster_id"]: r.get("settings", {}).get("division") for r in rosters}
+
     # Deterministic simulation seed derived from hash(league_id) + week * 1000 to eliminate UI rerun jitter
     league_id_str = str(league.get("league_id", 0))
     league_hash = int(hashlib.md5(league_id_str.encode("utf-8")).hexdigest()[:8], 16)
@@ -349,7 +353,12 @@ def run_monte_carlo_simulation(
             reverse=True,
         )
 
-        playoff_seeds = ranked_teams[:playoff_teams_count]
+        playoff_seeds = _compute_playoff_seeds(
+            ranked_teams=ranked_teams,
+            cur_records=cur_records,
+            divisions_by_roster=divisions_by_roster,
+            playoff_teams_count=playoff_teams_count,
+        )
         for s in playoff_seeds:
             sim_playoffs[s] += 1
 
@@ -497,6 +506,58 @@ def run_monte_carlo_simulation(
         stats["max_possible_wins"] = c_info.get("max_possible_wins", stats["initial_wins"])
 
     return team_results
+
+
+def _compute_playoff_seeds(
+    ranked_teams: List[int],
+    cur_records: Dict[int, Dict[str, Any]],
+    divisions_by_roster: Dict[int, Optional[int]],
+    playoff_teams_count: int,
+) -> List[int]:
+    """
+    Determines playoff seeding order following Sleeper's real divisional rules.
+
+    Each division champion (the team with the best record within its own division)
+    automatically qualifies for the playoffs and is seeded ahead of every non-champion,
+    ordered among themselves by their own overall record. Remaining playoff spots go
+    to the non-champion teams with the best overall record, regardless of division —
+    a 4th-place team in one division can out-seed a 2nd-place team in another division
+    if its overall campaign is stronger.
+
+    In leagues with 3+ divisions this naturally seats the two best division champions
+    into seeds 1-2, which is exactly where the bracket logic below grants first-round
+    byes. Leagues with fewer than 2 configured divisions fall back to plain overall
+    record seeding (unchanged legacy behavior).
+
+    `ranked_teams` must already be sorted by overall record (wins, pf, ties) descending.
+    """
+    divisions = {divisions_by_roster.get(rid) for rid in ranked_teams}
+    divisions.discard(None)
+
+    if len(divisions) < 2:
+        return ranked_teams[:playoff_teams_count]
+
+    division_champs = []
+    for div in divisions:
+        teams_in_div = [rid for rid in ranked_teams if divisions_by_roster.get(rid) == div]
+        if teams_in_div:
+            # ranked_teams is already sorted by record, so the first team in this
+            # division's filtered list is that division's champion.
+            division_champs.append(teams_in_div[0])
+
+    champs_sorted = sorted(
+        division_champs,
+        key=lambda rid: (
+            cur_records[rid]["wins"],
+            cur_records[rid]["pf"],
+            cur_records[rid]["ties"],
+        ),
+        reverse=True,
+    )
+    champ_set = set(champs_sorted)
+    wildcards_sorted = [rid for rid in ranked_teams if rid not in champ_set]
+
+    return (champs_sorted + wildcards_sorted)[:playoff_teams_count]
 
 
 def _simulate_knockout(rid1: int, rid2: int, team_expectations: Dict[int, Dict[str, Any]]) -> int:

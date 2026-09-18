@@ -2962,6 +2962,40 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         for pos_idx, item in enumerate(redraft_ranked, start=1):
             team_tiers[item[0]] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
 
+        # Rest-of-Season Asset Power Ranking, computed independent of the Monte Carlo
+        # simulation, so it can serve as the pure roster-strength signal for
+        # get_current_strength_tier below. The Monte Carlo power_score rank (used for the
+        # "Season" badge shown on the Portal card) already blends in simulated wins seeded
+        # from each team's real current record - feeding that same rank into
+        # get_current_strength_tier would double-count real record alongside record_score
+        # in the same weighted average (same bug already fixed for the League Workspace
+        # view's 5 get_current_strength_tier call sites, via this identical ros_rank_map pattern).
+        ros_quick_profiles = []
+        for r in rosters:
+            rid = r["roster_id"]
+            if rid not in all_rosters_players:
+                continue
+            ros_quick_profiles.append(
+                analyze_team_profile(
+                    roster=r,
+                    roster_players=all_rosters_players[rid],
+                    owned_picks=[],
+                    primary_lookup=_redraft_lookup,
+                    redraft_lookup=_redraft_lookup,
+                    picks_lookup={},
+                    team_tiers={},
+                    roster_positions=roster_pos,
+                    is_dynasty=False,
+                    status="Unknown",
+                    category="neutral",
+                    manager_name=f"Team {rid}",
+                    total_rosters=tot_rosters,
+                )
+            )
+        ros_quick_results = compute_ros_power_rankings(ros_quick_profiles, weight_starters=0.85, weight_bench=0.15)
+        ranked_ros_quick = sorted(ros_quick_results.values(), key=lambda x: x["ros_score"], reverse=True)
+        ros_rank_map = {d["roster_id"]: idx for idx, d in enumerate(ranked_ros_quick, 1)}
+
         # 1. Season rank based on live Monte Carlo simulation if schedule available, or lineup expectations
         scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
         playoff_start = league_obj.get("settings", {}).get("playoff_week_start", 15) if league_obj else 15
@@ -2995,9 +3029,9 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
                     r_sim = sim_res.get(rid, {})
                     r_playoff_pct = r_sim.get("playoff_pct")
                     r_is_elim = r_sim.get("is_eliminated", False)
-                    r_sim_pos = next((i for i, x in enumerate(ranked_sim, 1) if x["roster_id"] == rid), 0)
+                    r_ros_pos = ros_rank_map.get(rid, tot_rosters)
                     c_tier, _ = get_current_strength_tier(
-                        r, rosters, r_sim_pos, tot_rosters,
+                        r, rosters, r_ros_pos, tot_rosters,
                         season_length=season_length,
                         playoff_pct=r_playoff_pct,
                         is_eliminated=r_is_elim,
@@ -3010,7 +3044,8 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         else:
             _, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
 
-        current_tier, _ = get_current_strength_tier(my_r, rosters, redraft_pos, redraft_total)
+        my_ros_pos = ros_rank_map.get(my_r["roster_id"], tot_rosters)
+        current_tier, _ = get_current_strength_tier(my_r, rosters, my_ros_pos, len(ros_rank_map) or tot_rosters)
 
         if is_dyn:
             # 2. Dynasty rank based on 50% Starters + 30% Bench + 20% Draft Capital (exact match with Tab 4)
@@ -3670,6 +3705,36 @@ else:
         ranked_sim = sorted(live_sim_results.values(), key=lambda t: t.get("power_score", 0.0), reverse=True)
         sim_rank_map = {t["roster_id"]: (idx, t.get("power_score", 0.0)) for idx, t in enumerate(ranked_sim, 1)}
 
+    # Rest-of-Season Asset Power Ranking, computed early and independent of the Monte Carlo
+    # simulation, so it can serve as the pure roster-strength signal for get_current_strength_tier.
+    # The Season Power Score (sim_rank_map) already blends in simulated wins, so using it there
+    # would double-count real record alongside record_score in the same weighted average.
+    ros_prepass_profiles = []
+    for r in rosters:
+        rid = r["roster_id"]
+        if rid not in all_rosters_players:
+            continue
+        ros_prepass_profiles.append(
+            analyze_team_profile(
+                roster=r,
+                roster_players=all_rosters_players[rid],
+                owned_picks=[],
+                primary_lookup=redraft_lookup,
+                redraft_lookup=redraft_lookup,
+                picks_lookup={},
+                team_tiers={},
+                roster_positions=roster_pos,
+                is_dynasty=False,
+                status="Unknown",
+                category="neutral",
+                manager_name=user_map.get(r.get("owner_id"), f"Team {rid}"),
+                total_rosters=total_rosters,
+            )
+        )
+    ros_prepass_results = compute_ros_power_rankings(ros_prepass_profiles, weight_starters=0.85, weight_bench=0.15)
+    ranked_ros_prepass = sorted(ros_prepass_results.values(), key=lambda x: x["ros_score"], reverse=True)
+    ros_rank_map = {d["roster_id"]: (idx, d["ros_score"]) for idx, d in enumerate(ranked_ros_prepass, 1)}
+
     user_rid = user_roster["roster_id"]
     user_sim = live_sim_results.get(user_rid, {})
     user_playoff_pct = user_sim.get("playoff_pct")
@@ -3681,10 +3746,10 @@ else:
         dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_ranked)
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-        user_sim_pos = sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
-        if redraft_total and user_sim_pos:
+        user_ros_pos = ros_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
+        if redraft_total and user_ros_pos:
             current_tier, games_played = get_current_strength_tier(
-                user_roster, rosters, user_sim_pos, redraft_total,
+                user_roster, rosters, user_ros_pos, redraft_total,
                 season_length=season_length,
                 playoff_pct=user_playoff_pct,
                 is_eliminated=user_is_elim,
@@ -3700,9 +3765,9 @@ else:
             r_playoff_pct = r_sim.get("playoff_pct")
             r_is_elim = r_sim.get("is_eliminated", False)
             _, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            r_sim_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0] if sim_rank_map else r_pos
+            r_ros_pos = ros_rank_map.get(rid, (r_pos, 0.0))[0] if ros_rank_map else r_pos
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_sim_pos, r_tot or len(rosters),
+                r, rosters, r_ros_pos, r_tot or len(rosters),
                 season_length=season_length,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
@@ -3713,10 +3778,10 @@ else:
     else:
         redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
         redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-        user_sim_pos = sim_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
-        if redraft_total and user_sim_pos:
+        user_ros_pos = ros_rank_map.get(user_roster["roster_id"], (redraft_pos, 0.0))[0]
+        if redraft_total and user_ros_pos:
             current_tier, games_played = get_current_strength_tier(
-                user_roster, rosters, user_sim_pos, redraft_total,
+                user_roster, rosters, user_ros_pos, redraft_total,
                 season_length=season_length,
                 playoff_pct=user_playoff_pct,
                 is_eliminated=user_is_elim,
@@ -3753,9 +3818,9 @@ else:
         if is_dynasty:
             d_tier, _, _ = get_strength_tier(rid, dynasty_ranked)
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            r_sim_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0]
+            r_ros_pos = ros_rank_map.get(rid, (r_pos, 0.0))[0]
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_sim_pos, r_tot,
+                r, rosters, r_ros_pos, r_tot,
                 season_length=season_length,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
@@ -3764,9 +3829,9 @@ else:
             owned_picks = get_picks_for_roster(picks_ownership, rid)
         else:
             r_tier, r_pos, r_tot = get_strength_tier(rid, redraft_ranked)
-            r_sim_pos = sim_rank_map.get(rid, (r_pos, 0.0))[0]
+            r_ros_pos = ros_rank_map.get(rid, (r_pos, 0.0))[0]
             c_tier, _ = get_current_strength_tier(
-                r, rosters, r_sim_pos, r_tot,
+                r, rosters, r_ros_pos, r_tot,
                 season_length=season_length,
                 playoff_pct=r_playoff_pct,
                 is_eliminated=r_is_elim,
