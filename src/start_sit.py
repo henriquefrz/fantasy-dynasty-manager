@@ -15,9 +15,20 @@ from typing import Dict, List, Tuple, Any, Optional, Set
 from src.team_strength import FLEX_RULES
 
 
-STREAMING_POSITIONS = {"DEF", "K", "TE", "QB"}
+# Dynasty leagues only stream DEF/K: starting a rostered dynasty asset
+# (QB/RB/WR/TE) for a free agent should be a deliberate roster decision
+# weighed against long-term value, not a one-week automated suggestion.
+# Redraft leagues have no long-term asset value to protect, so every
+# scoring-relevant position is fair game to stream.
+STREAMING_POSITIONS_DYNASTY = {"DEF", "K"}
+STREAMING_POSITIONS_REDRAFT = {"QB", "RB", "WR", "TE", "K", "DEF"}
 PROTECTED_MARKET_VALUE_THRESHOLD = 1800.0
 PROTECTED_REDRAFT_ECR_THRESHOLD = 60.0
+
+
+def get_streaming_positions(is_dynasty: bool) -> Set[str]:
+    """Returns the set of positions eligible for streaming suggestions, league-type aware."""
+    return STREAMING_POSITIONS_DYNASTY if is_dynasty else STREAMING_POSITIONS_REDRAFT
 
 
 def has_game_started(player_id: str, weekly_stats: Dict[str, Any]) -> bool:
@@ -352,6 +363,7 @@ def find_streaming_recommendations(
     roster_positions: List[str],
     primary_lookup: Dict[str, Any],
     weekly_stats: Dict[str, Any],
+    is_dynasty: bool = True,
     top_n: int = 3,
 ) -> List[Dict[str, Any]]:
     """
@@ -365,7 +377,11 @@ def find_streaming_recommendations(
     game already started (can't be started this week) and any currently
     active starter whose game already started (their slot is locked, so
     they can't be swapped out this week either).
+
+    is_dynasty narrows eligible streaming positions via get_streaming_positions:
+    dynasty leagues only stream DEF/K, redraft leagues stream every position.
     """
+    streaming_positions = get_streaming_positions(is_dynasty)
     active_starter_pids = set(user_roster.get("starters") or [])
     reserve_pids = set(user_roster.get("reserve") or [])
     taxi_pids = set(user_roster.get("taxi") or [])
@@ -410,7 +426,7 @@ def find_streaming_recommendations(
     # 2. Scan Free Agents across streaming positions
     for fa in free_agents:
         pos = fa.get("position")
-        if pos not in STREAMING_POSITIONS:
+        if pos not in streaming_positions:
             continue
 
         fa_pid = fa.get("player_id")

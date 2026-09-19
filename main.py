@@ -572,6 +572,7 @@ for league in leagues:
                 roster_positions=roster_pos,
                 primary_lookup=primary_lookup,
                 weekly_stats=weekly_stats,
+                is_dynasty=is_dynasty,
                 top_n=2,
             )
             if streams:

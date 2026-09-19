@@ -1652,14 +1652,15 @@ def render_portfolio_table_html(portfolio_rows):
     <table class='roster-table roster-table-portfolio'>
         <thead>
             <tr>
-                <th style='width: 28%; text-align: left;'>Player</th>
-                <th style='width: 11%; text-align: center;'>Exposure</th>
-                <th style='width: 10%; text-align: center;'>Shares</th>
+                <th style='width: 24%; text-align: left;'>Player</th>
+                <th style='width: 10%; text-align: center;'>Exposure</th>
+                <th style='width: 9%; text-align: center;'>Dynasty Shares</th>
+                <th style='width: 9%; text-align: center;'>Redraft Shares</th>
                 <th style='width: 60px; text-align: center;'>Age</th>
-                <th style='width: 11%; text-align: center;'>Overall Rank</th>
-                <th style='width: 11%; text-align: center;'>Pos Rank</th>
-                <th style='width: 14%; text-align: center;'>Consensus Value</th>
-                <th style='width: 25%; text-align: left;'>Leagues Owned</th>
+                <th style='width: 10%; text-align: center;'>Overall Rank</th>
+                <th style='width: 10%; text-align: center;'>Pos Rank</th>
+                <th style='width: 13%; text-align: center;'>Consensus Value</th>
+                <th style='width: 18%; text-align: left;'>Leagues Owned</th>
             </tr>
         </thead>
         <tbody>
@@ -1672,6 +1673,7 @@ def render_portfolio_table_html(portfolio_rows):
         team = r.get("NFL Team", "FA")
         age = r.get("Age", "—")
         shares = r.get("Shares", "—")
+        redraft_shares = r.get("Redraft Shares", "—")
         exp = r.get("Exposure", "0%")
         overall_ecr = r.get("Overall ECR", "—")
         pos_ecr = r.get("Pos ECR", "—")
@@ -1698,6 +1700,7 @@ def render_portfolio_table_html(portfolio_rows):
                 </td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{exp}</span></td>
                 <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{shares}</span></td>
+                <td style='text-align: center; color: #94a3b8;'><span class='rank-pill'>{redraft_shares}</span></td>
                 <td style='color: #94a3b8; text-align: center;'>{age}</td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
@@ -2519,86 +2522,143 @@ def fetch_league_data(league_id, season, week):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _primary_lookup):
+def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _market_db, selected_mode, active_week, _leagues_data, _cache_version="v2_per_league_valuation_dynasty_redraft_split"):
     """
     Scans all user's leagues to aggregate portfolio player shares and exposure.
-    """
-    player_exposure = {}
-    total_leagues = 0
-    league_summaries = []
 
-    for lid, lname in zip(league_ids, league_names):
+    Dynasty and redraft leagues are tracked separately: total_leagues/Share
+    Count/Exposure% reflect dynasty leagues only, since this metric is about
+    long-term portfolio concentration - a redraft roster is a one-season
+    coincidence, not a dynasty asset, and shouldn't inflate it. Redraft
+    overlap is still surfaced per player as an informational "Redraft
+    Shares" count with no percentage attached. Players held only in redraft
+    leagues (zero dynasty shares) are excluded from the table entirely.
+
+    Each league's players are valued with that league's own correct lookup
+    (dynasty Superflex/1QB with TE Premium applied, or that league's custom
+    redraft lookup) - the same selection already used by the Portal card
+    grid and League Workspace - instead of one fixed Superflex Dynasty table
+    reused for every league regardless of its actual format.
+
+    Roster fetches run concurrently across leagues (network-bound, like the
+    Portal card grid's ThreadPoolExecutor) instead of one league at a time.
+    """
+    league_map = {str(lg.get("league_id")): lg for lg in _leagues_data}
+
+    def fetch_one(lid, lname):
+        lg = league_map.get(str(lid))
+        if not lg:
+            return None
         try:
             rosters = get_league_rosters(lid)
             my_roster = next((r for r in rosters if r.get("owner_id") == user_id or user_id in (r.get("co_owners") or [])), None)
             if not my_roster:
-                continue
+                return None
 
             my_pids = [p for p in (my_roster.get("players") or []) if p]
             if not my_pids:
-                continue
+                return None
 
-            total_leagues += 1
+            is_dyn = lg.get("settings", {}).get("type") == 2
+            roster_pos = lg.get("roster_positions", [])
+            is_sf = is_superflex_league(roster_pos)
+            scoring = lg.get("scoring_settings", {})
+            tep_b = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
+
+            if is_dyn:
+                lookup_base = _market_db["dynasty_sf_lookup"] if is_sf else _market_db["dynasty_1qb_lookup"]
+                lookup = apply_valuation_mode(lookup_base, mode=selected_mode)
+                if tep_b > 0:
+                    lookup = apply_te_premium(lookup, bonus_rec_te=tep_b)
+            else:
+                lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
+                lookup = get_league_custom_redraft_lookup(_market_db, lg_scoring_tuple, is_sf, active_week)
+
             settings = my_roster.get("settings", {})
             w = settings.get("wins", 0)
             l = settings.get("losses", 0)
             t = settings.get("ties", 0)
             fpts = settings.get("fpts", 0) + (settings.get("fpts_decimal", 0) / 100.0)
             fpts_against = settings.get("fpts_against", 0) + (settings.get("fpts_against_decimal", 0) / 100.0)
+            roster_val = sum(lookup.get(pid, {}).get("market_value", 0.0) for pid in my_pids)
 
-            # Roster market capital
-            roster_val = sum(_primary_lookup.get(pid, {}).get("market_value", 0.0) for pid in my_pids)
-
-            league_summaries.append({
-                "league_id": lid,
-                "league_name": lname,
+            return {
+                "league_id": lid, "league_name": lname, "is_dynasty": is_dyn,
                 "record": f"{w}-{l}" + (f"-{t}" if t > 0 else ""),
-                "wins": w,
-                "losses": l,
-                "ties": t,
-                "fpts": fpts,
-                "fpts_against": fpts_against,
-                "players_count": len(my_pids),
-                "roster_value": roster_val,
+                "wins": w, "losses": l, "ties": t, "fpts": fpts, "fpts_against": fpts_against,
+                "players_count": len(my_pids), "roster_value": roster_val,
+                "player_ids": my_pids, "lookup": lookup,
+            }
+        except Exception:
+            return None
+
+    league_results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(league_ids) or 1)) as executor:
+        futures = [executor.submit(fetch_one, lid, lname) for lid, lname in zip(league_ids, league_names)]
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                league_results.append(result)
+
+    # Preserve original league order for deterministic downstream display
+    order = {lid: idx for idx, lid in enumerate(league_ids)}
+    league_results.sort(key=lambda r: order.get(r["league_id"], 999))
+
+    total_dynasty_leagues = sum(1 for r in league_results if r["is_dynasty"])
+    total_redraft_leagues = sum(1 for r in league_results if not r["is_dynasty"])
+
+    player_exposure = {}
+    league_summaries = []
+
+    for r in league_results:
+        league_summaries.append({
+            "league_id": r["league_id"], "league_name": r["league_name"], "is_dynasty": r["is_dynasty"],
+            "record": r["record"], "wins": r["wins"], "losses": r["losses"], "ties": r["ties"],
+            "fpts": r["fpts"], "fpts_against": r["fpts_against"],
+            "players_count": r["players_count"], "roster_value": r["roster_value"],
+        })
+
+        for pid in r["player_ids"]:
+            p_obj = _players_db.get(pid, {})
+            val_data = r["lookup"].get(pid, {})
+
+            entry = player_exposure.setdefault(pid, {
+                "player_id": pid,
+                "name": p_obj.get("full_name") or pid,
+                "position": p_obj.get("position") or "UTIL",
+                "team": p_obj.get("team") or "FA",
+                "age": p_obj.get("age", "—"),
+                "dynasty_market_value": 0.0, "dynasty_rank_ecr": 999.0, "dynasty_rank_ecr_overall": 999.0,
+                "redraft_market_value": 0.0,
+                "dynasty_count": 0, "redraft_count": 0,
+                "dynasty_leagues": [], "redraft_leagues": [],
             })
 
-            for pid in my_pids:
-                p_obj = _players_db.get(pid, {})
-                p_name = p_obj.get("full_name") or pid
-                pos = p_obj.get("position") or "UTIL"
-                nfl_team = p_obj.get("team") or "FA"
-                age = p_obj.get("age", "—")
-                val_data = _primary_lookup.get(pid, {})
-                m_val = val_data.get("market_value", 0.0)
-                ecr = val_data.get("rank_ecr", 999.0)
-                o_ecr = val_data.get("rank_ecr_overall", 999.0)
-
-                if pid not in player_exposure:
-                    player_exposure[pid] = {
-                        "player_id": pid,
-                        "name": p_name,
-                        "position": pos,
-                        "team": nfl_team,
-                        "age": age,
-                        "market_value": m_val,
-                        "rank_ecr": ecr,
-                        "rank_ecr_overall": o_ecr,
-                        "count": 0,
-                        "leagues": [],
-                    }
-                player_exposure[pid]["count"] += 1
-                player_exposure[pid]["leagues"].append(lname)
-        except Exception:
-            continue
+            if r["is_dynasty"]:
+                if entry["dynasty_count"] == 0:
+                    entry["dynasty_market_value"] = val_data.get("market_value", 0.0)
+                    entry["dynasty_rank_ecr"] = val_data.get("rank_ecr", 999.0)
+                    entry["dynasty_rank_ecr_overall"] = val_data.get("rank_ecr_overall", 999.0)
+                entry["dynasty_count"] += 1
+                entry["dynasty_leagues"].append(r["league_name"])
+            else:
+                if entry["redraft_count"] == 0:
+                    entry["redraft_market_value"] = val_data.get("market_value", 0.0)
+                entry["redraft_count"] += 1
+                entry["redraft_leagues"].append(r["league_name"])
 
     rows = []
     for pid, d in player_exposure.items():
-        c = d["count"]
-        pct = (c / total_leagues * 100.0) if total_leagues > 0 else 0.0
+        dyn_c = d["dynasty_count"]
+        if dyn_c == 0:
+            continue  # redraft-only overlap isn't part of the long-term portfolio
+
+        red_c = d["redraft_count"]
+        pct = (dyn_c / total_dynasty_leagues * 100.0) if total_dynasty_leagues > 0 else 0.0
         pos = d["position"]
-        ecr_val = d["rank_ecr"]
+        ecr_val = d["dynasty_rank_ecr"]
         pos_ecr_str = f"{pos}{int(ecr_val)}" if (ecr_val and ecr_val < 900) else "—"
-        o_val = d.get("rank_ecr_overall", 999.0)
+        o_val = d["dynasty_rank_ecr_overall"]
         overall_ecr_str = f"#{int(o_val)}" if (o_val and o_val < 900) else "—"
 
         rows.append({
@@ -2607,18 +2667,20 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _pr
             "Pos": pos,
             "NFL Team": d["team"],
             "Age": d.get("age", "—"),
-            "Shares": f"{c} / {total_leagues}",
-            "Share Count": c,
+            "Shares": f"{dyn_c} / {total_dynasty_leagues}",
+            "Share Count": dyn_c,
             "Exposure": f"{pct:.0f}%",
             "Exposure %": pct,
+            "Redraft Shares": f"{red_c} / {total_redraft_leagues}" if total_redraft_leagues > 0 else "—",
+            "Redraft Share Count": red_c,
             "Overall ECR": overall_ecr_str,
             "Pos ECR": pos_ecr_str,
-            "Consensus Value": d["market_value"],
-            "Leagues Owned": ", ".join(d["leagues"]),
+            "Consensus Value": d["dynasty_market_value"],
+            "Leagues Owned": ", ".join(d["dynasty_leagues"]),
         })
 
     rows.sort(key=lambda x: (x["Share Count"], x["Consensus Value"]), reverse=True)
-    return rows, total_leagues, league_summaries
+    return rows, total_dynasty_leagues, league_summaries
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -3319,7 +3381,7 @@ if st.session_state.get("selected_league_id") is None:
 
     # Aggregate Portfolio Metrics
     exp_rows, total_user_leagues, l_summaries = fetch_portfolio_exposure(
-        user["user_id"], all_l_ids, all_l_names, players, primary_lookup
+        user["user_id"], all_l_ids, all_l_names, players, market_db, selected_mode, active_week, sorted_leagues
     )
     tot_wins = sum(s.get("wins", 0) for s in l_summaries)
     tot_losses = sum(s.get("losses", 0) for s in l_summaries)
@@ -6639,7 +6701,7 @@ else:
         st.caption("Cross-analyzes all your Sleeper leagues to measure player shares, concentration risk, and your foundation franchise assets.")
 
         exp_rows, total_user_leagues, l_records = fetch_portfolio_exposure(
-            user["user_id"], all_l_ids, all_l_names, players, primary_lookup
+            user["user_id"], all_l_ids, all_l_names, players, market_db, selected_mode, active_week, sorted_leagues
         )
 
         col_exp1, col_exp2, col_exp3 = st.columns(3)
