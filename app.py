@@ -3725,6 +3725,15 @@ else:
     picks_bundle = market_db["picks_bundle_sf"] if is_superflex else market_db["picks_bundle_1qb"]
     picks_lookup = compute_picks_lookup_from_bundle(picks_bundle, mode=selected_mode)
 
+    # Redraft leagues have no long-term dynasty value to price against - every
+    # analyze_team_profile() call below (ROS Asset Power Rankings, Trade
+    # Center) must value assets with this league's own Tri-Factor redraft
+    # lookup, not the Dynasty Superflex/1QB table primary_lookup defaults to
+    # above. Matches the same redirection main.py already does for redraft
+    # leagues (primary_lookup, primary_label = redraft_lookup, "Redraft").
+    if not is_dynasty:
+        primary_lookup = redraft_lookup
+
     all_rosters_players = {
         r["roster_id"]: get_roster_players(r, players)
         for r in rosters
