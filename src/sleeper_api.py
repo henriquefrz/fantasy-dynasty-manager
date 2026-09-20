@@ -217,8 +217,9 @@ _WEEKLY_STATS_CACHE = {}
 # Real (already-played) stats move live during games, unlike the static
 # pre-kickoff numbers in get_weekly_projections, so this cache is kept much
 # shorter - long enough to absorb repeat calls across leagues in the same
-# Streamlit rerun, short enough to pick up a game finishing an hour ago.
-LIVE_STATS_CACHE_TTL_SECONDS = 20 * 60
+# Streamlit rerun, short enough to reflect a live-scoring player's stat line
+# changing play by play instead of sitting on a 20-minute-old snapshot.
+LIVE_STATS_CACHE_TTL_SECONDS = 90
 
 
 def get_weekly_projections(season: str, week: int):
@@ -367,15 +368,25 @@ def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
 
 _LEAGUE_MATCHUPS_CACHE = {}
 
+# Matchup points (players_points) move live during games, same as
+# get_weekly_stats - a permanent cache would freeze a live score at whatever
+# it was the first time this (league_id, week) pair was fetched for the rest
+# of the running process. Kept slightly longer than LIVE_STATS_CACHE_TTL_SECONDS
+# since matchup scoring is a coarser per-roster total, not a play-by-play feed.
+LEAGUE_MATCHUPS_CACHE_TTL_SECONDS = 5 * 60
+
 
 def get_league_matchups(league_id: str, week: int):
     """
     Returns matchup pairings and scoring for a given league and week.
-    Cached in-memory by (league_id, week).
+    Cached in-memory by (league_id, week) for LEAGUE_MATCHUPS_CACHE_TTL_SECONDS.
     """
     cache_key = (str(league_id), int(week))
-    if cache_key in _LEAGUE_MATCHUPS_CACHE:
-        return _LEAGUE_MATCHUPS_CACHE[cache_key]
+    cached = _LEAGUE_MATCHUPS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        if time.time() - cached_at < LEAGUE_MATCHUPS_CACHE_TTL_SECONDS:
+            return cached_data
 
     url = f"{BASE_URL}/league/{league_id}/matchups/{week}"
     try:
@@ -384,10 +395,73 @@ def get_league_matchups(league_id: str, week: int):
             return []
         response.raise_for_status()
         data = response.json()
-        _LEAGUE_MATCHUPS_CACHE[cache_key] = data
+        _LEAGUE_MATCHUPS_CACHE[cache_key] = (time.time(), data)
         return data
     except Exception as e:
+        print(f"Warning: Failed to fetch league matchups for league {league_id} Week {week}: {e}")
+        if cached is not None:
+            print(f"Info: Falling back to stale cached matchups for league {league_id} Week {week}")
+            return cached[1]
         return []
+
+
+NFL_SCORES_URL = "https://api.sleeper.app/scores/nfl/regular/{season}/{week}"
+
+_NFL_GAME_STATUS_CACHE = {}
+
+# Same live-data cadence as LEAGUE_MATCHUPS_CACHE_TTL_SECONDS - this is the
+# only Sleeper feed that actually distinguishes a game currently in progress
+# from one that has finished; get_weekly_stats' stat lines look identical
+# either way, so this fills that gap for the live-status badge.
+NFL_GAME_STATUS_CACHE_TTL_SECONDS = 90
+
+
+def get_nfl_game_status_raw(season: str, week: int):
+    """
+    Fetches per-game live status ("pre_game" / "in_progress" / "complete")
+    for every NFL game in a given week from Sleeper's public scoreboard feed
+    (undocumented, but stable - same shape as the site's own live scoreboard).
+    Cached in-memory by (season, week) for NFL_GAME_STATUS_CACHE_TTL_SECONDS.
+    """
+    cache_key = (str(season), int(week))
+    cached = _NFL_GAME_STATUS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        if time.time() - cached_at < NFL_GAME_STATUS_CACHE_TTL_SECONDS:
+            return cached_data
+
+    url = NFL_SCORES_URL.format(season=season, week=week)
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        _NFL_GAME_STATUS_CACHE[cache_key] = (time.time(), data)
+        return data
+    except Exception as e:
+        print(f"Warning: Failed to fetch NFL game status for {season} Week {week}: {e}")
+        if cached is not None:
+            print(f"Info: Falling back to stale cached NFL game status for {season} Week {week}")
+            return cached[1]
+        return []
+
+
+def build_team_game_status_map(scores_raw):
+    """
+    Maps each NFL team abbreviation to its game's live status this week
+    ("pre_game" / "in_progress" / "complete"), from get_nfl_game_status_raw.
+    A team absent from the returned map has a bye this week.
+    """
+    team_status = {}
+    for game in (scores_raw or []):
+        status = game.get("status")
+        metadata = game.get("metadata") or {}
+        home = metadata.get("home_team")
+        away = metadata.get("away_team")
+        if home:
+            team_status[home] = status
+        if away:
+            team_status[away] = status
+    return team_status
 
 
 def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 18):

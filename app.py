@@ -68,6 +68,8 @@ try:
         get_league_matchups,
         get_league_history,
         compute_historical_standings,
+        get_nfl_game_status_raw,
+        build_team_game_status_map,
     )
 except ImportError:
     # Fallback for Streamlit Cloud hot-reload when module cache holds stale objects
@@ -90,6 +92,8 @@ except ImportError:
     get_league_matchups = getattr(_s_api, "get_league_matchups")
     get_league_history = getattr(_s_api, "get_league_history")
     compute_historical_standings = getattr(_s_api, "compute_historical_standings", lambda lid, r, w: {})
+    get_nfl_game_status_raw = getattr(_s_api, "get_nfl_game_status_raw")
+    build_team_game_status_map = getattr(_s_api, "build_team_game_status_map")
 from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
@@ -181,6 +185,9 @@ from src.start_sit import (
     simulate_optimal_weekly_lineup,
     audit_weekly_lineup,
     find_streaming_recommendations,
+    has_game_started,
+    get_player_game_status_label,
+    build_live_adjusted_points_lookup,
 )
 try:
     from src.trade_engine import (
@@ -2117,11 +2124,30 @@ def render_starter_card_grid_html(starters_rows):
     return "\n".join(l.lstrip() for l in full_html.splitlines())
 
 
+LIVE_STATUS_BADGES = {
+    "in_progress": "<span style='color: #fb7185; font-weight: 700;'>🔴 Live</span>",
+    "final": "<span style='color: #34d399; font-weight: 700;'>✅ Final</span>",
+    "not_started": "<span style='color: #94a3b8;'>⏳ Not Started</span>",
+    "bye": "<span style='color: #64748b;'>— Bye</span>",
+}
+
+
+def render_live_status_badge_html(status_label):
+    """Renders the live-score status badge for a player's game this week (see get_player_game_status_label)."""
+    return LIVE_STATUS_BADGES.get(status_label, LIVE_STATUS_BADGES["bye"])
+
+
 def render_opponent_lineup_html(opp_rows):
-    """Renders opponent starting lineup with 44px avatars and clean row spacing."""
+    """
+    Renders a starting lineup table (opponent or the user's own) with 44px
+    avatars, clean row spacing, and a live-status column when rows carry a
+    "Status" key (see render_live_status_badge_html) - omitted otherwise.
+    """
     if not opp_rows:
-        return "<p style='color: #94a3b8; padding: 8px;'>No opponent lineup available.</p>"
-    html = """
+        return "<p style='color: #94a3b8; padding: 8px;'>No lineup available.</p>"
+    show_status = any("Status" in r for r in opp_rows)
+    status_th = "<th>Status</th>" if show_status else ""
+    html = f"""
     <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
     <div class='table-responsive-wrapper'>
     <table class='roster-table roster-table-opponent'>
@@ -2131,6 +2157,7 @@ def render_opponent_lineup_html(opp_rows):
                 <th>Player</th>
                 <th>Projected</th>
                 <th>NFL Team</th>
+                {status_th}
             </tr>
         </thead>
         <tbody>
@@ -2141,6 +2168,7 @@ def render_opponent_lineup_html(opp_rows):
         pname = r.get("Player", "—")
         team = r.get("NFL Team", "—")
         proj = r.get("Projected", "0.0 pts")
+        status_td = f"<td>{render_live_status_badge_html(r['Status'])}</td>" if show_status and "Status" in r else ("<td>—</td>" if show_status else "")
         avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
         html += f"""
             <tr>
@@ -2155,6 +2183,7 @@ def render_opponent_lineup_html(opp_rows):
                 </td>
                 <td class='val-pill' style='color: #38bdf8;'>{proj}</td>
                 <td style='color: #94a3b8;'>{team}</td>
+                {status_td}
             </tr>
         """
     html += """
@@ -4408,14 +4437,40 @@ else:
     # TAB 2: MATCHUPS & START/SIT
     # =========================================================================
     with tab_start_sit:
-        st.subheader(f"Week {active_week} Matchup & Starting Lineup Audit")
+        col_start_sit_title, col_start_sit_refresh = st.columns([5, 1], vertical_alignment="center")
+        with col_start_sit_title:
+            st.subheader(f"Week {active_week} Matchup & Starting Lineup Audit")
+        with col_start_sit_refresh:
+            if st.button("🔄 Refresh", key=f"refresh_live_scores_{selected_league_id}", use_container_width=True, help="Re-fetches live scores and game status now, instead of waiting for the normal cache window."):
+                fetch_league_data.clear()
+                st.rerun()
 
         roster_players = get_roster_players(user_roster, players)
-        proj_lookup = {}
-        for p in roster_players:
-            pid = p.get("player_id")
-            raw = weekly_projections.get(pid)
-            proj_lookup[pid] = calculate_weekly_projected_points(pid, raw, scoring, p)
+
+        # Live game status per NFL team this week, used to badge each player
+        # ("Live" / "Final" / "Not Started" / "Bye") independently of the
+        # points hybrid below - get_weekly_stats alone can't tell a game
+        # still in progress apart from one that already finished.
+        game_status_raw = get_nfl_game_status_raw(active_season, active_week)
+        team_status_map = build_team_game_status_map(game_status_raw)
+
+        week_matchups = league_data.get("matchups") or []
+        my_m_obj = next((m for m in week_matchups if m.get("roster_id") == user_roster["roster_id"]), None)
+        my_matchup_id = my_m_obj.get("matchup_id") if my_m_obj else None
+        my_live_points = (my_m_obj.get("players_points") or {}) if my_m_obj else {}
+
+        # Live-adjusted points: a player whose game hasn't started yet still
+        # uses the static pre-game projection (as before); once their game
+        # has started - live or already finished - their real matchup points
+        # take over instead of a stale projection.
+        proj_lookup = build_live_adjusted_points_lookup(
+            player_ids=[p.get("player_id") for p in roster_players],
+            weekly_projections=weekly_projections,
+            weekly_stats=weekly_stats,
+            scoring_settings=scoring,
+            player_db=players,
+            live_points=my_live_points,
+        )
 
         audit = audit_weekly_lineup(
             user_roster=user_roster,
@@ -4426,9 +4481,18 @@ else:
             weekly_stats=weekly_stats,
         )
 
-        week_matchups = league_data.get("matchups") or []
-        my_m_obj = next((m for m in week_matchups if m.get("roster_id") == user_roster["roster_id"]), None)
-        my_matchup_id = my_m_obj.get("matchup_id") if my_m_obj else None
+        my_lineup_rows = []
+        for p_obj, pts, slot in audit["active_starters"]:
+            pid = p_obj.get("player_id")
+            status_label = get_player_game_status_label(p_obj.get("team"), team_status_map)
+            my_lineup_rows.append({
+                "Avatar": get_player_avatar_url(pid, p_obj.get("position"), p_obj.get("team")),
+                "Slot": slot,
+                "Player": p_obj.get("full_name") or pid,
+                "NFL Team": p_obj.get("team") or "FA",
+                "Projected": f"{pts:.1f} pts",
+                "Status": status_label,
+            })
 
         opp_roster = None
         opp_m_obj = None
@@ -4452,11 +4516,20 @@ else:
                 if opp_m_obj and opp_m_obj.get("starters")
                 else (opp_roster.get("starters") or [])
             )
+            opp_live_points = opp_m_obj.get("players_points") or {} if opp_m_obj else {}
+            opp_points_lookup = build_live_adjusted_points_lookup(
+                player_ids=[pid for pid in opp_starter_pids if pid and pid != "0"],
+                weekly_projections=weekly_projections,
+                weekly_stats=weekly_stats,
+                scoring_settings=scoring,
+                player_db=players,
+                live_points=opp_live_points,
+            )
             for s_idx, pid in enumerate(opp_starter_pids):
                 slot_name = roster_pos[s_idx] if s_idx < len(roster_pos) else "FLEX"
                 if pid and pid != "0":
                     p = players.get(pid, {})
-                    p_proj = calculate_weekly_projected_points(pid, weekly_projections.get(pid), scoring, p)
+                    p_proj = opp_points_lookup.get(pid, 0.0)
                     opp_proj += p_proj
                     opp_lineup_rows.append({
                         "Avatar": get_player_avatar_url(pid, p.get("position"), p.get("team")),
@@ -4464,6 +4537,7 @@ else:
                         "Player": p.get("full_name") or pid,
                         "NFL Team": p.get("team") or "FA",
                         "Projected": f"{p_proj:.1f} pts",
+                        "Status": get_player_game_status_label(p.get("team"), team_status_map),
                     })
                 else:
                     opp_lineup_rows.append({
@@ -4472,6 +4546,7 @@ else:
                         "Player": "— Empty Slot —",
                         "NFL Team": "—",
                         "Projected": "0.0 pts",
+                        "Status": "bye",
                     })
 
         # Render Executive Head-to-Head Arena Card
@@ -4558,6 +4633,10 @@ else:
                     """,
                     unsafe_allow_html=True,
                 )
+
+        if my_lineup_rows:
+            with st.expander(f"View My Starting Lineup ({user_name})", expanded=False):
+                st.html(render_opponent_lineup_html(my_lineup_rows))
 
         if opp_roster and opp_lineup_rows:
             with st.expander(f"View Opponent Starting Lineup ({opp_name})", expanded=False):

@@ -41,6 +41,53 @@ def has_game_started(player_id: str, weekly_stats: Dict[str, Any]) -> bool:
     return player_id in weekly_stats
 
 
+def get_player_game_status_label(team: Optional[str], team_status_map: Dict[str, str]) -> str:
+    """
+    Returns one of "not_started", "in_progress", "final", or "bye" for a
+    player's NFL team this week, from build_team_game_status_map's output
+    (see get_nfl_game_status_raw). "bye" also covers a missing/free-agent
+    team, since neither has a game to show a live status for.
+    """
+    status = (team_status_map or {}).get(team) if team else None
+    if status is None:
+        return "bye"
+    if status == "complete":
+        return "final"
+    if status == "pre_game":
+        return "not_started"
+    return "in_progress"
+
+
+def build_live_adjusted_points_lookup(
+    player_ids,
+    weekly_projections: Dict[str, Any],
+    weekly_stats: Dict[str, Any],
+    scoring_settings: Dict[str, Any],
+    player_db: Dict[str, Any],
+    live_points: Optional[Dict[str, float]] = None,
+) -> Dict[str, float]:
+    """
+    Returns player_id -> points, live-aware: a player whose game has not
+    started yet still uses calculate_weekly_projected_points (the static
+    pre-game estimate), but once their game has started - live or already
+    finished, has_game_started can't tell those apart and doesn't need to -
+    the real points already scored (live_points, from a league matchup's
+    players_points) take over instead. This "locks in" real numbers exactly
+    when Sleeper itself locks that player's lineup slot, matching
+    has_game_started's own cutover point.
+    """
+    live_points = live_points or {}
+    lookup = {}
+    for pid in player_ids:
+        if has_game_started(pid, weekly_stats):
+            lookup[pid] = float(live_points.get(pid, 0.0) or 0.0)
+        else:
+            p_obj = player_db.get(pid)
+            raw = weekly_projections.get(pid)
+            lookup[pid] = calculate_weekly_projected_points(pid, raw, scoring_settings, p_obj)
+    return lookup
+
+
 def calculate_weekly_projected_points(
     player_id: str,
     raw_proj: Optional[Dict[str, Any]],
