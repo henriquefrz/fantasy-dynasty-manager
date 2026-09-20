@@ -1,5 +1,4 @@
 import argparse
-import copy
 import sys
 from src.sleeper_api import (
     get_user,
@@ -15,8 +14,9 @@ from src.sleeper_api import (
     get_weekly_projections,
     get_weekly_stats,
     get_league_schedule,
+    get_ros_projections,
 )
-from src.league_classifier import classify_league, is_superflex_league
+from src.league_classifier import classify_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_fp_ros_rankings_raw,
@@ -27,12 +27,10 @@ from src.market_data import (
     get_ktc_data_raw,
     get_fantasycalc_data_raw,
     get_ktc_fantasy_rankings_raw,
-    build_consensus_picks_lookup,
+    build_picks_sources_bundle,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
-    apply_ktc_te_premium,
 )
-from src.matching import match_players_by_sleeper_id
 from src.analysis_engine import (
     build_intelligent_waiver_suggestions,
 )
@@ -43,31 +41,21 @@ from src.start_sit import (
     find_streaming_recommendations,
 )
 from src.trade_engine import (
-    analyze_team_profile,
     generate_trade_suggestions,
     format_asset_str,
 )
 from src.team_strength import (
     calculate_team_strength,
-    rank_teams_in_league,
     get_strength_tier,
-    get_current_strength_tier,
-    classify_dynasty_team,
-    classify_redraft_team,
     get_picks_qualifier,
-    percentile_score,
-    score_to_tier,
 )
 from src.draft_picks import (
-    build_picks_ownership,
     get_picks_for_roster,
     format_picks_summary,
     get_picks_capital_value,
     rank_teams_by_picks,
 )
 from src.playoff_simulator import (
-    compute_team_lineup_expectation,
-    run_monte_carlo_simulation,
     format_power_rankings_table,
     compute_dynasty_power_rankings,
     format_dynasty_power_rankings_table,
@@ -78,6 +66,7 @@ from src.trade_finder import (
     find_targeted_sell_trades,
     print_targeted_trades_summary,
 )
+from src.orchestration import build_league_context, build_team_profiles
 
 
 username = "henriquefrz"
@@ -154,8 +143,13 @@ ktc_sf = get_ktc_data_raw(is_superflex=True)
 ktc_1qb = get_ktc_data_raw(is_superflex=False)
 fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
 fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
+ktc_fantasy_sf = get_ktc_fantasy_rankings_raw(is_superflex=True)
 ktc_fantasy_1qb = get_ktc_fantasy_rankings_raw(is_superflex=False)
-projections_raw = get_weekly_projections(active_season, active_week)
+# Rest-of-season averaged projections (NOT a single week's snapshot) - matches
+# app.py's fetch_market_database, which uses get_ros_projections for exactly
+# this purpose. main.py previously used a single week's get_weekly_projections
+# here, a real (now-corrected) discrepancy from app.py's already-correct source.
+ros_projections_raw = get_ros_projections(active_season, start_week=active_week, end_week=17)
 
 # Build baseline positional lookups enriched with 3-Pillar Consensus points (0-10,000 scale)
 dynasty_lookup_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty")
@@ -164,11 +158,15 @@ enrich_lookup_with_consensus_values(dynasty_lookup_sf, values_players, player_id
 dynasty_lookup_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty")
 enrich_lookup_with_consensus_values(dynasty_lookup_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
+# Standard-baseline (0.5 PPR, no TEP) redraft lookup - build_league_context
+# falls back to this directly for leagues matching that scoring exactly, and
+# otherwise recomputes a league-specific one via compute_custom_redraft_lookup
+# (see src/orchestration.py).
 redraft_lookup = build_positional_lookup(fp_ros_rankings, player_ids, "redraft")
 enrich_lookup_with_redraft_values(
     redraft_lookup,
     ktc_fantasy_raw=ktc_fantasy_1qb,
-    projections_raw=projections_raw,
+    projections_raw=ros_projections_raw,
     player_ids_raw=player_ids,
     start_week=active_week,
     end_week=17,
@@ -177,11 +175,13 @@ enrich_lookup_with_redraft_values(
 print(f"Players with Dynasty consensus data loaded: {len(dynasty_lookup_sf)}")
 print(f"Players with Redraft (3-Pillar: Sleeper + FP + KTC Redraft) data loaded: {len(redraft_lookup)}")
 
-# Build pick market value lookups supporting Early, Mid, and Late tiers via 3-Pillar Consensus
-picks_lookup_sf = build_consensus_picks_lookup(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
-picks_lookup_1qb = build_consensus_picks_lookup(values_picks, values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
+# Build pick source bundles (dp/ktc/fc raw values keyed by (season, round, tier)) -
+# build_league_context resolves the final picks_lookup per league via
+# compute_picks_lookup_from_bundle.
+picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players_raw=values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
+picks_bundle_1qb = build_picks_sources_bundle(values_picks, values_players_raw=values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
-print(f"Pick market value tiers loaded: {len(picks_lookup_sf)} entries")
+print(f"Pick market value sources loaded: {len(picks_bundle_sf['all_keys'])} pick keys")
 
 # Fetch live NFL State & Weekly Projections for Phase 4 Start/Sit Assistant
 nfl_state = get_nfl_state()
@@ -190,6 +190,22 @@ active_nfl_week = nfl_state.get("week", 1)
 weekly_projections = get_weekly_projections(active_nfl_season, active_nfl_week)
 weekly_stats = get_weekly_stats(active_nfl_season, active_nfl_week)
 print(f"NFL State loaded: Season {active_nfl_season} | Week {active_nfl_week} ({len(weekly_projections)} player projections, {len(weekly_stats)} players with games already underway)")
+
+market_db = {
+    "players": players,
+    "dynasty_sf_lookup": dynasty_lookup_sf,
+    "dynasty_1qb_lookup": dynasty_lookup_1qb,
+    "redraft_lookup": redraft_lookup,
+    "ktc_sf": ktc_sf,
+    "ktc_1qb": ktc_1qb,
+    "player_ids": player_ids,
+    "fp_ros_rankings": fp_ros_rankings,
+    "ros_projections_raw": ros_projections_raw,
+    "ktc_redraft_sf": ktc_fantasy_sf,
+    "ktc_redraft_1qb": ktc_fantasy_1qb,
+    "picks_bundle_sf": picks_bundle_sf,
+    "picks_bundle_1qb": picks_bundle_1qb,
+}
 
 print()
 print("=" * 60)
@@ -214,141 +230,61 @@ for league in leagues:
         continue
 
     roster_pos = league.get("roster_positions", [])
+    league_users = get_league_users(league["league_id"])
+    traded_picks = get_traded_picks(league["league_id"])
 
-    all_rosters_players = {
-        r["roster_id"]: get_roster_players(r, players)
-        for r in league_rosters
-        if r.get("players")
-    }
+    context = build_league_context(league, league_rosters, league_users, market_db, active_nfl_week, traded_picks=traded_picks)
+    is_dynasty = context["is_dynasty"]
+    is_superflex = context["is_superflex"]
+    tep_bonus = context["tep_bonus"]
+    primary_lookup = context["primary_lookup"]
+    redraft_lookup = context["redraft_lookup"]
+    picks_lookup = context["picks_lookup"]
+    all_rosters_players = context["all_rosters_players"]
+    user_map = context["user_map"]
+    picks_ownership = context["picks_ownership"]
+    alt_lookup = redraft_lookup if is_dynasty else {}
 
-    # Detect Superflex
-    is_superflex = is_superflex_league(roster_pos)
+    if is_dynasty and tep_bonus > 0:
+        print(f"  ⚡ TE Premium active (+{tep_bonus} PPR bonus applied to TEs via KTC native TEP tiers)")
 
-    # Detect TE Premium
-    scoring = league.get("scoring_settings", {})
-    tep_bonus = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
-
-    # Season Power Score (Monte Carlo): current_tier now reads directly off this
-    # rank (see get_current_strength_tier), so it has to run unconditionally
-    # here rather than only under --simulate/--all. Reused below by the
-    # Playoff Simulator section instead of being recomputed.
+    # Season Power Score (Monte Carlo): current_tier/dynasty_tier both read
+    # directly off this, so it has to run unconditionally here rather than
+    # only under --simulate/--all. Reused below by the Playoff Simulator
+    # section instead of being recomputed.
     playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
     schedule = get_league_schedule(league["league_id"], start_week=active_nfl_week, end_week=playoff_start - 1, current_week=active_nfl_week)
-    team_expectations = {
-        r["roster_id"]: compute_team_lineup_expectation(
-            roster=r,
-            roster_players=all_rosters_players[r["roster_id"]],
-            weekly_projections=weekly_projections,
-            scoring_settings=scoring,
-            roster_positions=roster_pos,
-        )
-        for r in league_rosters
-        if r["roster_id"] in all_rosters_players
-    }
-    if schedule:
-        sim_results = run_monte_carlo_simulation(
-            league=league,
-            rosters=league_rosters,
-            schedule=schedule,
-            team_expectations=team_expectations,
-            current_week=active_nfl_week,
-            playoff_week_start=playoff_start,
-            num_simulations=1000,
-        )
-        power_score_rank_map = {
-            rid: idx for idx, rid in enumerate(
-                sorted(sim_results, key=lambda rid: sim_results[rid].get("power_score", 0.0), reverse=True), 1
-            )
-        }
-    else:
-        sim_results = {}
-        ranked_pts = sorted(team_expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
-        power_score_rank_map = {x["roster_id"]: idx for idx, x in enumerate(ranked_pts, 1)}
-    power_score_total = len(power_score_rank_map) or len(league_rosters)
 
-    my_sim = sim_results.get(user_roster["roster_id"], {})
-    my_sps_pos = power_score_rank_map.get(user_roster["roster_id"], power_score_total)
+    profiles = build_team_profiles(
+        context, league, league_rosters, active_nfl_week,
+        weekly_projections=weekly_projections, schedule=schedule, num_simulations=1000,
+    )
+    all_team_profiles = profiles["all_team_profiles"]
+    sim_results = profiles["sim_results"]
+    team_tiers = profiles["team_tiers"]
 
-    if classification["type"] == "redraft":
-        is_dynasty = False
-        primary_lookup, primary_label = redraft_lookup, "Redraft"
-        alt_lookup, alt_label = {}, None
+    user_profile = next((p for p in all_team_profiles if p["roster_id"] == user_roster["roster_id"]), None)
+    if user_profile is None:
+        print("Your roster has no analyzable players yet.")
+        continue
 
-        redraft_ranked = rank_teams_in_league(all_rosters_players, primary_lookup, roster_pos, is_dynasty=False)
-        redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
+    status = user_profile["status"]
+    category = user_profile["category"]
+    games_played = user_profile["games_played"]
 
-        current_tier, games_played = get_current_strength_tier(
-            user_roster, my_sps_pos, power_score_total,
-            playoff_pct=my_sim.get("playoff_pct"),
-            is_eliminated=my_sim.get("is_eliminated", False),
-        )
+    roster_players = all_rosters_players.get(user_roster["roster_id"]) or get_roster_players(user_roster, players)
+    _, _, _, my_details = calculate_team_strength(roster_players, primary_lookup, roster_pos, is_dynasty=is_dynasty)
 
-        status = classify_redraft_team(current_tier)
-        category = "win" if current_tier == "high" else ("rebuild" if current_tier == "low" else "neutral")
+    if not is_dynasty:
+        _, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], profiles["redraft_ranked"])
         print(f"Status: {status} (Redraft strength: #{redraft_pos} of {redraft_total}, {games_played} games played)")
-
-        roster_players = get_roster_players(user_roster, players)
-        _, _, _, my_details = calculate_team_strength(roster_players, primary_lookup, roster_pos, is_dynasty=False)
         print(
             f"Roster Value: {my_details['total_market_value']:,.0f} pts "
             f"(Starters: {my_details['starters_market_value']:,.0f} | Bench: {my_details['bench_market_value']:,.0f})"
         )
     else:
-        is_dynasty = True
-        # Clone dynasty lookup for this league to safely apply league-specific TE Premium
-        base_lookup = dynasty_lookup_sf if is_superflex else dynasty_lookup_1qb
-        primary_lookup = copy.deepcopy(base_lookup)
-        if tep_bonus > 0:
-            ktc_raw = ktc_sf if is_superflex else ktc_1qb
-            primary_lookup = apply_ktc_te_premium(primary_lookup, tep_bonus, ktc_raw, player_ids, is_superflex=is_superflex)
-            print(f"  ⚡ TE Premium active (+{tep_bonus} PPR bonus applied to TEs via KTC native TEP tiers)")
-
-        primary_label = "Dynasty"
-        alt_lookup, alt_label = redraft_lookup, "Redraft"
-        picks_lookup = picks_lookup_sf if is_superflex else picks_lookup_1qb
-
-        traded_picks = get_traded_picks(league["league_id"])
-        picks_ownership = build_picks_ownership(league, traded_picks, future_years=3)
-
-        # Dynasty Asset Power Rank prepass (50% starters + 30% bench + 20% picks) -
-        # the single source of truth for dynasty_tier, matching the same
-        # compute_dynasty_power_rankings formula already unified in app.py's
-        # Portal and League Workspace (rank_teams_in_league, used here before,
-        # ignores picks entirely and had drifted out of sync with it).
-        dynasty_prepass_profiles = []
-        for r in league_rosters:
-            rid = r["roster_id"]
-            if rid not in all_rosters_players:
-                continue
-            dynasty_prepass_profiles.append(analyze_team_profile(
-                roster=r, roster_players=all_rosters_players[rid],
-                owned_picks=get_picks_for_roster(picks_ownership, rid),
-                primary_lookup=primary_lookup, redraft_lookup=redraft_lookup, picks_lookup=picks_lookup,
-                team_tiers={}, roster_positions=roster_pos, is_dynasty=True,
-                status="Unknown", category="neutral", manager_name=f"Team {rid}",
-                total_rosters=league.get("total_rosters", 12),
-            ))
-        dynasty_prepass_results = compute_dynasty_power_rankings(dynasty_prepass_profiles)
-        ranked_dynasty_prepass = sorted(dynasty_prepass_results.values(), key=lambda x: x["dynasty_score"], reverse=True)
-        dynasty_score_pairs = [(d["roster_id"], d["dynasty_score"]) for d in ranked_dynasty_prepass]
-        dynasty_tier, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], dynasty_score_pairs)
-
-        # Calculate Redraft strength for immediate scoring (THIS season's competitiveness)
-        redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
-        redraft_tier, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], redraft_ranked)
-
-        current_tier, games_played = get_current_strength_tier(
-            user_roster, my_sps_pos, power_score_total,
-            playoff_pct=my_sim.get("playoff_pct"),
-            is_eliminated=my_sim.get("is_eliminated", False),
-        )
-
-        # Build team tiers for pick projection based on REDRAFT strength
-        # (a team's draft position depends on their record THIS season, not long-term dynasty value)
-        team_tiers = {}
-        for pos_idx, item in enumerate(redraft_ranked, start=1):
-            rid = item[0]
-            team_tiers[rid] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
+        _, dynasty_pos, dynasty_total = get_strength_tier(user_roster["roster_id"], profiles["dynasty_score_pairs"])
+        _, redraft_pos, redraft_total = get_strength_tier(user_roster["roster_id"], profiles["redraft_ranked"])
 
         my_picks = get_picks_for_roster(picks_ownership, user_roster["roster_id"])
         total_rosters = league.get("total_rosters", 12)
@@ -356,12 +292,7 @@ for league in leagues:
 
         picks_ranked = rank_teams_by_picks(picks_ownership, total_rosters, picks_lookup, team_tiers, target_season="2027")
         picks_tier, picks_pos, picks_total = get_strength_tier(user_roster["roster_id"], picks_ranked)
-
-        status, category = classify_dynasty_team(current_tier, dynasty_tier)
         qualifier = get_picks_qualifier(category, picks_tier)
-
-        roster_players = get_roster_players(user_roster, players)
-        _, _, _, my_details = calculate_team_strength(roster_players, primary_lookup, roster_pos, is_dynasty=True)
 
         print(
             f"Status: {status}{qualifier} "
@@ -375,69 +306,6 @@ for league in leagues:
             f"Available Picks ({len(my_picks)}, Capital: #{picks_pos} of {picks_total}, {my_picks_points:,.0f} pts): "
             f"{format_picks_summary(my_picks, team_tiers, target_season='2027')}"
         )
-
-    # -------------------------------------------------------------
-    # Build Team Profiles for Trades & Simulation
-    # -------------------------------------------------------------
-    league_users = get_league_users(league["league_id"])
-    user_map = {}
-    for u in league_users:
-        uid = u.get("user_id")
-        dname = u.get("display_name", "Unknown")
-        tname = (u.get("metadata") or {}).get("team_name")
-        label = f"@{dname}" + (f" ({tname})" if tname else "")
-        user_map[uid] = label
-
-    all_team_profiles = []
-    user_profile = None
-
-    for r in league_rosters:
-        rid = r["roster_id"]
-        if rid not in all_rosters_players:
-            continue
-        owner_id = r.get("owner_id")
-        manager_label = user_map.get(owner_id, f"Team {rid}")
-
-        r_sim = sim_results.get(rid, {})
-        r_sps_pos = power_score_rank_map.get(rid, power_score_total)
-
-        if is_dynasty:
-            d_tier, _, _ = get_strength_tier(rid, dynasty_score_pairs)
-            c_tier, _ = get_current_strength_tier(
-                r, r_sps_pos, power_score_total,
-                playoff_pct=r_sim.get("playoff_pct"),
-                is_eliminated=r_sim.get("is_eliminated", False),
-            )
-            team_status, team_cat = classify_dynasty_team(c_tier, d_tier)
-            owned_picks = get_picks_for_roster(picks_ownership, rid)
-        else:
-            c_tier, _ = get_current_strength_tier(
-                r, r_sps_pos, power_score_total,
-                playoff_pct=r_sim.get("playoff_pct"),
-                is_eliminated=r_sim.get("is_eliminated", False),
-            )
-            team_status = classify_redraft_team(c_tier)
-            team_cat = "win" if c_tier == "high" else ("rebuild" if c_tier == "low" else "neutral")
-            owned_picks = []
-
-        prof = analyze_team_profile(
-            roster=r,
-            roster_players=all_rosters_players[rid],
-            owned_picks=owned_picks,
-            primary_lookup=primary_lookup,
-            redraft_lookup=redraft_lookup,
-            picks_lookup=picks_lookup if is_dynasty else {},
-            team_tiers=team_tiers if is_dynasty else {},
-            roster_positions=roster_pos,
-            is_dynasty=is_dynasty,
-            status=team_status,
-            category=team_cat,
-            manager_name=manager_label,
-            total_rosters=league.get("total_rosters", 12),
-        )
-        all_team_profiles.append(prof)
-        if rid == user_roster["roster_id"]:
-            user_profile = prof
 
     # -------------------------------------------------------------
     # Monte Carlo Playoff & Power Rankings Simulator (Phase 5)

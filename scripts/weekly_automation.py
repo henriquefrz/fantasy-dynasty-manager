@@ -27,7 +27,6 @@ from src.sleeper_api import (
     get_weekly_stats,
     get_ros_projections,
 )
-from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_fp_ros_rankings_raw,
@@ -41,7 +40,6 @@ from src.market_data import (
     build_consensus_picks_lookup,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
-    apply_ktc_te_premium,
 )
 from src.matching import match_players_by_sleeper_id
 from src.analysis_engine import (
@@ -51,15 +49,23 @@ from src.start_sit import (
     audit_weekly_lineup,
     calculate_weekly_projected_points,
 )
+from src.orchestration import build_league_context
 
 USERNAME = "henriquefrz"
 
+# build_league_context always resolves a picks_lookup, but neither audit
+# routine here values draft picks - an empty bundle skips that (unused)
+# computation instead of fetching/parsing DynastyProcess/KTC/FantasyCalc
+# pick values just to discard them.
+EMPTY_PICKS_BUNDLE = {"dp": {}, "ktc": {}, "fc": {}, "all_keys": []}
 
-def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, redraft_lk, ktc_sf, ktc_1qb, player_ids, output_dir=None):
+
+def run_tuesday_waiver_audit(leagues, user_id, market_db, active_week, output_dir=None):
     """
     Tuesday Morning: Scans all leagues for intelligent waiver wire opportunities,
     IR eligibility fixes, taxi promotions, and high-upside handcuffs.
     """
+    players = market_db["players"]
     lines = []
     lines.append("=" * 70)
     lines.append(f"TUESDAY MORNING WAIVER & ADD/DROP AUDIT — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -73,31 +79,28 @@ def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb,
         if not user_roster:
             continue
 
-        ltype = classify_league(league, rosters)
-        roster_pos = league.get("roster_positions", [])
-        is_sf = is_superflex_league(roster_pos)
-        is_dyn = ltype["type"] != "redraft"
-        scoring = league.get("scoring_settings", {})
-        bonus_te = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
-
-        lookup = dynasty_sf if is_sf else dynasty_1qb
-        if bonus_te > 0:
-            ktc_raw = ktc_sf if is_sf else ktc_1qb
-            lookup = apply_ktc_te_premium(lookup, bonus_te, ktc_raw, player_ids, is_superflex=is_sf)
+        context = build_league_context(league, rosters, [], market_db, active_week)
+        is_sf = context["is_superflex"]
+        is_dyn = context["is_dynasty"]
+        roster_pos = context["roster_positions"]
 
         fmt_type = f"{'Dynasty' if is_dyn else 'Redraft'} {'Superflex' if is_sf else '1QB'}"
         lines.append(f"\n🏆 League: {league_name.upper()} ({fmt_type})")
         lines.append("-" * 60)
 
-        roster_players = get_roster_players(user_roster, players)
+        roster_players = context["all_rosters_players"].get(user_roster["roster_id"]) or get_roster_players(user_roster, players)
         free_agents = get_free_agents(rosters, players, roster_positions=roster_pos)
 
-        alt_lk = redraft_lk if is_dyn else None
+        # Redraft leagues price the primary lookup off redraft_lookup already
+        # (build_league_context redirects it); the alt lookup only adds value
+        # for dynasty leagues, where it surfaces the redraft/ROS angle
+        # alongside the dynasty-value primary lookup.
+        alt_lk = context["redraft_lookup"] if is_dyn else None
 
         waivers = build_intelligent_waiver_suggestions(
             roster_players=roster_players,
             free_agents=free_agents,
-            primary_lookup=lookup,
+            primary_lookup=context["primary_lookup"],
             roster_positions=roster_pos,
             user_roster=user_roster,
             category="win",
@@ -147,11 +150,12 @@ def run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb,
         print(f"\n[+] Report written to {fname}")
 
 
-def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, weekly_proj, weekly_stats, active_season, active_week, ktc_sf, ktc_1qb, player_ids, output_dir=None):
+def run_thursday_start_sit_audit(leagues, user_id, market_db, weekly_proj, weekly_stats, active_week, output_dir=None):
     """
     Thursday Afternoon: Checks upcoming matchups, starter health, bench pivots,
     and stud-protected streaming options ahead of Thursday Night Football.
     """
+    players = market_db["players"]
     lines = []
     lines.append("=" * 70)
     lines.append(f"THURSDAY START/SIT & INJURY CHECK (WEEK {active_week}) — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -165,19 +169,13 @@ def run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_
         if not user_roster:
             continue
 
-        ltype = classify_league(league, rosters)
-        roster_pos = league.get("roster_positions", [])
-        is_sf = is_superflex_league(roster_pos)
-        is_dyn = ltype["type"] != "redraft"
+        context = build_league_context(league, rosters, [], market_db, active_week)
+        is_sf = context["is_superflex"]
+        is_dyn = context["is_dynasty"]
+        roster_pos = context["roster_positions"]
         scoring = league.get("scoring_settings", {})
-        bonus_te = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
 
-        lookup = dynasty_sf if is_sf else dynasty_1qb
-        if bonus_te > 0:
-            ktc_raw = ktc_sf if is_sf else ktc_1qb
-            lookup = apply_ktc_te_premium(lookup, bonus_te, ktc_raw, player_ids, is_superflex=is_sf)
-
-        roster_players = get_roster_players(user_roster, players)
+        roster_players = context["all_rosters_players"].get(user_roster["roster_id"]) or get_roster_players(user_roster, players)
         proj_lookup = {}
         for p in roster_players:
             pid = p.get("player_id")
@@ -269,6 +267,7 @@ def main():
     ktc_1qb = get_ktc_data_raw(is_superflex=False)
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
+    ktc_fantasy_sf = get_ktc_fantasy_rankings_raw(is_superflex=True)
     ktc_fantasy_1qb = get_ktc_fantasy_rankings_raw(is_superflex=False)
 
     dynasty_sf = build_positional_lookup(fp_rankings, player_ids, "dynasty")
@@ -280,6 +279,10 @@ def main():
     weekly_proj = get_weekly_projections(active_season, active_week)
     weekly_stats = get_weekly_stats(active_season, active_week)
     ros_proj = get_ros_projections(active_season, start_week=active_week, end_week=17)
+    # Standard-baseline (0.5 PPR, no TEP) redraft lookup - build_league_context
+    # falls back to this directly for leagues matching that scoring exactly,
+    # and otherwise recomputes a league-specific one via
+    # compute_custom_redraft_lookup (see src/orchestration.py).
     redraft_lk = build_positional_lookup(fp_ros_rankings, player_ids, "redraft")
     enrich_lookup_with_redraft_values(
         redraft_lk,
@@ -290,11 +293,27 @@ def main():
         end_week=17,
     )
 
+    market_db = {
+        "players": players,
+        "dynasty_sf_lookup": dynasty_sf,
+        "dynasty_1qb_lookup": dynasty_1qb,
+        "redraft_lookup": redraft_lk,
+        "ktc_sf": ktc_sf,
+        "ktc_1qb": ktc_1qb,
+        "player_ids": player_ids,
+        "fp_ros_rankings": fp_ros_rankings,
+        "ros_projections_raw": ros_proj,
+        "ktc_redraft_sf": ktc_fantasy_sf,
+        "ktc_redraft_1qb": ktc_fantasy_1qb,
+        "picks_bundle_sf": EMPTY_PICKS_BUNDLE,
+        "picks_bundle_1qb": EMPTY_PICKS_BUNDLE,
+    }
+
     if args.routine in ["tuesday", "all"]:
-        run_tuesday_waiver_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, redraft_lk, ktc_sf, ktc_1qb, player_ids, output_dir=args.output_dir)
+        run_tuesday_waiver_audit(leagues, user_id, market_db, active_week, output_dir=args.output_dir)
 
     if args.routine in ["thursday", "all"]:
-        run_thursday_start_sit_audit(leagues, user_id, players, dynasty_sf, dynasty_1qb, weekly_proj, weekly_stats, active_season, active_week, ktc_sf, ktc_1qb, player_ids, output_dir=args.output_dir)
+        run_thursday_start_sit_audit(leagues, user_id, market_db, weekly_proj, weekly_stats, active_week, output_dir=args.output_dir)
 
 
 if __name__ == "__main__":

@@ -1325,6 +1325,67 @@ def enrich_lookup_with_redraft_values(
 enrich_lookup_with_market_values = enrich_lookup_with_consensus_values
 
 
+def compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex, week=1):
+    """
+    Computes a redraft/ROS valuation lookup customized for a league's exact
+    scoring settings (PPR, TE Premium, pass TD weight) and superflex format,
+    falling back directly to market_db["redraft_lookup"] when the league's
+    settings match the standard 0.5 Half-PPR / no-TEP baseline exactly.
+
+    Framework-agnostic core of app.py's get_league_custom_redraft_lookup
+    (which wraps this in @st.cache_data) - extracted so
+    src/orchestration.py:build_league_context can give every entry point
+    (app.py, main.py, scripts/weekly_automation.py) this same per-league
+    accuracy instead of only app.py falling back to one fixed global
+    redraft_lookup for every league regardless of its real scoring.
+    """
+    scoring_dict = dict(scoring_tuple)
+    rec = scoring_dict.get("rec", 0.5)
+    tep = scoring_dict.get("bonus_rec_te", 0.0) or scoring_dict.get("te_bonus", 0.0)
+    pass_td = scoring_dict.get("pass_td", 4.0)
+    pass_yd = scoring_dict.get("pass_yd", 0.04)
+    rush_yd = scoring_dict.get("rush_yd", 0.1)
+    rec_yd = scoring_dict.get("rec_yd", 0.1)
+    rush_td = scoring_dict.get("rush_td", 6.0)
+    rec_td = scoring_dict.get("rec_td", 6.0)
+    pass_int = scoring_dict.get("pass_int", -2.0)
+    fum_lost = scoring_dict.get("fum_lost", -2.0)
+
+    is_standard_baseline = (
+        rec == 0.5
+        and tep == 0.0
+        and pass_td == 4.0
+        and pass_yd == 0.04
+        and rush_yd == 0.1
+        and rec_yd == 0.1
+        and rush_td == 6.0
+        and rec_td == 6.0
+        and pass_int == -2.0
+        and fum_lost == -2.0
+        and not is_superflex
+    )
+    if is_standard_baseline:
+        return market_db["redraft_lookup"]
+
+    base_lk = build_positional_lookup(
+        market_db["fp_ros_rankings"],
+        market_db["player_ids"],
+        "redraft",
+        is_superflex=is_superflex,
+    )
+    enrich_lookup_with_redraft_values(
+        base_lk,
+        ktc_fantasy_raw=market_db["ktc_redraft_sf"] if is_superflex else market_db["ktc_redraft_1qb"],
+        projections_raw=market_db["ros_projections_raw"],
+        player_ids_raw=market_db["player_ids"],
+        scoring_settings=scoring_dict,
+        is_superflex=is_superflex,
+        start_week=week,
+        end_week=17,
+    )
+    return base_lk
+
+
 def apply_ktc_te_premium(lookup, bonus_rec_te, ktc_raw, player_ids_raw, is_superflex=True, mode="equal"):
     """
     Returns a new lookup with Tight End market values rebuilt for the
