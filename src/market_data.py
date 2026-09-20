@@ -44,6 +44,20 @@ CSV_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache
 
 KTC_CACHE_TTL_SECONDS = 24 * 60 * 60
 
+# KTC natively tiers TE market value by TE Premium bonus: "tep" matches a
+# league-wide +0.5 PPR bonus for TEs, "tepp" matches a +1.0 PPR bonus. Any
+# other bonus (including 0) has no matching KTC tier, so it is left unadjusted.
+KTC_TEP_MIN_BASE_VALUE = 400.0
+KTC_TEP_MAX_PCT = 0.80
+
+
+def _ktc_tep_tier_key(bonus_rec_te):
+    if bonus_rec_te == 0.5:
+        return "tep"
+    if bonus_rec_te == 1.0:
+        return "tepp"
+    return None
+
 
 def _download_csv(url):
     filename = url.split("/")[-1]
@@ -158,52 +172,53 @@ def get_ktc_data_raw(is_superflex=True):
         return []
 
 
-ESPN_PROJECTIONS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leaguedefaults/1?scoringPeriodId={scoring_period}&view=kona_player_info"
-
-
-def get_espn_data_raw(season="2026", scoring_period=1):
+def get_ktc_fantasy_rankings_raw(is_superflex=True):
     """
-    Fetches raw multi-week player projections and stats from ESPN's public fantasy API.
-    Retrieves up to 1,500 players, covering the entire NFL player pool.
-    Caches to disk in .cache_data/market_csvs/ for offline resilience.
+    Fetches KeepTradeCut's redraft/seasonal "Fantasy Rankings" (distinct from
+    dynasty-rankings, and capped at KTC's top ~300 redraft-relevant players).
+    Acts as Pillar 3 in the Tri-Factor Redraft/ROS Consensus Engine.
+    Same embedded <script id="ktc-players"> JSON shape (including tep/tepp
+    TE Premium tiers) as get_ktc_data_raw, reused from disk cache in
+    .cache_data/market_csvs/ when younger than KTC_CACHE_TTL_SECONDS (24h).
     """
-    cache_path = os.path.join(CSV_CACHE_DIR, f"espn_projections_raw_{season}.json")
-    url = ESPN_PROJECTIONS_URL.format(season=season, scoring_period=scoring_period)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "x-fantasy-filter": json.dumps({
-            "players": {
-                "limit": 1500,
-                "sortPercOwned": {"sortAsc": False, "sortPriority": 1}
-            }
-        }),
-    }
+    fmt = 2 if is_superflex else 1
+    cache_path = os.path.join(CSV_CACHE_DIR, f"ktc_fantasy_rankings_raw_{'sf' if is_superflex else '1qb'}.json")
+
+    if os.path.exists(cache_path):
+        cache_age = time.time() - os.path.getmtime(cache_path)
+        if cache_age < KTC_CACHE_TTL_SECONDS:
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print(f"Info: Using cached KTC fantasy rankings ({'SF' if is_superflex else '1QB'}, age {cache_age / 3600:.1f}h)")
+                    return json.load(f)
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached KTC fantasy rankings {cache_path}: {cache_err}")
+
+    url = f"https://keeptradecut.com/fantasy-rankings?filters=QB|WR|RB|TE&format={fmt}"
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"}
     try:
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
-        data = response.json()
-        players = data.get("players", [])
-        if players:
+        script_match = re.search(r'<script[^>]*id=["\']ktc-players["\'][^>]*>(.*?)</script>', response.text, re.DOTALL)
+        data = json.loads(script_match.group(1)) if script_match else []
+        if data:
             try:
                 os.makedirs(CSV_CACHE_DIR, exist_ok=True)
                 with open(cache_path, "w", encoding="utf-8") as f:
-                    json.dump(players, f)
+                    json.dump(data, f)
             except Exception:
                 pass
-            return players
+        return data
     except Exception as e:
-        print(f"Warning: Failed to fetch ESPN data: {e}")
-
-    if os.path.exists(cache_path):
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                print("Info: Loaded cached backup for ESPN projections")
-                return json.load(f)
-        except Exception as cache_err:
-            print(f"Warning: Failed to read cached ESPN projections: {cache_err}")
-
-    return []
+        print(f"Warning: Failed to fetch KTC fantasy rankings: {e}")
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print(f"Info: Loaded cached backup for KTC fantasy rankings ({'SF' if is_superflex else '1QB'})")
+                    return json.load(f)
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached KTC fantasy rankings {cache_path}: {cache_err}")
+        return []
 
 
 
@@ -428,6 +443,49 @@ def _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex=True):
     return ktc_values
 
 
+def _extract_ktc_te_tiers(ktc_raw, player_ids_raw, is_superflex=True):
+    """
+    Extracts Sleeper ID -> KTC base/tep/tepp values for TE players only.
+    Powers apply_ktc_te_premium's dynasty TE adjustment and the redraft
+    KTC pillar's TE value selection - both need the same three tiers.
+    """
+    ktc_id_to_sleeper = {
+        str(r["ktc_id"]): str(r["sleeper_id"])
+        for r in player_ids_raw
+        if r.get("ktc_id") and r.get("sleeper_id")
+    }
+    mfl_id_to_sleeper = {
+        str(r["mfl_id"]): str(r["sleeper_id"])
+        for r in player_ids_raw
+        if r.get("mfl_id") and r.get("sleeper_id")
+    }
+
+    val_key = "superflexValues" if is_superflex else "oneQBValues"
+    te_tiers = {}
+
+    for p in ktc_raw:
+        if p.get("position") != "TE":
+            continue
+
+        p_id = str(p.get("playerID", ""))
+        mfl_id = str(p.get("mflid", ""))
+        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
+        if not s_id:
+            continue
+
+        vals = p.get(val_key, {}) or {}
+        try:
+            te_tiers[s_id] = {
+                "base": float(vals.get("value", 0.0)),
+                "tep": float((vals.get("tep") or {}).get("value", 0.0)),
+                "tepp": float((vals.get("tepp") or {}).get("value", 0.0)),
+            }
+        except (ValueError, TypeError):
+            continue
+
+    return te_tiers
+
+
 def _extract_dp_player_values(values_players_raw, player_ids_raw, is_superflex=True):
     """
     Extracts Sleeper ID -> DynastyProcess market value.
@@ -532,21 +590,22 @@ def compute_composite_value(fc_val, ktc_val, dp_val, mode="equal", rank_ecr=None
 def get_market_data_freshness(
     fp_raw=None,
     dp_raw=None,
-    espn_raw=None,
     ktc_sf=None,
     ktc_1qb=None,
     fc_sf=None,
     fc_1qb=None,
+    ktc_redraft_sf=None,
+    ktc_redraft_1qb=None,
 ):
     """
     Returns timestamp / scrape date status for each connected data source,
     including whether the most recent fetch this session actually succeeded.
 
-    Every raw fetcher in this module (get_ktc_data_raw, get_fantasycalc_data_raw,
-    _download_csv-backed FP/DP feeds, get_espn_data_raw) returns an empty list on
-    failure instead of raising, so an empty payload here is the signal a source
-    failed to update - "ok" reflects that, and "status" surfaces it in plain text
-    instead of always claiming "Live Current" regardless of what happened.
+    Every raw fetcher in this module (get_ktc_data_raw, get_ktc_fantasy_rankings_raw,
+    get_fantasycalc_data_raw, _download_csv-backed FP/DP feeds) returns an empty
+    list on failure instead of raising, so an empty payload here is the signal a
+    source failed to update - "ok" reflects that, and "status" surfaces it in
+    plain text instead of always claiming "Live Current" regardless of what happened.
     """
     from datetime import datetime
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -561,13 +620,11 @@ def get_market_data_freshness(
 
     fp_ok = bool(fp_raw)
     dp_ok = bool(dp_raw)
-    espn_ok = bool(espn_raw)
     # Both Superflex and 1QB variants are fetched independently - only call the
     # source "ok" if neither variant silently came back empty.
     ktc_ok = bool(ktc_sf) and bool(ktc_1qb)
     fc_ok = bool(fc_sf) and bool(fc_1qb)
-
-    espn_status = f"Live Current ({len(espn_raw):,} players)" if espn_ok else "Unavailable (fetch failed)"
+    ktc_redraft_ok = bool(ktc_redraft_sf) and bool(ktc_redraft_1qb)
 
     return {
         "fantasycalc": {
@@ -598,12 +655,12 @@ def get_market_data_freshness(
             "status": f"Updated ({fp_date or '2026-09-04'})" if fp_ok else "Unavailable (fetch failed)",
             "ok": fp_ok,
         },
-        "espn": {
-            "source": "ESPN Fantasy API",
-            "type": "Live multi-week machine projections",
+        "ktc_redraft": {
+            "source": "KeepTradeCut Fantasy Rankings",
+            "type": "Live crowdsourced redraft/seasonal rankings",
             "date": now_str,
-            "status": espn_status,
-            "ok": espn_ok,
+            "status": "Live Current" if ktc_redraft_ok else "Unavailable (fetch failed)",
+            "ok": ktc_redraft_ok,
         },
     }
 
@@ -772,16 +829,16 @@ def recompute_consensus_ranks(lookup):
     return lookup
 
 
-def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
+def apply_valuation_mode(lookup, mode="equal"):
     """
     Returns a new lookup with 'market_value' recalculated for all players from
     their stored fc_val, ktc_val, and dp_val, without re-fetching from APIs.
-    Optionally re-applies TE Premium. Recomputes consensus ranks.
+    Recomputes consensus ranks.
 
     Does not mutate the input lookup - it builds and returns an independent
     copy. This matters because callers repeatedly pass the same shared base
     lookup (e.g. market_db["dynasty_sf_lookup"]) for many leagues in a row;
-    mutating it in place would let one league's mode/TEP leak into every
+    mutating it in place would let one league's mode leak into every
     other league sharing that same object.
     """
     new_lookup = {pid: dict(p) for pid, p in lookup.items()}
@@ -792,9 +849,6 @@ def apply_valuation_mode(lookup, mode="equal", bonus_rec_te=0.0):
         rank_ecr = p.get("fp_ecr_pos", p.get("rank_ecr", 999.0))
         pos = p.get("position", "")
         p["market_value"] = compute_composite_value(fc_val, ktc_val, dp_val, mode=mode, rank_ecr=rank_ecr, position=pos)
-
-    if bonus_rec_te and bonus_rec_te > 0:
-        new_lookup = apply_te_premium(new_lookup, bonus_rec_te)
 
     recompute_consensus_ranks(new_lookup)
     return new_lookup
@@ -820,7 +874,7 @@ def _calculate_redraft_depth_value(blended_rank: float) -> float:
 def _calculate_redraft_market_value(blended_rank: float) -> float:
     """
     Computes smooth, continuous single-season (redraft/ROS) valuation for all players
-    based on the 3-Pillar Consensus Overall Rank (Sleeper + FantasyPros + ESPN).
+    based on the 3-Pillar Consensus Overall Rank (Sleeper + FantasyPros + KTC Redraft).
     - Top tier (ranks 1 to 160): smooth exponential decay from 10,500 down to 160 pts.
     - Depth tier (ranks > 160): continuous exponential decay ensuring deep bench/waiver targets
       maintain proportional capital (80 pts at rank 200, 40 pts at rank 240, 20 pts at rank 280).
@@ -831,42 +885,6 @@ def _calculate_redraft_market_value(blended_rank: float) -> float:
         k = math.log(10500.0 / 160.0) / 159.0
         return round(10500.0 * math.exp(-k * (blended_rank - 1.0)), 1)
     return _calculate_redraft_depth_value(blended_rank)
-
-
-ESPN_DST_TO_SLEEPER = {
-    "eagles d/st": "PHI",
-    "ravens d/st": "BAL",
-    "broncos d/st": "DEN",
-    "steelers d/st": "PIT",
-    "vikings d/st": "MIN",
-    "chiefs d/st": "KC",
-    "dolphins d/st": "MIA",
-    "packers d/st": "GB",
-    "49ers d/st": "SF",
-    "lions d/st": "DET",
-    "bills d/st": "BUF",
-    "browns d/st": "CLE",
-    "texans d/st": "HOU",
-    "bears d/st": "CHI",
-    "jets d/st": "NYJ",
-    "seahawks d/st": "SEA",
-    "cowboys d/st": "DAL",
-    "commanders d/st": "WAS",
-    "buccaneers d/st": "TB",
-    "colts d/st": "IND",
-    "chargers d/st": "LAC",
-    "cardinals d/st": "ARI",
-    "falcons d/st": "ATL",
-    "bengals d/st": "CIN",
-    "saints d/st": "NO",
-    "rams d/st": "LAR",
-    "jaguars d/st": "JAX",
-    "titans d/st": "TEN",
-    "raiders d/st": "LV",
-    "giants d/st": "NYG",
-    "patriots d/st": "NE",
-    "panthers d/st": "CAR",
-}
 
 
 DEFAULT_REDRAFT_SCORING = {
@@ -883,142 +901,69 @@ DEFAULT_REDRAFT_SCORING = {
 }
 
 
-def _calc_espn_stat_split_points(s, pos, active_scoring):
+def _extract_ktc_redraft_pillar(ktc_fantasy_raw, player_ids_raw=None, is_superflex=False, bonus_rec_te=0.0):
     """
-    Computes projected fantasy points for an ESPN stat split (weekly or season)
-    based on active league scoring settings (PPR, Half-PPR, TE Premium, pass TD, INT).
-    Leverages ESPN appliedTotal (standard baseline including yardage, TDs, 2pt conversions,
-    and returns) and adjusts for scoring differentials and reception bonuses.
-    """
-    applied = float(s.get("appliedTotal", 0.0) or 0.0)
-    stats = s.get("stats") or {}
-    if not stats:
-        return applied
-
-    rec = float(stats.get("53", 0.0))
-    rec_val = float(active_scoring.get("rec", 0.5))
-    te_bonus = float(active_scoring.get("bonus_rec_te", 0.0) or active_scoring.get("te_bonus", 0.0))
-    pass_td_rate = float(active_scoring.get("pass_td", 4.0))
-    pass_int_rate = float(active_scoring.get("pass_int", -2.0))
-    pass_yd_rate = float(active_scoring.get("pass_yd", 0.04))
-    rush_yd_rate = float(active_scoring.get("rush_yd", 0.1))
-    rec_yd_rate = float(active_scoring.get("rec_yd", 0.1))
-    rush_td_rate = float(active_scoring.get("rush_td", 6.0))
-    rec_td_rate = float(active_scoring.get("rec_td", 6.0))
-    fum_rate = float(active_scoring.get("fum_lost", -2.0))
-
-    pts = applied + (rec * rec_val)
-    if pos == "TE" and te_bonus > 0.0:
-        pts += rec * te_bonus
-
-    if pass_td_rate != 4.0:
-        pts += float(stats.get("4", 0.0)) * (pass_td_rate - 4.0)
-    if pass_int_rate != -2.0:
-        pts += float(stats.get("20", 0.0)) * (pass_int_rate - (-2.0))
-    if pass_yd_rate != 0.04:
-        pts += float(stats.get("3", 0.0)) * (pass_yd_rate - 0.04)
-    if rush_yd_rate != 0.1:
-        pts += float(stats.get("24", 0.0)) * (rush_yd_rate - 0.1)
-    if rec_yd_rate != 0.1:
-        pts += float(stats.get("42", 0.0)) * (rec_yd_rate - 0.1)
-    if rush_td_rate != 6.0:
-        pts += float(stats.get("25", 0.0)) * (rush_td_rate - 6.0)
-    if rec_td_rate != 6.0:
-        pts += float(stats.get("43", 0.0)) * (rec_td_rate - 6.0)
-    if fum_rate != -2.0:
-        fum_lost = float(stats.get("72", stats.get("73", 0.0)))
-        pts += fum_lost * (fum_rate - (-2.0))
-
-    return max(0.0, pts)
-
-
-def _extract_espn_pillar(
-    espn_raw,
-    player_ids_raw=None,
-    lookup=None,
-    start_week=1,
-    end_week=17,
-    scoring_settings=None,
-    is_superflex=False,
-):
-    """
-    Extracts multi-week rest-of-season projected points, positional ranks,
-    and VORP-based overall ranks from ESPN's raw fantasy feed.
+    Ranks KeepTradeCut's Fantasy Rankings pool (QB/RB/WR/TE) by KTC's redraft
+    value, both overall and within each position - the same "sort by value,
+    position in the sort is the rank" ordinal-rank shape the other pillars
+    produce via VORP, just without the VORP step, since KTC's value is
+    already a single cross-positional consensus number.
     Acts as Pillar 3 in the Tri-Factor Redraft / ROS Consensus Engine.
-    Dynamically respects league scoring settings (PPR, Half-PPR, TE Premium, pass TD, INT).
+
+    For TEs, selects the same KTC native TE Premium tier as
+    apply_ktc_te_premium (bonus_rec_te == 0.5 -> "tep", == 1.0 -> "tepp",
+    anything else -> base value, with a fallback to base value if the tier
+    is missing for that player), so this pillar also reflects the league's
+    real TE Premium instead of being blind to it like FantasyPros ECR is.
     """
-    if not espn_raw:
+    if not ktc_fantasy_raw:
         return {}
 
-    active_scoring = dict(DEFAULT_REDRAFT_SCORING)
-    if scoring_settings:
-        active_scoring.update(scoring_settings)
+    ktc_id_to_sleeper = {
+        str(r["ktc_id"]): str(r["sleeper_id"])
+        for r in (player_ids_raw or [])
+        if r.get("ktc_id") and r.get("sleeper_id")
+    }
+    mfl_id_to_sleeper = {
+        str(r["mfl_id"]): str(r["sleeper_id"])
+        for r in (player_ids_raw or [])
+        if r.get("mfl_id") and r.get("sleeper_id")
+    }
 
-    espn_to_sleeper = {}
-    name_pos_to_sleeper = {}
+    val_key = "superflexValues" if is_superflex else "oneQBValues"
+    tier = _ktc_tep_tier_key(bonus_rec_te)
 
-    if player_ids_raw:
-        for row in player_ids_raw:
-            s_id = row.get("sleeper_id")
-            e_id = row.get("espn_id")
-            m_name = row.get("merge_name")
-            pos = row.get("position")
-            if s_id and s_id != "NA":
-                if e_id and e_id != "NA":
-                    espn_to_sleeper[str(e_id)] = str(s_id)
-                if m_name and pos:
-                    name_pos_to_sleeper[(m_name.lower(), pos.upper())] = str(s_id)
-
-    pos_map = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"}
     scored_players = []
-    remaining_weeks = max(1, end_week - start_week + 1)
+    for p in ktc_fantasy_raw:
+        pos = p.get("position")
+        if pos not in ("QB", "RB", "WR", "TE"):
+            continue
 
-    for item in espn_raw:
-        p = item.get("player") or {}
-        e_id = str(p.get("id") or "")
-        full_name = p.get("fullName", "")
-        clean_name = full_name.lower().strip()
-        pos_id = p.get("defaultPositionId")
-        pos = pos_map.get(pos_id, "UTIL")
-
-        s_id = None
-        if clean_name in ESPN_DST_TO_SLEEPER:
-            s_id = ESPN_DST_TO_SLEEPER[clean_name]
-            pos = "DEF"
-        elif e_id and e_id in espn_to_sleeper:
-            s_id = espn_to_sleeper[e_id]
-        else:
-            norm_name = "".join(c for c in clean_name if c.isalnum())
-            s_id = name_pos_to_sleeper.get((norm_name, pos))
-
+        p_id = str(p.get("playerID", ""))
+        mfl_id = str(p.get("mflid", ""))
+        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
         if not s_id:
             continue
 
-        stats = p.get("stats", [])
-        weekly_projs = {
-            s.get("scoringPeriodId"): _calc_espn_stat_split_points(s, pos, active_scoring)
-            for s in stats
-            if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 1
-        }
+        vals = p.get(val_key, {}) or {}
+        try:
+            base_val = float(vals.get("value", 0.0))
+        except (ValueError, TypeError):
+            continue
 
-        ros_pts = sum(weekly_projs.get(w, 0.0) for w in range(start_week, end_week + 1))
-        if ros_pts <= 0.0:
-            s_split = next((s for s in stats if s.get("statSourceId") == 1 and s.get("statSplitTypeId") == 0), None)
-            if s_split:
-                s_proj = _calc_espn_stat_split_points(s_split, pos, active_scoring)
-                if s_proj > 0.0:
-                    ros_pts = s_proj * (remaining_weeks / 17.0)
+        val = base_val
+        if pos == "TE" and tier:
+            try:
+                tier_val = float((vals.get(tier) or {}).get("value", 0.0))
+            except (ValueError, TypeError):
+                tier_val = 0.0
+            if tier_val > 0:
+                val = tier_val
 
-        ppg = ros_pts / float(remaining_weeks)
+        if val <= 0:
+            continue
 
-        if ros_pts > 0.0:
-            scored_players.append({
-                "pid": str(s_id),
-                "name": full_name,
-                "pos": pos,
-                "pts": ros_pts,
-                "ppg": ppg,
-            })
+        scored_players.append({"pid": s_id, "pos": pos, "val": val})
 
     # Positional Ranks
     by_pos = {}
@@ -1026,42 +971,19 @@ def _extract_espn_pillar(
         by_pos.setdefault(p["pos"], []).append(p)
 
     for pos, p_list in by_pos.items():
-        p_list.sort(key=lambda x: x["pts"], reverse=True)
+        p_list.sort(key=lambda x: x["val"], reverse=True)
         for rank_idx, p in enumerate(p_list, start=1):
             p["pos_rank"] = rank_idx
 
-    # VORP Overall Ranks
-    qb_baseline_idx = 23 if is_superflex else 11
-    def _get_baseline_pts(pos_key, idx, default_pts):
-        p_list = by_pos.get(pos_key, [])
-        if len(p_list) > idx:
-            return p_list[idx]["ppg"]
-        return default_pts
-
-    baselines = {
-        "QB": _get_baseline_pts("QB", qb_baseline_idx, 14.0),
-        "RB": _get_baseline_pts("RB", 23, 8.0),
-        "WR": _get_baseline_pts("WR", 35, 8.0),
-        "TE": _get_baseline_pts("TE", 11, 6.0),
-        "K": _get_baseline_pts("K", 11, 6.0),
-        "DEF": _get_baseline_pts("DEF", 11, 6.0),
-    }
-
-    for p in scored_players:
-        b_ppg = baselines.get(p["pos"], 6.0)
-        if p["pos"] in ("K", "DEF"):
-            p["vorp"] = (p["ppg"] - b_ppg) - 4.0
-        else:
-            p["vorp"] = p["ppg"] - b_ppg
-
-    scored_players.sort(key=lambda x: x["vorp"], reverse=True)
+    # Overall Rank (direct KTC value sort - no VORP step needed, unlike
+    # the points-based pillars, since KTC's value is already cross-positional)
+    scored_players.sort(key=lambda x: x["val"], reverse=True)
     for overall_idx, p in enumerate(scored_players, start=1):
         p["overall_rank"] = overall_idx
 
     return {
         p["pid"]: {
-            "ppg": round(p["ppg"], 1),
-            "pts": round(p["pts"], 1),
+            "val": p["val"],
             "pos_rank": p["pos_rank"],
             "overall_rank": p["overall_rank"],
         }
@@ -1155,7 +1077,7 @@ def _extract_projections_pillar(projections_raw, lookup, scoring_settings=None, 
 
 def enrich_lookup_with_redraft_values(
     lookup,
-    espn_raw=None,
+    ktc_fantasy_raw=None,
     projections_raw=None,
     player_ids_raw=None,
     scoring_settings=None,
@@ -1168,7 +1090,7 @@ def enrich_lookup_with_redraft_values(
     Enriches redraft lookup with authentic 3-Pillar Consensus single-season market values:
     - Pillar 1 (Machine Projections): Sleeper Multi-Week Projections (Weekly PPG & VORP Ranks)
     - Pillar 2 (Expert Consensus): FantasyPros Redraft ECR & Positional Rankings
-    - Pillar 3 (Platform Projections): ESPN Fantasy Multi-Week Projections (PPG & VORP Ranks)
+    - Pillar 3 (Market Consensus): KeepTradeCut Fantasy Rankings (Overall & Positional Rank)
     Assigns continuous, standardized market values (0-10,500 pts) based on the consensus curve.
     """
     # Extract Pillar 1: Sleeper Quant Projections Model
@@ -1179,15 +1101,13 @@ def enrich_lookup_with_redraft_values(
         is_superflex=is_superflex,
     )
 
-    # Extract Pillar 3: ESPN Quant Projections Model
-    espn_map = _extract_espn_pillar(
-        espn_raw=espn_raw,
+    # Extract Pillar 3: KeepTradeCut Fantasy Rankings
+    bonus_rec_te = float((scoring_settings or {}).get("bonus_rec_te", 0.0) or (scoring_settings or {}).get("te_bonus", 0.0))
+    ktc_redraft_map = _extract_ktc_redraft_pillar(
+        ktc_fantasy_raw=ktc_fantasy_raw,
         player_ids_raw=player_ids_raw,
-        lookup=lookup,
-        start_week=start_week,
-        end_week=end_week,
-        scoring_settings=scoring_settings,
         is_superflex=is_superflex,
+        bonus_rec_te=bonus_rec_te,
     )
 
     for sleeper_id, p_data in lookup.items():
@@ -1210,21 +1130,19 @@ def enrich_lookup_with_redraft_values(
         p_data["fp_ecr_overall"] = fp_o
         p_data["fp_ecr_pos"] = fp_p
 
-        # Pillar 3: ESPN Projections
-        espn_info = espn_map.get(sid_str)
-        espn_ppg = espn_info["ppg"] if espn_info else None
-        espn_pts = espn_info["pts"] if espn_info else None
-        espn_o = float(espn_info["overall_rank"]) if espn_info else None
-        espn_p = float(espn_info["pos_rank"]) if espn_info else None
+        # Pillar 3: KeepTradeCut Fantasy Rankings
+        ktc_redraft_info = ktc_redraft_map.get(sid_str)
+        ktc_redraft_val = ktc_redraft_info["val"] if ktc_redraft_info else None
+        ktc_redraft_o = float(ktc_redraft_info["overall_rank"]) if ktc_redraft_info else None
+        ktc_redraft_p = float(ktc_redraft_info["pos_rank"]) if ktc_redraft_info else None
 
-        p_data["espn_ppg"] = espn_ppg
-        p_data["espn_pts"] = espn_pts
-        p_data["espn_overall_rank"] = espn_o
-        p_data["espn_pos_rank"] = espn_p
+        p_data["ktc_redraft_val"] = ktc_redraft_val
+        p_data["ktc_redraft_overall_rank"] = ktc_redraft_o
+        p_data["ktc_redraft_pos_rank"] = ktc_redraft_p
 
         # Kickers and DSTs
         if pos in ("K", "DST", "DEF"):
-            valid_k_p = [p for p in (proj_p, fp_p, espn_p) if p is not None and p < 200]
+            valid_k_p = [p for p in (proj_p, fp_p, ktc_redraft_p) if p is not None and p < 200]
             r_ecr = (sum(valid_k_p) / len(valid_k_p)) if valid_k_p else (p_data.get("rank_ecr") or 1.0)
             if r_ecr < 900:
                 kv = max(25.0, min(140.0, round(140.0 - (float(r_ecr) - 1.0) * 5.0, 1)))
@@ -1236,28 +1154,28 @@ def enrich_lookup_with_redraft_values(
             p_data["rank_ecr"] = round(r_ecr, 1)
             continue
 
-        # Tri-Pillar Overall Consensus Rank (Sleeper + FP + ESPN)
+        # Tri-Pillar Overall Consensus Rank (Sleeper + FP + KTC Redraft)
         valid_overall = []
         if proj_o is not None and proj_o < 500:
             valid_overall.append(proj_o)
         if fp_o < 500:
             valid_overall.append(fp_o)
-        if espn_o is not None and espn_o < 500:
-            valid_overall.append(espn_o)
+        if ktc_redraft_o is not None and ktc_redraft_o < 500:
+            valid_overall.append(ktc_redraft_o)
 
         if valid_overall:
             blended_o = round(sum(valid_overall) / len(valid_overall), 1)
         else:
             blended_o = 999.0
 
-        # Tri-Pillar Positional Consensus Rank (Sleeper + FP + ESPN)
+        # Tri-Pillar Positional Consensus Rank (Sleeper + FP + KTC Redraft)
         valid_pos = []
         if proj_p is not None and proj_p < 200:
             valid_pos.append(proj_p)
         if fp_p < 200:
             valid_pos.append(fp_p)
-        if espn_p is not None and espn_p < 200:
-            valid_pos.append(espn_p)
+        if ktc_redraft_p is not None and ktc_redraft_p < 200:
+            valid_pos.append(ktc_redraft_p)
 
         if valid_pos:
             blended_p = round(sum(valid_pos) / len(valid_pos), 1)
@@ -1279,45 +1197,62 @@ def enrich_lookup_with_redraft_values(
 enrich_lookup_with_market_values = enrich_lookup_with_consensus_values
 
 
-def apply_te_premium(lookup, bonus_rec_te):
+def apply_ktc_te_premium(lookup, bonus_rec_te, ktc_raw, player_ids_raw, is_superflex=True, mode="equal"):
     """
-    Returns a new lookup with a realistic volume-tiered boost applied to tight
-    end market values, based on the league's actual TE Premium bonus.
+    Returns a new lookup with Tight End market values rebuilt for the
+    league's real TE Premium bonus, using KeepTradeCut's own native TE+
+    ("tep") / TE++ ("tepp") value tiers instead of a synthetic multiplier.
+
+    Only bonus_rec_te == 0.5 (KTC's "tep" tier) or == 1.0 ("tepp") are
+    recognized - any other bonus (including 0) leaves TE values unadjusted,
+    since KTC has no tier for it.
+
+    The percentage lift of that tier over KTC's own base value for the same
+    player (capped at KTC_TEP_MAX_PCT, and only derived when the base KTC
+    value is at least KTC_TEP_MIN_BASE_VALUE, to avoid amplifying noise on
+    low-value quotes) is then applied to fc_val and dp_val too, and the
+    composite market_value is fully recomputed via compute_composite_value -
+    not just scaled after the fact on top of an already-blended value.
 
     Does not mutate the input lookup - it builds and returns an independent
-    copy (a shallow dict(lookup) is NOT enough, since the per-player dicts
-    themselves would still be shared and get mutated). This matters because
-    the same base lookup is reused across many leagues with different TEP
-    settings; mutating it in place would leak one league's boost into every
-    other league sharing that object.
-
-    Tiers:
-    - Elite TEs (>4,000 pts): +20% for 0.5 TEP | +35% for 1.0 TEP
-    - Starting TEs (1,500-4,000 pts): +15% for 0.5 TEP | +25% for 1.0 TEP
-    - Backup/Depth TEs (<1,500 pts): +8% for 0.5 TEP | +15% for 1.0 TEP
+    copy, for the same reason apply_valuation_mode does (see its docstring).
     """
     new_lookup = {player_id: dict(data) for player_id, data in lookup.items()}
 
-    if not bonus_rec_te or bonus_rec_te <= 0:
+    tier = _ktc_tep_tier_key(bonus_rec_te)
+    if not tier:
         return new_lookup
+
+    te_tiers = _extract_ktc_te_tiers(ktc_raw, player_ids_raw, is_superflex) if ktc_raw else {}
 
     for player_id, data in new_lookup.items():
         if data.get("position") != "TE":
             continue
 
-        curr_val = data.get("market_value", 0.0)
-        if curr_val <= 0:
+        tiers = te_tiers.get(str(player_id))
+        if not tiers:
             continue
 
-        if curr_val >= 4000:
-            rate = 0.20 if bonus_rec_te <= 0.5 else 0.20 + (0.35 - 0.20) * ((bonus_rec_te - 0.5) / 0.5)
-        elif curr_val >= 1500:
-            rate = 0.15 if bonus_rec_te <= 0.5 else 0.15 + (0.25 - 0.15) * ((bonus_rec_te - 0.5) / 0.5)
-        else:
-            rate = 0.08 if bonus_rec_te <= 0.5 else 0.08 + (0.15 - 0.08) * ((bonus_rec_te - 0.5) / 0.5)
+        base_val = tiers["base"]
+        tier_val = tiers[tier]
+        if base_val < KTC_TEP_MIN_BASE_VALUE or tier_val <= 0:
+            continue
 
-        data["market_value"] = round(curr_val * (1.0 + rate), 1)
-        data["tep_boost_applied"] = rate
+        pct = min(KTC_TEP_MAX_PCT, (tier_val / base_val) - 1.0)
+
+        fc_val = data.get("fc_val")
+        dp_val = data.get("dp_val")
+        fc_val_adj = fc_val * (1.0 + pct) if fc_val is not None and fc_val > 0 else fc_val
+        dp_val_adj = dp_val * (1.0 + pct) if dp_val is not None and dp_val > 0 else dp_val
+
+        rank_ecr = data.get("fp_ecr_pos", data.get("rank_ecr", 999.0))
+        data["fc_val"] = fc_val_adj
+        data["ktc_val"] = tier_val
+        data["dp_val"] = dp_val_adj
+        data["market_value"] = compute_composite_value(
+            fc_val_adj, tier_val, dp_val_adj, mode=mode, rank_ecr=rank_ecr, position="TE"
+        )
+        data["ktc_tep_pct_applied"] = round(pct, 4)
 
     return new_lookup
 

@@ -99,13 +99,13 @@ from src.market_data import (
     get_values_picks_raw,
     get_ktc_data_raw,
     get_fantasycalc_data_raw,
-    get_espn_data_raw,
+    get_ktc_fantasy_rankings_raw,
     build_picks_sources_bundle,
     compute_picks_lookup_from_bundle,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
     apply_valuation_mode,
-    apply_te_premium,
+    apply_ktc_te_premium,
     get_market_data_freshness,
     VALUATION_MODES,
 )
@@ -1251,7 +1251,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <th style='width: 11%; text-align: center;'>Pos Rank</th>
                     <th style='width: 12%; text-align: center;'>Sleeper Proj PPG</th>
                     <th style='width: 12%; text-align: center;'>FantasyPros ECR</th>
-                    <th style='width: 12%; text-align: center;'>ESPN Proj PPG</th>
+                    <th style='width: 12%; text-align: center;'>KTC Redraft Value</th>
                 </tr>
             </thead>
             <tbody>
@@ -1289,7 +1289,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
         fc = r.get("FantasyCalc", "—")
         fp = r.get("FantasyPros ECR", "—")
         proj = r.get("Sleeper Proj PPG", "—")
-        espn = r.get("ESPN Proj PPG", "—")
+        ktc_redraft = r.get("KTC Redraft Value", "—")
         dp = r.get("DynastyProcess", "—")
 
         is_pick = False if is_redraft else is_draft_pick_asset(pid, pname, pos)
@@ -1328,7 +1328,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                     <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{proj}</td>
                     <td style='text-align: center; color: #fbbf24;'>{fp}</td>
-                    <td style='text-align: center; color: #f87171; font-weight: 700;'>{espn}</td>
+                    <td style='text-align: center; color: #f87171; font-weight: 700;'>{ktc_redraft}</td>
                 </tr>
             """
         else:
@@ -1496,21 +1496,21 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
             color = "#fbbf24" if is_fp_lead else "#94a3b8"
             fp_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{fp_str}</td>"
 
-        # ESPN Projections PPG Row
-        espn_cells = ""
-        valid_espns = [(p, float(p.get("espn_ppg") or 0.0)) for p in comparison_assets if p.get("espn_ppg") is not None]
-        if valid_espns and max(x[1] for x in valid_espns) > 0:
-            espn_lead, espn_max = max(valid_espns, key=lambda x: x[1])
-            espn_adv = f"<span style='color: #f87171; font-weight: 700;'>{espn_lead['name']} ({espn_max:.1f} PPG)</span>"
+        # KTC Redraft Value Row
+        ktc_redraft_cells = ""
+        valid_ktc_redraft = [(p, float(p.get("ktc_redraft_val") or 0.0)) for p in comparison_assets if p.get("ktc_redraft_val") is not None]
+        if valid_ktc_redraft and max(x[1] for x in valid_ktc_redraft) > 0:
+            ktc_redraft_lead, ktc_redraft_max = max(valid_ktc_redraft, key=lambda x: x[1])
+            ktc_redraft_adv = f"<span style='color: #f87171; font-weight: 700;'>{ktc_redraft_lead['name']} ({ktc_redraft_max:,.0f} pts)</span>"
         else:
-            espn_max = None
-            espn_adv = "—"
+            ktc_redraft_max = None
+            ktc_redraft_adv = "—"
         for p in comparison_assets:
-            ev = p.get("espn_ppg")
-            ev_str = f"{float(ev):.1f} PPG" if ev is not None else "—"
-            is_espn_lead = (ev is not None and float(ev) == espn_max and espn_max > 0)
-            color = "#f87171" if is_espn_lead else "#94a3b8"
-            espn_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{ev_str}</td>"
+            kv = p.get("ktc_redraft_val")
+            kv_str = f"{float(kv):,.0f} pts" if kv is not None else "—"
+            is_ktc_redraft_lead = (kv is not None and float(kv) == ktc_redraft_max and ktc_redraft_max > 0)
+            color = "#f87171" if is_ktc_redraft_lead else "#94a3b8"
+            ktc_redraft_cells += f"<td style='text-align: center; font-weight: 700; color: {color};'>{kv_str}</td>"
 
         rows_html = f"""
             <tr>
@@ -1539,9 +1539,9 @@ def render_player_comparison_table_html(comparison_assets, is_redraft: bool = Fa
                 <td style='text-align: center;'>{fp_adv}</td>
             </tr>
             <tr>
-                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>ESPN Projected PPG</td>
-                {espn_cells}
-                <td style='text-align: center;'>{espn_adv}</td>
+                <td style='text-align: left; font-weight: 700; color: #f8fafc;'>KTC Redraft Value</td>
+                {ktc_redraft_cells}
+                <td style='text-align: center;'>{ktc_redraft_adv}</td>
             </tr>
             <tr>
                 <td style='text-align: left; font-weight: 700; color: #f8fafc;'>Age & Horizon</td>
@@ -2278,7 +2278,8 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
     ktc_1qb = get_ktc_data_raw(is_superflex=False)
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-    espn_raw = get_espn_data_raw(season=season, scoring_period=1)
+    ktc_redraft_sf = get_ktc_fantasy_rankings_raw(is_superflex=True)
+    ktc_redraft_1qb = get_ktc_fantasy_rankings_raw(is_superflex=False)
 
     projections_raw = get_weekly_projections(season, week)
     ros_projections_raw = get_ros_projections(season, start_week=week, end_week=17)
@@ -2299,7 +2300,7 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
     base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
     enrich_lookup_with_redraft_values(
         base_redraft,
-        espn_raw=espn_raw,
+        ktc_fantasy_raw=ktc_redraft_1qb,
         projections_raw=ros_projections_raw,
         player_ids_raw=player_ids,
         start_week=week,
@@ -2311,8 +2312,9 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
     picks_bundle_1qb = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
     freshness_info = get_market_data_freshness(
-        fp_rankings, values_players, espn_raw=espn_raw,
+        fp_rankings, values_players,
         ktc_sf=ktc_sf, ktc_1qb=ktc_1qb, fc_sf=fc_sf, fc_1qb=fc_1qb,
+        ktc_redraft_sf=ktc_redraft_sf, ktc_redraft_1qb=ktc_redraft_1qb,
     )
 
     return {
@@ -2325,7 +2327,8 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
         "ktc_1qb": ktc_1qb,
         "fc_sf": fc_sf,
         "fc_1qb": fc_1qb,
-        "espn_raw": espn_raw,
+        "ktc_redraft_sf": ktc_redraft_sf,
+        "ktc_redraft_1qb": ktc_redraft_1qb,
         "projections_raw": projections_raw,
         "ros_projections_raw": ros_projections_raw,
         "dynasty_sf_lookup": base_dynasty_sf,
@@ -2381,7 +2384,7 @@ def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superf
     )
     enrich_lookup_with_redraft_values(
         base_lk,
-        espn_raw=_market_db["espn_raw"],
+        ktc_fantasy_raw=_market_db["ktc_redraft_sf"] if is_superflex else _market_db["ktc_redraft_1qb"],
         projections_raw=_market_db["ros_projections_raw"],
         player_ids_raw=_market_db["player_ids"],
         scoring_settings=scoring_dict,
@@ -2416,9 +2419,9 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
         proj_ppg = p_data.get("proj_ppg")
         fp_o = p_data.get("fp_ecr_overall")
         fp_p = p_data.get("fp_ecr_pos")
-        espn_ppg = p_data.get("espn_ppg")
-        espn_o = p_data.get("espn_overall_rank")
-        espn_p = p_data.get("espn_pos_rank")
+        ktc_redraft_val = p_data.get("ktc_redraft_val")
+        ktc_redraft_o = p_data.get("ktc_redraft_overall_rank")
+        ktc_redraft_p = p_data.get("ktc_redraft_pos_rank")
 
         pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
         overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
@@ -2460,20 +2463,20 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
                 else (f"{pos}{int(fp_p)}" if (fp_p is not None and float(fp_p) < 200) else "—")
             ),
             "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
-            "ESPN Proj PPG": f"{espn_ppg:.1f} PPG" if espn_ppg is not None else "—",
+            "KTC Redraft Value": f"{ktc_redraft_val:,.0f} pts" if ktc_redraft_val is not None else "—",
             "proj_ppg": proj_ppg,
             "fp_ecr_overall": fp_o,
             "fp_ecr_pos": fp_p,
-            "espn_ppg": espn_ppg,
-            "espn_overall_rank": espn_o,
-            "espn_pos_rank": espn_p,
+            "ktc_redraft_val": ktc_redraft_val,
+            "ktc_redraft_overall_rank": ktc_redraft_o,
+            "ktc_redraft_pos_rank": ktc_redraft_p,
             "_proj_ppg": float(proj_ppg or 0.0),
-            "_espn_ppg": float(espn_ppg or 0.0),
+            "_ktc_redraft_val": float(ktc_redraft_val or 0.0),
             "_fp_ecr": (
                 float(fp_o) if (fp_o is not None and float(fp_o) < 500)
                 else (float(fp_p) + 500.0 if (fp_p is not None and float(fp_p) < 200) else 9999.0)
             ),
-            "_espn_o": float(espn_o) if (espn_o is not None and float(espn_o) < 500) else 9999.0,
+            "_ktc_redraft_o": float(ktc_redraft_o) if (ktc_redraft_o is not None and float(ktc_redraft_o) < 500) else 9999.0,
             "ktc_val": ktc_v,
             "fc_val": fc_v,
             "dp_val": dp_v,
@@ -2569,7 +2572,8 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _ma
                 lookup_base = _market_db["dynasty_sf_lookup"] if is_sf else _market_db["dynasty_1qb_lookup"]
                 lookup = apply_valuation_mode(lookup_base, mode=selected_mode)
                 if tep_b > 0:
-                    lookup = apply_te_premium(lookup, bonus_rec_te=tep_b)
+                    ktc_raw = _market_db["ktc_sf"] if is_sf else _market_db["ktc_1qb"]
+                    lookup = apply_ktc_te_premium(lookup, tep_b, ktc_raw, _market_db["player_ids"], is_superflex=is_sf, mode=selected_mode)
             else:
                 lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
                 lookup = get_league_custom_redraft_lookup(_market_db, lg_scoring_tuple, is_sf, active_week)
@@ -3317,13 +3321,13 @@ with st.container(key="topbar_nav_container"):
             fc_stat = (fresh.get("fantasycalc") or {}).get("status", "Live Current")
             dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
             fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
-            espn_stat = (fresh.get("espn") or {}).get("status", "Live Current")
+            ktc_redraft_stat = (fresh.get("ktc_redraft") or {}).get("status", "Live Current")
             st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
             st.markdown(f"**FantasyCalc:** `{fc_stat}`")
             st.markdown(f"**DynastyProcess:** `{dp_stat}`")
             st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
-            st.markdown(f"**ESPN Projections:** `{espn_stat}`")
-            st.caption("ESPN & Sleeper machine projections update live every 30 mins from API. ESPN refreshes projections upstream daily.")
+            st.markdown(f"**KTC Fantasy Rankings:** `{ktc_redraft_stat}`")
+            st.caption("KeepTradeCut & Sleeper projections update live every 30 mins from API.")
             st.markdown("---")
             if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
                 st.cache_data.clear()
@@ -3438,7 +3442,7 @@ if st.session_state.get("selected_league_id") is None:
         Computes and returns one league's card HTML for the League Workspaces
         grid below. Only reads from the closed-over market_db/players/
         weekly_proj_all/selected_mode/active_week/user - never mutates them
-        (apply_valuation_mode/apply_te_premium already return new dicts
+        (apply_valuation_mode/apply_ktc_te_premium already return new dicts
         instead of mutating their input, so concurrent calls for different
         leagues can't cross-contaminate each other's valuations the way a
         shared-mutation bug once did here) - so this is safe to run
@@ -3476,7 +3480,8 @@ if st.session_state.get("selected_league_id") is None:
             league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
             league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else league_redraft_lookup
             if tep_b > 0 and is_dyn:
-                league_lookup = apply_te_premium(league_lookup, bonus_rec_te=tep_b)
+                league_ktc_raw = market_db["ktc_sf"] if is_sf else market_db["ktc_1qb"]
+                league_lookup = apply_ktc_te_premium(league_lookup, tep_b, league_ktc_raw, market_db["player_ids"], is_superflex=is_sf, mode=selected_mode)
             league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
             league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
             t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
@@ -3718,7 +3723,8 @@ else:
     raw_primary_lookup = market_db["dynasty_sf_lookup"] if is_superflex else market_db["dynasty_1qb_lookup"]
     primary_lookup = apply_valuation_mode(raw_primary_lookup, mode=selected_mode)
     if tep_bonus > 0:
-        primary_lookup = apply_te_premium(primary_lookup, bonus_rec_te=tep_bonus)
+        primary_ktc_raw = market_db["ktc_sf"] if is_superflex else market_db["ktc_1qb"]
+        primary_lookup = apply_ktc_te_premium(primary_lookup, tep_bonus, primary_ktc_raw, market_db["player_ids"], is_superflex=is_superflex, mode=selected_mode)
 
     scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
     redraft_lookup = get_league_custom_redraft_lookup(market_db, scoring_tuple, is_superflex, active_week)
@@ -4873,7 +4879,7 @@ else:
             proj_ppg = p_val_data.get("proj_ppg")
             fp_o = p_val_data.get("fp_ecr_overall")
             fp_p = p_val_data.get("fp_ecr_pos")
-            espn_ppg = p_val_data.get("espn_ppg")
+            ktc_redraft_val = p_val_data.get("ktc_redraft_val")
 
             try:
                 pos_ecr_str = f"{pos}{int(float(ecr))}" if (ecr is not None and float(ecr) < 900) else "—"
@@ -4916,9 +4922,9 @@ else:
                 proj_str = "—"
 
             try:
-                espn_str = f"{float(espn_ppg):.1f} PPG" if espn_ppg is not None else "—"
+                ktc_redraft_str = f"{float(ktc_redraft_val):,.0f} pts" if ktc_redraft_val is not None else "—"
             except (ValueError, TypeError):
-                espn_str = "—"
+                ktc_redraft_str = "—"
 
             try:
                 raw_o_ecr = float(o_ecr) if (o_ecr is not None and float(o_ecr) < 900) else 9999.0
@@ -4944,7 +4950,7 @@ else:
                 "DynastyProcess": dp_str,
                 "FantasyPros ECR": fp_str,
                 "Sleeper Proj PPG": proj_str,
-                "ESPN Proj PPG": espn_str,
+                "KTC Redraft Value": ktc_redraft_str,
                 "_raw_val": val,
                 "_overall_ecr": raw_o_ecr,
                 "_pos_ecr": raw_p_ecr,
@@ -4953,7 +4959,7 @@ else:
                 "_dp": float(dp_v) if (dp_v is not None and str(dp_v).replace(".", "", 1).isdigit()) else 0.0,
                 "_fp_ecr": float(fp_o) if (fp_o is not None and float(fp_o) < 500) else 9999.0,
                 "_proj_ppg": float(proj_ppg or 0.0),
-                "_espn_ppg": float(espn_ppg or 0.0),
+                "_ktc_redraft_val": float(ktc_redraft_val or 0.0),
                 "_name": pname.lower(),
             })
 
@@ -4962,7 +4968,7 @@ else:
             c_fasort1, c_fasort2, c_fasort3 = st.columns([2, 1, 1], vertical_alignment="bottom")
             with c_fasort1:
                 sort_options = (
-                    ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "ESPN Projections PPG", "Player Name"]
+                    ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "KTC Redraft Value", "Player Name"]
                     if is_fa_redraft
                     else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
                 )
@@ -4996,8 +5002,8 @@ else:
                 sorted_fa.sort(key=lambda x: x["_fp_ecr"], reverse=not is_desc)
             elif sort_fa_col == "Sleeper Projections PPG":
                 sorted_fa.sort(key=lambda x: x["_proj_ppg"], reverse=is_desc)
-            elif sort_fa_col == "ESPN Projections PPG":
-                sorted_fa.sort(key=lambda x: x["_espn_ppg"], reverse=is_desc)
+            elif sort_fa_col == "KTC Redraft Value":
+                sorted_fa.sort(key=lambda x: x["_ktc_redraft_val"], reverse=is_desc)
             elif sort_fa_col == "DynastyProcess":
                 sorted_fa.sort(key=lambda x: x["_dp"], reverse=is_desc)
             elif sort_fa_col == "Player Name":
@@ -5205,7 +5211,7 @@ else:
                     st.html(evo_html)
 
         def render_ros_power_view():
-            st.caption("ROS Asset Power Formula: 85% Starters Value + 15% Bench Depth (Tri-Source Consensus: Sleeper Multi-Week Projections + FantasyPros ECR + ESPN Projections). Purely consultative.")
+            st.caption("ROS Asset Power Formula: 85% Starters Value + 15% Bench Depth (Tri-Source Consensus: Sleeper Multi-Week Projections + FantasyPros ECR + KTC Redraft Value). Purely consultative.")
             ros_res = compute_ros_power_rankings(all_ros_team_profiles, weight_starters=0.85, weight_bench=0.15)
             ranked_ros = sorted(ros_res.values(), key=lambda x: x["ros_score"], reverse=True)
 
@@ -6109,8 +6115,8 @@ else:
                 else:
                     ppg_a = sum(float(a.get("proj_ppg") or 0.0) for a in selected_assets_a if a.get("proj_ppg"))
                     ppg_b = sum(float(b.get("proj_ppg") or 0.0) for b in selected_assets_b if b.get("proj_ppg"))
-                    espn_a = sum(float(a.get("espn_ppg") or 0.0) for a in selected_assets_a if a.get("espn_ppg"))
-                    espn_b = sum(float(b.get("espn_ppg") or 0.0) for b in selected_assets_b if b.get("espn_ppg"))
+                    ktc_redraft_a = sum(float(a.get("ktc_redraft_val") or 0.0) for a in selected_assets_a if a.get("ktc_redraft_val"))
+                    ktc_redraft_b = sum(float(b.get("ktc_redraft_val") or 0.0) for b in selected_assets_b if b.get("ktc_redraft_val"))
                     def model_verdict_redraft(va, vb, unit="pts"):
                         if abs(vb - va) <= (0.5 if unit == "PPG" else 250):
                             return "⚖️ Even"
@@ -6121,7 +6127,7 @@ else:
 
                     platform_data = [
                         {"Platform Model": "Sleeper Projections", "Side A Total": f"{ppg_a:.1f} PPG", "Side B Total": f"{ppg_b:.1f} PPG", "Model Verdict": model_verdict_redraft(ppg_a, ppg_b, "PPG")},
-                        {"Platform Model": "ESPN Projections", "Side A Total": f"{espn_a:.1f} PPG", "Side B Total": f"{espn_b:.1f} PPG", "Model Verdict": model_verdict_redraft(espn_a, espn_b, "PPG")},
+                        {"Platform Model": "KTC Redraft Value", "Side A Total": f"{ktc_redraft_a:,.0f} pts", "Side B Total": f"{ktc_redraft_b:,.0f} pts", "Model Verdict": model_verdict_redraft(ktc_redraft_a, ktc_redraft_b, "pts")},
                     ]
 
                 st.dataframe(pd.DataFrame(platform_data), hide_index=True, use_container_width=True)
@@ -6334,7 +6340,7 @@ else:
 
         is_redraft = ("Single-Season" in ranking_scope)
         if is_redraft:
-            st.caption("Explore comprehensive single-season valuations and rankings comparing Sleeper Multi-Week Projections, FantasyPros ECR, and ESPN Projections.")
+            st.caption("Explore comprehensive single-season valuations and rankings comparing Sleeper Multi-Week Projections, FantasyPros ECR, and KTC Redraft Value.")
         else:
             st.caption("Explore comprehensive dynasty valuations and rankings comparing KeepTradeCut, FantasyCalc, DynastyProcess, and Positional ECR.")
 
@@ -6364,7 +6370,7 @@ else:
                 c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
                 with c_mksort1:
                     sort_options = (
-                        ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "ESPN Projections PPG", "Player Name"]
+                        ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "KTC Redraft Value", "Player Name"]
                         if is_redraft
                         else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
                     )
@@ -6403,8 +6409,8 @@ else:
                     sorted_mkt.sort(key=lambda x: x["_fp_ecr"], reverse=not is_desc)
                 elif sort_mkt_col == "Sleeper Projections PPG":
                     sorted_mkt.sort(key=lambda x: x["_proj_ppg"], reverse=is_desc)
-                elif sort_mkt_col == "ESPN Projections PPG":
-                    sorted_mkt.sort(key=lambda x: x["_espn_ppg"], reverse=is_desc)
+                elif sort_mkt_col == "KTC Redraft Value":
+                    sorted_mkt.sort(key=lambda x: x["_ktc_redraft_val"], reverse=is_desc)
                 elif sort_mkt_col == "DynastyProcess":
                     sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
                 elif sort_mkt_col == "Player Name":
@@ -6562,12 +6568,12 @@ else:
                         except (ValueError, TypeError):
                             pass
 
-                    if p1.get("espn_ppg") and p2.get("espn_ppg"):
-                        e_diff = float(p1["espn_ppg"]) - float(p2["espn_ppg"])
+                    if p1.get("ktc_redraft_val") and p2.get("ktc_redraft_val"):
+                        e_diff = float(p1["ktc_redraft_val"]) - float(p2["ktc_redraft_val"])
                         if e_diff > 0:
-                            sentiment_bullets.append(f"<span style='color: #f87171;'>ESPN Projections</span> model projects <b>{p1['name']}</b> ({p1['espn_ppg']:.1f} PPG) to outscore <b>{p2['name']}</b> ({p2['espn_ppg']:.1f} PPG, +{e_diff:.1f} PPG).")
+                            sentiment_bullets.append(f"<span style='color: #f87171;'>KTC Redraft Value</span> favors <b>{p1['name']}</b> ({p1['ktc_redraft_val']:,.0f} pts vs {p2['ktc_redraft_val']:,.0f} pts, +{e_diff:,.0f} pts).")
                         elif e_diff < 0:
-                            sentiment_bullets.append(f"<span style='color: #f87171;'>ESPN Projections</span> model projects <b>{p2['name']}</b> ({p2['espn_ppg']:.1f} PPG) to outscore <b>{p1['name']}</b> ({p1['espn_ppg']:.1f} PPG, +{abs(e_diff):.1f} PPG).")
+                            sentiment_bullets.append(f"<span style='color: #f87171;'>KTC Redraft Value</span> favors <b>{p2['name']}</b> ({p2['ktc_redraft_val']:,.0f} pts vs {p1['ktc_redraft_val']:,.0f} pts, +{abs(e_diff):,.0f} pts).")
 
                 # Executive Advantage Banner
                 lead_title = "Single-Season Value Leader" if is_redraft else "Consensus Value Leader"
@@ -6619,8 +6625,8 @@ else:
                             fp_disp = f"#{int(fp_o_val)}" if (fp_o_val and float(fp_o_val) < 500) else "—"
                             pj_val = asset.get("proj_ppg")
                             pj_disp = f"{pj_val:.1f} PPG" if pj_val is not None else "—"
-                            espn_val = asset.get("espn_ppg")
-                            espn_disp = f"{espn_val:.1f} PPG" if espn_val is not None else "—"
+                            ktc_redraft_val_disp = asset.get("ktc_redraft_val")
+                            ktc_redraft_disp = f"{ktc_redraft_val_disp:,.0f} pts" if ktc_redraft_val_disp is not None else "—"
 
                             constituent_grid = f"""
                             <div style='font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;'>Constituent Models (ROS)</div>
@@ -6634,8 +6640,8 @@ else:
                                     <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{fp_disp}</div>
                                 </div>
                                 <div style='background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 6px; padding: 6px 8px;'>
-                                    <div style='font-size: 0.64rem; color: #f87171; font-weight: 700;'>ESPN</div>
-                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{espn_disp}</div>
+                                    <div style='font-size: 0.64rem; color: #f87171; font-weight: 700;'>KTC Redraft</div>
+                                    <div style='font-size: 0.85rem; font-weight: 800; color: #ffffff;'>{ktc_redraft_disp}</div>
                                 </div>
                             </div>
                             """

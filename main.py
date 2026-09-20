@@ -25,11 +25,11 @@ from src.market_data import (
     get_values_picks_raw,
     get_ktc_data_raw,
     get_fantasycalc_data_raw,
-    get_espn_data_raw,
+    get_ktc_fantasy_rankings_raw,
     build_consensus_picks_lookup,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
-    apply_te_premium,
+    apply_ktc_te_premium,
 )
 from src.matching import match_players_by_sleeper_id
 from src.analysis_engine import (
@@ -152,7 +152,7 @@ ktc_sf = get_ktc_data_raw(is_superflex=True)
 ktc_1qb = get_ktc_data_raw(is_superflex=False)
 fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
 fc_1qb = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=False)
-espn_raw = get_espn_data_raw(season=active_season, scoring_period=1)
+ktc_fantasy_1qb = get_ktc_fantasy_rankings_raw(is_superflex=False)
 projections_raw = get_weekly_projections(active_season, active_week)
 
 # Build baseline positional lookups enriched with 3-Pillar Consensus points (0-10,000 scale)
@@ -165,7 +165,7 @@ enrich_lookup_with_consensus_values(dynasty_lookup_1qb, values_players, player_i
 redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "redraft")
 enrich_lookup_with_redraft_values(
     redraft_lookup,
-    espn_raw=espn_raw,
+    ktc_fantasy_raw=ktc_fantasy_1qb,
     projections_raw=projections_raw,
     player_ids_raw=player_ids,
     start_week=active_week,
@@ -173,7 +173,7 @@ enrich_lookup_with_redraft_values(
 )
 
 print(f"Players with Dynasty consensus data loaded: {len(dynasty_lookup_sf)}")
-print(f"Players with Redraft (3-Pillar: Sleeper + FP + ESPN) data loaded: {len(redraft_lookup)}")
+print(f"Players with Redraft (3-Pillar: Sleeper + FP + KTC Redraft) data loaded: {len(redraft_lookup)}")
 
 # Build pick market value lookups supporting Early, Mid, and Late tiers via 3-Pillar Consensus
 picks_lookup_sf = build_consensus_picks_lookup(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
@@ -297,8 +297,9 @@ for league in leagues:
         base_lookup = dynasty_lookup_sf if is_superflex else dynasty_lookup_1qb
         primary_lookup = copy.deepcopy(base_lookup)
         if tep_bonus > 0:
-            primary_lookup = apply_te_premium(primary_lookup, tep_bonus)
-            print(f"  ⚡ TE Premium active (+{tep_bonus} PPR bonus applied to TEs)")
+            ktc_raw = ktc_sf if is_superflex else ktc_1qb
+            primary_lookup = apply_ktc_te_premium(primary_lookup, tep_bonus, ktc_raw, player_ids, is_superflex=is_superflex)
+            print(f"  ⚡ TE Premium active (+{tep_bonus} PPR bonus applied to TEs via KTC native TEP tiers)")
 
         primary_label = "Dynasty"
         alt_lookup, alt_label = redraft_lookup, "Redraft"
