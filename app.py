@@ -188,6 +188,8 @@ from src.start_sit import (
     has_game_started,
     get_player_game_status_label,
     build_live_adjusted_points_lookup,
+    build_actual_points_only_lookup,
+    sum_points_for_starters,
 )
 try:
     from src.trade_engine import (
@@ -2221,7 +2223,17 @@ def render_opponent_lineup_html(opp_rows):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
-def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_proj, active_week):
+def render_matchup_arena_html(user_name, user_actual, user_proj, user_ceiling, opp_name, opp_actual, opp_proj, active_week):
+    """
+    user_actual/opp_actual: real points scored so far by starters whose game
+    has already started, zero for anyone who hasn't played yet (see
+    build_actual_points_only_lookup) - a live scoreboard reading.
+    user_proj/opp_proj: the live-adjusted best-guess final score (see
+    build_live_adjusted_points_lookup) - real points for started players,
+    static projection for the rest. Win chance and the point spread are
+    still driven by user_proj/opp_proj, not the actual-only score, since
+    they estimate the final result rather than report what's happened so far.
+    """
     diff = user_proj - opp_proj
     if diff >= 0:
         spread_badge = f"<span style='background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;'>+{diff:.1f} PTS FAVORED</span>"
@@ -2240,7 +2252,8 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
             <div class='arena-team-left'>
                 <div style='font-size: 0.7rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;'>YOUR FRANCHISE</div>
                 <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{user_name}</div>
-                <div class='arena-proj-score' style='color: #38bdf8;'>{user_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div class='arena-proj-score' style='color: #38bdf8;'>{user_actual:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>CURRENT</span></div>
+                <div style='font-size: 0.78rem; color: #94a3b8; margin-top: 2px;'>Proj. Final: <strong style='color: #cbd5e1;'>{user_proj:.1f} pts</strong></div>
                 <div style='display: flex; align-items: center; gap: 6px; margin-top: 5px;'>
                     <span style='background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{user_win_prob:.0f}% WIN CHANCE</span>
                 </div>
@@ -2261,7 +2274,8 @@ def render_matchup_arena_html(user_name, user_proj, user_ceiling, opp_name, opp_
             <div class='arena-team-right'>
                 <div style='font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;'>OPPONENT</div>
                 <div style='font-size: 1.15rem; font-weight: 900; color: #f8fafc; margin: 3px 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{opp_name}</div>
-                <div class='arena-proj-score' style='color: #f8fafc;'>{opp_proj:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>PROJ</span></div>
+                <div class='arena-proj-score' style='color: #f8fafc;'>{opp_actual:.1f} <span style='font-size: 0.8rem; font-weight: 600; color: #64748b;'>CURRENT</span></div>
+                <div style='font-size: 0.78rem; color: #94a3b8; margin-top: 2px;'>Proj. Final: <strong style='color: #cbd5e1;'>{opp_proj:.1f} pts</strong></div>
                 <div class='arena-opp-prob-row' style='display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 5px;'>
                     <span style='background: rgba(148, 163, 184, 0.12); border: 1px solid rgba(148, 163, 184, 0.25); color: #cbd5e1; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 9999px;'>{opp_win_prob:.0f}% WIN CHANCE</span>
                 </div>
@@ -4515,6 +4529,22 @@ else:
             weekly_stats=weekly_stats,
         )
 
+        # Actual-only points: 0.0 for anyone whose game hasn't started, never
+        # a projection - this is a live scoreboard reading ("what has your
+        # lineup really scored so far"), kept deliberately separate from the
+        # hybrid proj_lookup above ("what is your lineup likely to finish
+        # with"), so the two are never blended into one ambiguous number.
+        actual_lookup = build_actual_points_only_lookup(
+            player_ids=[p.get("player_id") for p in roster_players],
+            weekly_stats=weekly_stats,
+            live_points=my_live_points,
+        )
+        user_actual_total = sum_points_for_starters(
+            starters=user_roster.get("starters"),
+            roster_positions=roster_pos,
+            points_lookup=actual_lookup,
+        )
+
         my_lineup_rows = []
         for p_obj, pts, slot in audit["active_starters"]:
             pid = p_obj.get("player_id")
@@ -4541,6 +4571,7 @@ else:
         user_name = user_map.get(user["user_id"], "You")
         opp_name = "No Opponent (Bye)"
         opp_proj = 0.0
+        opp_actual_total = 0.0
         opp_lineup_rows = []
 
         if opp_roster:
@@ -4558,6 +4589,16 @@ else:
                 scoring_settings=scoring,
                 player_db=players,
                 live_points=opp_live_points,
+            )
+            opp_actual_lookup = build_actual_points_only_lookup(
+                player_ids=[pid for pid in opp_starter_pids if pid and pid != "0"],
+                weekly_stats=weekly_stats,
+                live_points=opp_live_points,
+            )
+            opp_actual_total = sum_points_for_starters(
+                starters=opp_starter_pids,
+                roster_positions=roster_pos,
+                points_lookup=opp_actual_lookup,
             )
             for s_idx, pid in enumerate(opp_starter_pids):
                 slot_name = roster_pos[s_idx] if s_idx < len(roster_pos) else "FLEX"
@@ -4586,9 +4627,11 @@ else:
         # Render Executive Head-to-Head Arena Card
         st.html(render_matchup_arena_html(
             user_name=user_name,
+            user_actual=user_actual_total,
             user_proj=audit["active_points_total"],
             user_ceiling=audit["optimal_points_total"],
             opp_name=opp_name,
+            opp_actual=opp_actual_total,
             opp_proj=opp_proj,
             active_week=active_week,
         ))

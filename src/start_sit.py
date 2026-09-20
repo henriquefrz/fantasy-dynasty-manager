@@ -88,6 +88,51 @@ def build_live_adjusted_points_lookup(
     return lookup
 
 
+def build_actual_points_only_lookup(
+    player_ids,
+    weekly_stats: Dict[str, Any],
+    live_points: Optional[Dict[str, float]] = None,
+) -> Dict[str, float]:
+    """
+    Returns player_id -> real points already scored this week, with 0.0 for
+    any player whose game has not started yet. Unlike
+    build_live_adjusted_points_lookup, this never falls back to a
+    projection, so summing it over a lineup answers "how many real points
+    has this team scored so far" - a live scoreboard reading, not an
+    estimate of the final score.
+    """
+    live_points = live_points or {}
+    lookup = {}
+    for pid in player_ids:
+        if has_game_started(pid, weekly_stats):
+            lookup[pid] = float(live_points.get(pid, 0.0) or 0.0)
+        else:
+            lookup[pid] = 0.0
+    return lookup
+
+
+def sum_points_for_starters(
+    starters,
+    roster_positions: List[str],
+    points_lookup: Dict[str, float],
+) -> float:
+    """
+    Sums a points lookup (e.g. build_actual_points_only_lookup or
+    build_live_adjusted_points_lookup) over a roster's active starter slots
+    only - the same starters/active-slot pairing audit_weekly_lineup uses
+    for its own active_points_total, so both totals stay directly comparable.
+    """
+    active_slots = [pos for pos in roster_positions if pos not in ("BN", "IR", "TAXI")]
+    total = 0.0
+    for idx, pid in enumerate(starters or []):
+        if idx >= len(active_slots):
+            break
+        if not pid or pid == "0":
+            continue
+        total += points_lookup.get(pid, 0.0)
+    return total
+
+
 def calculate_weekly_projected_points(
     player_id: str,
     raw_proj: Optional[Dict[str, Any]],
