@@ -1001,6 +1001,33 @@ st.markdown(
             font-size: 0.82rem !important;
         }
 
+        /* Mobile Brand Logo: the 2x2 grid leaves each top-bar cell only
+           ~135-160px wide, but the full icon + "Fantasy Analytics" wordmark
+           (unscaled) measures ~200px+ - wider than its own grid cell. Since
+           .st-key-brand_logo_wrap centers its content, that overflow spills
+           out equally on both sides: the icon gets clipped off the left
+           edge and the wordmark bleeds into the neighboring column instead
+           of wrapping or shrinking. Hiding the wordmark on mobile and
+           keeping just the icon/monogram (a common responsive nav pattern)
+           guarantees the logo fits its cell at any width without needing
+           fragile font-size-vs-column-width tuning, and the click-to-home
+           overlay button still covers the same wrap area either way.
+           :last-child targets the wordmark span in both real markup shapes
+           this renders as: icon image + single wordmark span, or the
+           two-span "FA" + "Fantasy Analytics" text-only fallback - in each
+           case the wordmark is the last span, so "FA" (or the icon) stays
+           visible on its own. */
+        .st-key-topbar_nav_container .st-key-brand_logo_wrap .brand-logo-visual span:last-child {
+            display: none !important;
+        }
+        /* Defensive cap for the single-raster horizontal-logo variant (used
+           only when the icon asset is missing but a combined logo+wordmark
+           image is present) - that markup has no separate text span to hide,
+           so it's capped by width instead to the same effect. */
+        .st-key-topbar_nav_container .st-key-brand_logo_wrap .brand-logo-visual img {
+            max-width: 110px !important;
+        }
+
         /* Mobile Matchup Arena Scoreboard Card */
         .matchup-arena-card {
             padding: 12px !important;
