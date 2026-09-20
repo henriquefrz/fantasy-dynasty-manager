@@ -5155,7 +5155,11 @@ else:
                             elif odds_diff < -0.5:
                                 odds_trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{odds_diff:.1f}% ↓</span>"
                             else:
-                                odds_trend_badge = "<span style='color: #94a3b8;'>— 0.0%</span>"
+                                # Inside the +/-0.5 neutral band: still show the real (small)
+                                # diff instead of a hardcoded "0.0%", which previously masked
+                                # any genuine sub-threshold movement (e.g. a true -0.5 or +0.1
+                                # diff rendered as if it were exactly zero).
+                                odds_trend_badge = f"<span style='color: #94a3b8;'>{odds_diff:+.1f}%</span>"
                         else:
                             odds_trend_badge = "<span style='color: #64748b;'>Baseline</span>"
                         prev_playoff_pct = p_pct
@@ -5173,7 +5177,9 @@ else:
                             elif score_diff < -0.5:
                                 score_trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{score_diff:.1f} ↓</span>"
                             else:
-                                score_trend_badge = "<span style='color: #94a3b8;'>— 0.0</span>"
+                                # Same fix as odds_trend_badge above: show the real sub-threshold
+                                # diff instead of a hardcoded "0.0".
+                                score_trend_badge = f"<span style='color: #94a3b8;'>{score_diff:+.1f}</span>"
                         else:
                             score_trend_badge = "<span style='color: #64748b;'>Baseline</span>"
                         prev_power_score = p_score
