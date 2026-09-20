@@ -5114,7 +5114,7 @@ else:
 
             # Week-by-Week Evolution History View
             with st.expander("📈 View Week-by-Week Evolution & Trends", expanded=False):
-                st.caption("Compare how projected wins, playoff odds, and championship probabilities have shifted week-by-week.")
+                st.caption("Compare how projected wins, playoff odds, championship probabilities, and the composite Power Score have shifted week-by-week. \"Power Score Δ\" tracks the blended Power Score itself; \"Playoff Odds Δ\" tracks the simulated playoff probability alone - they can move independently since Power Score also weighs Starters PPG, Projected Wins, and Bench Depth.")
                 all_mgr_names = [user_map.get(r.get("owner_id"), f"Team {r['roster_id']}") for r in rosters]
                 user_mgr_name = user_map.get(user.get("user_id"), all_mgr_names[0] if all_mgr_names else "Team")
                 default_team_idx = all_mgr_names.index(user_mgr_name) if user_mgr_name in all_mgr_names else 0
@@ -5142,20 +5142,41 @@ else:
 
                     evo_rows = []
                     prev_playoff_pct = None
+                    prev_power_score = None
                     for w in sorted(evo_history.keys()):
                         w_res = evo_history[w].get(target_rid, {})
                         p_pct = w_res.get("playoff_pct", 0.0)
+                        p_score = w_res.get("power_score", 0.0)
+
                         if prev_playoff_pct is not None:
-                            diff = p_pct - prev_playoff_pct
-                            if diff > 0.5:
-                                trend_badge = f"<span style='color: #34d399; font-weight: 700;'>+{diff:.1f}% ↑</span>"
-                            elif diff < -0.5:
-                                trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{diff:.1f}% ↓</span>"
+                            odds_diff = p_pct - prev_playoff_pct
+                            if odds_diff > 0.5:
+                                odds_trend_badge = f"<span style='color: #34d399; font-weight: 700;'>+{odds_diff:.1f}% ↑</span>"
+                            elif odds_diff < -0.5:
+                                odds_trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{odds_diff:.1f}% ↓</span>"
                             else:
-                                trend_badge = "<span style='color: #94a3b8;'>— 0.0%</span>"
+                                odds_trend_badge = "<span style='color: #94a3b8;'>— 0.0%</span>"
                         else:
-                            trend_badge = "<span style='color: #64748b;'>Baseline</span>"
+                            odds_trend_badge = "<span style='color: #64748b;'>Baseline</span>"
                         prev_playoff_pct = p_pct
+
+                        # Power Score is a blended 0-100 composite (Starters PPG + Projected
+                        # Wins + Playoff Odds + Bench Depth, each normalized to 0-100), so it
+                        # sits on the same nominal scale as playoff_pct but moves less sharply
+                        # week to week since it dampens the raw simulation swing with three
+                        # steadier inputs. The same 0.5-point neutral band is kept here since
+                        # it empirically separates real movement from noise on this scale too.
+                        if prev_power_score is not None:
+                            score_diff = p_score - prev_power_score
+                            if score_diff > 0.5:
+                                score_trend_badge = f"<span style='color: #34d399; font-weight: 700;'>+{score_diff:.1f} ↑</span>"
+                            elif score_diff < -0.5:
+                                score_trend_badge = f"<span style='color: #fb7185; font-weight: 700;'>{score_diff:.1f} ↓</span>"
+                            else:
+                                score_trend_badge = "<span style='color: #94a3b8;'>— 0.0</span>"
+                        else:
+                            score_trend_badge = "<span style='color: #64748b;'>Baseline</span>"
+                        prev_power_score = p_score
 
                         init_w = w_res.get("initial_wins", 0)
                         init_l = w_res.get("initial_losses", 0)
@@ -5169,8 +5190,9 @@ else:
                             "Playoff Odds": f"{p_pct:.1f}%",
                             "Bye Odds": f"{w_res.get('bye_pct', 0):.1f}%",
                             "Champ Odds": f"{w_res.get('champ_pct', 0):.1f}%",
-                            "Power Score": f"{w_res.get('power_score', 0):.1f}",
-                            "Trend": trend_badge,
+                            "Power Score": f"{p_score:.1f}",
+                            "Power Score Trend": score_trend_badge,
+                            "Odds Trend": odds_trend_badge,
                         })
 
                     evo_html = """
@@ -5185,7 +5207,8 @@ else:
                                 <th style='text-align: center;'>1st-Round Bye</th>
                                 <th style='text-align: center;'>Champ Odds</th>
                                 <th style='text-align: center;'>Power Score</th>
-                                <th style='text-align: center;'>Weekly Shift</th>
+                                <th style='text-align: center;'>Power Score Δ</th>
+                                <th style='text-align: center;'>Playoff Odds Δ</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -5200,7 +5223,8 @@ else:
                             <td style='text-align: center;'><span class='rank-pill'>{er['Bye Odds']}</span></td>
                             <td style='text-align: center;'><span class='rank-pill' style='color: #c084fc;'>{er['Champ Odds']}</span></td>
                             <td class='val-pill' style='text-align: center;'>{er['Power Score']}</td>
-                            <td style='text-align: center;'>{er['Trend']}</td>
+                            <td style='text-align: center;'>{er['Power Score Trend']}</td>
+                            <td style='text-align: center;'>{er['Odds Trend']}</td>
                         </tr>
                         """
                     evo_html += """
