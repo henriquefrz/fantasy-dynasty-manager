@@ -376,16 +376,33 @@ _LEAGUE_MATCHUPS_CACHE = {}
 LEAGUE_MATCHUPS_CACHE_TTL_SECONDS = 5 * 60
 
 
-def get_league_matchups(league_id: str, week: int):
+def get_league_matchups(league_id: str, week: int, current_week: int = None):
     """
     Returns matchup pairings and scoring for a given league and week.
-    Cached in-memory by (league_id, week) for LEAGUE_MATCHUPS_CACHE_TTL_SECONDS.
+
+    current_week (the league's actual active NFL week, when the caller knows
+    it) decides the cache TTL: a week strictly before current_week is already
+    final and immutable, so it's cached for LEAGUE_HISTORY_CACHE_TTL_SECONDS -
+    the same long TTL get_league_history uses for the same reason. The
+    current (or a future) week can still change live during games, so it
+    keeps the short LEAGUE_MATCHUPS_CACHE_TTL_SECONDS. Callers that don't
+    pass current_week (or pass None) get the safe short-TTL default, since
+    an unknown week must be assumed to still be live.
+
+    This split matters because get_league_schedule and
+    compute_historical_standings call this once per week over a wide range
+    (often 1-18) - without it, every already-completed week would keep
+    re-fetching from Sleeper every LEAGUE_MATCHUPS_CACHE_TTL_SECONDS forever,
+    even though its result can never change again.
     """
     cache_key = (str(league_id), int(week))
+    is_historical = current_week is not None and week < current_week
+    ttl = LEAGUE_HISTORY_CACHE_TTL_SECONDS if is_historical else LEAGUE_MATCHUPS_CACHE_TTL_SECONDS
+
     cached = _LEAGUE_MATCHUPS_CACHE.get(cache_key)
     if cached is not None:
         cached_at, cached_data = cached
-        if time.time() - cached_at < LEAGUE_MATCHUPS_CACHE_TTL_SECONDS:
+        if time.time() - cached_at < ttl:
             return cached_data
 
     url = f"{BASE_URL}/league/{league_id}/matchups/{week}"
@@ -464,14 +481,20 @@ def build_team_game_status_map(scores_raw):
     return team_status
 
 
-def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 18):
+def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 18, current_week: int = None):
     """
     Returns the head-to-head regular season schedule map for the league.
     Format: dict mapping week -> list of (roster_id_1, roster_id_2) pairings.
+
+    current_week (the league's actual active NFL week, when known) is
+    forwarded to get_league_matchups so weeks already in the past get its
+    long, "this can never change again" cache TTL instead of being
+    re-fetched from Sleeper every few minutes like the still-live current
+    week - see get_league_matchups for the full rationale.
     """
     schedule = {}
     for w in range(start_week, end_week + 1):
-        matchups_data = get_league_matchups(league_id, w)
+        matchups_data = get_league_matchups(league_id, w, current_week=current_week)
         if not matchups_data:
             continue
         by_matchup_id = {}
@@ -498,6 +521,11 @@ def compute_historical_standings(league_id: str, rosters: list, through_week: in
     Computes cumulative wins, losses, ties, and points scored (PF)
     for each roster from completed matchup weeks 1 through through_week.
     If through_week <= 0, returns 0-0 records and 0.0 PF for all rosters.
+
+    Every week iterated here (1..through_week) is by this function's own
+    contract already completed, so get_league_matchups is always told
+    current_week=through_week + 1 - guaranteeing each of those weeks gets
+    the long "immutable" cache TTL rather than the short live one.
     """
     records = {
         r["roster_id"]: {"wins": 0, "losses": 0, "ties": 0, "pf": 0.0}
@@ -507,7 +535,7 @@ def compute_historical_standings(league_id: str, rosters: list, through_week: in
         return records
 
     for w in range(1, through_week + 1):
-        matchups_data = get_league_matchups(league_id, w)
+        matchups_data = get_league_matchups(league_id, w, current_week=through_week + 1)
         if not matchups_data:
             continue
 

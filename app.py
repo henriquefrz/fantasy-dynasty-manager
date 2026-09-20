@@ -2537,11 +2537,11 @@ def fetch_user_and_leagues(username):
 def fetch_league_data(league_id, season, week):
     rosters = get_league_rosters(league_id)
     users = get_league_users(league_id)
-    schedule = get_league_schedule(league_id, start_week=1, end_week=18)
+    schedule = get_league_schedule(league_id, start_week=1, end_week=18, current_week=week)
     traded_picks = get_traded_picks(league_id)
     projections = get_weekly_projections(season, week)
     stats = get_weekly_stats(season, week)
-    matchups = get_league_matchups(league_id, week)
+    matchups = get_league_matchups(league_id, week, current_week=week)
     return {
         "rosters": rosters,
         "users": users,
@@ -3074,7 +3074,7 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
         playoff_start = league_obj.get("settings", {}).get("playoff_week_start", 15) if league_obj else 15
         season_length = max(1, playoff_start - 1)
-        schedule = get_league_schedule(lid, 1, season_length) if league_obj else {}
+        schedule = get_league_schedule(lid, 1, season_length, current_week=current_week) if league_obj else {}
 
         # my_playoff_pct/my_is_elim default to "unknown" and are only filled in
         # below when the Monte Carlo simulation actually runs (schedule available).

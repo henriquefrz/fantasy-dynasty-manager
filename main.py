@@ -231,7 +231,7 @@ for league in leagues:
     # here rather than only under --simulate/--all. Reused below by the
     # Playoff Simulator section instead of being recomputed.
     playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
-    schedule = get_league_schedule(league["league_id"], start_week=active_nfl_week, end_week=playoff_start - 1)
+    schedule = get_league_schedule(league["league_id"], start_week=active_nfl_week, end_week=playoff_start - 1, current_week=active_nfl_week)
     team_expectations = {
         r["roster_id"]: compute_team_lineup_expectation(
             roster=r,
