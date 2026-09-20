@@ -4123,8 +4123,15 @@ else:
         # Projected finish and probabilities (Synced with 1,000-run Monte Carlo simulation)
         fpg = (fpts / total_games) if total_games > 0 else (user_profile.get("projected_weekly_score", 0.0) if user_profile else 0.0)
         playoff_prob = round(user_sim.get("playoff_pct", 50.0), 1)
-        finalist_prob = round(max(0.5, min(99.0, playoff_prob * 0.68)), 1)
-        champion_prob = round(user_sim.get("champ_pct", round(max(0.2, min(95.0, finalist_prob * 0.45)), 1)), 1)
+        finalist_prob = round(user_sim.get("finalist_pct", 0.0), 1)
+        # champ_pct is only absent when no simulation ever ran for this
+        # roster (e.g. a pre-draft league) - show that honestly as "N/A"
+        # instead of a fabricated number, rather than pretending it's a
+        # real simulated probability like the rest of this card.
+        champ_pct_raw = user_sim.get("champ_pct")
+        champion_prob = round(champ_pct_raw, 1) if champ_pct_raw is not None else None
+        champion_prob_display = f"{champion_prob:.0f}%" if champion_prob is not None else "N/A"
+        champion_prob_bar_width = champion_prob if champion_prob is not None else 0
 
         clean_status = team_status.split("(")[0].strip() if team_status else "Active"
         glow_badge_class = f"status-glow-{team_cat}"
@@ -4209,8 +4216,8 @@ else:
                         <div class='prob-track'><div class='prob-fill' style='width: {finalist_prob}%; background: linear-gradient(90deg, #0284c7, #06b6d4);'></div></div>
                     </div>
                     <div class='prob-item'>
-                        <div class='prob-labels'><span>Championship</span><span style='color: #c084fc; font-weight: 700;'>{champion_prob:.0f}%</span></div>
-                        <div class='prob-track'><div class='prob-fill' style='width: {champion_prob}%; background: linear-gradient(90deg, #8b5cf6, #c084fc);'></div></div>
+                        <div class='prob-labels'><span>Championship</span><span style='color: #c084fc; font-weight: 700;'>{champion_prob_display}</span></div>
+                        <div class='prob-track'><div class='prob-fill' style='width: {champion_prob_bar_width}%; background: linear-gradient(90deg, #8b5cf6, #c084fc);'></div></div>
                     </div>
                     <div style='margin-top: 10px; font-size: 0.74rem; color: #64748b; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; display: flex; justify-content: space-between;'>
                         <span><b>Dynasty:</b> {dyn_pos_txt}</span>

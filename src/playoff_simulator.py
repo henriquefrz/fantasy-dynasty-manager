@@ -280,6 +280,11 @@ def run_monte_carlo_simulation(
     sim_playoffs = {rid: 0 for rid in roster_ids}
     sim_byes = {rid: 0 for rid in roster_ids}
     sim_champs = {rid: 0 for rid in roster_ids}
+    # Both teams that reach the championship game count as a finalist - the
+    # winner (already tracked in sim_champs) and the runner-up, which
+    # _simulate_knockout computes as one of its two inputs but otherwise
+    # discards.
+    sim_finalists = {rid: 0 for rid in roster_ids}
 
     # Determine remaining regular season weeks to simulate
     regular_season_weeks = [
@@ -364,6 +369,7 @@ def run_monte_carlo_simulation(
 
         # 3. Postseason Bracket Simulation
         champion_id = None
+        finalist_ids = ()
         if playoff_teams_count == 8 and len(playoff_seeds) >= 8:
             # Quarterfinals: 1 vs 8, 4 vs 5, 2 vs 7, 3 vs 6
             q1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[7], team_expectations)
@@ -376,6 +382,7 @@ def run_monte_carlo_simulation(
             semi2_w = _simulate_knockout(q3_w, q4_w, team_expectations)
 
             # Championship
+            finalist_ids = (semi1_w, semi2_w)
             champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations)
 
         elif playoff_teams_count == 6 and len(playoff_seeds) >= 6:
@@ -393,6 +400,7 @@ def run_monte_carlo_simulation(
             semi2_w = _simulate_knockout(playoff_seeds[1], remaining_after_q[1], team_expectations)
 
             # Championship
+            finalist_ids = (semi1_w, semi2_w)
             champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations)
 
         elif playoff_teams_count == 4 and len(playoff_seeds) >= 4:
@@ -401,16 +409,40 @@ def run_monte_carlo_simulation(
             semi2_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[2], team_expectations)
 
             # Championship
+            finalist_ids = (semi1_w, semi2_w)
             champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations)
 
         elif playoff_teams_count == 2 and len(playoff_seeds) >= 2:
+            # The only game IS the championship, so both seeds are finalists.
+            finalist_ids = (playoff_seeds[0], playoff_seeds[1])
             champion_id = _simulate_knockout(playoff_seeds[0], playoff_seeds[1], team_expectations)
         else:
-            # Default to top seed if bracket configuration is non-standard
+            # Default to top seed if bracket configuration is non-standard -
+            # there's no real second finalist to name in this degenerate path.
             champion_id = playoff_seeds[0] if playoff_seeds else ranked_teams[0]
+            finalist_ids = (champion_id,) if champion_id is not None else ()
+
+        for fid in finalist_ids:
+            sim_finalists[fid] += 1
 
         if champion_id is not None:
             sim_champs[champion_id] += 1
+
+    # Sanity check: a team can't reach the final without a champion emerging
+    # from it (sim_champs <= sim_finalists), and can't reach the final
+    # without having made the playoffs first (sim_finalists <= sim_playoffs).
+    # This must hold per-roster across all num_simulations runs; a violation
+    # would mean the bracket logic above is crediting a finalist/champion
+    # that never actually came from that roster's own playoff_seeds entry.
+    for rid in roster_ids:
+        assert sim_champs[rid] <= sim_finalists[rid], (
+            f"Roster {rid}: sim_champs ({sim_champs[rid]}) exceeds sim_finalists "
+            f"({sim_finalists[rid]}) - every champion must have been a finalist."
+        )
+        assert sim_finalists[rid] <= sim_playoffs[rid], (
+            f"Roster {rid}: sim_finalists ({sim_finalists[rid]}) exceeds sim_playoffs "
+            f"({sim_playoffs[rid]}) - every finalist must have made the playoffs."
+        )
 
     # Aggregate results
     team_results = {}
@@ -420,6 +452,7 @@ def run_monte_carlo_simulation(
         avg_pf = sim_pf[rid] / num_simulations
         playoff_pct = (sim_playoffs[rid] / num_simulations) * 100.0
         bye_pct = (sim_byes[rid] / num_simulations) * 100.0
+        finalist_pct = (sim_finalists[rid] / num_simulations) * 100.0
         champ_pct = (sim_champs[rid] / num_simulations) * 100.0
 
         team_results[rid] = {
@@ -429,6 +462,7 @@ def run_monte_carlo_simulation(
             "avg_pf": round(avg_pf, 1),
             "playoff_pct": round(playoff_pct, 1),
             "bye_pct": round(bye_pct, 1),
+            "finalist_pct": round(finalist_pct, 1),
             "champ_pct": round(champ_pct, 1),
             "expected_pts": team_expectations[rid].get("expected_pts", 105.0),
             "bench_depth_pts": team_expectations[rid].get("bench_depth_pts", 0.0),
