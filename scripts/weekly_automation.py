@@ -30,6 +30,7 @@ from src.sleeper_api import (
 from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
+    get_fp_ros_rankings_raw,
     get_player_ids_raw,
     build_positional_lookup,
     get_values_players_raw,
@@ -260,6 +261,7 @@ def main():
 
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
+    fp_ros_rankings = get_fp_ros_rankings_raw()
     player_ids = get_player_ids_raw()
     values_players = get_values_players_raw()
 
@@ -278,7 +280,7 @@ def main():
     weekly_proj = get_weekly_projections(active_season, active_week)
     weekly_stats = get_weekly_stats(active_season, active_week)
     ros_proj = get_ros_projections(active_season, start_week=active_week, end_week=17)
-    redraft_lk = build_positional_lookup(fp_rankings, player_ids, "redraft")
+    redraft_lk = build_positional_lookup(fp_ros_rankings, player_ids, "redraft")
     enrich_lookup_with_redraft_values(
         redraft_lk,
         ktc_fantasy_raw=ktc_fantasy_1qb,

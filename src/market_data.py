@@ -15,6 +15,12 @@ PLAYERIDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/fi
 VALUES_PLAYERS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv"
 VALUES_PICKS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-picks.csv"
 
+# Our own scrape of FantasyPros' Rest-of-Season PPR overall rankings (see
+# scripts/scrape_fantasypros_ros.py), published back to this same repo by a
+# scheduled GitHub Action. Supplies "redraft-*" page_type rows only -
+# "dynasty-*" rows still come exclusively from FPECR_URL/DynastyProcess.
+FP_ROS_PPR_URL = "https://raw.githubusercontent.com/henriquefrz/fantasy-dynasty-manager/main/data/fp_ros_ppr_latest.json"
+
 POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
 TEAM_ABBR_ALIASES = {
@@ -88,6 +94,83 @@ def _download_csv(url):
 
 def get_fp_rankings_raw():
     return _download_csv(FPECR_URL)
+
+
+# Scraped only 3x/week (see .github/workflows/scrape-fantasypros-ros.yml),
+# so a full day of staleness is acceptable - same cadence as KTC_CACHE_TTL_SECONDS.
+FP_ROS_CACHE_TTL_SECONDS = 24 * 60 * 60
+
+
+def _fetch_fp_ros_payload():
+    """
+    Fetches our own scraped FantasyPros Rest-of-Season PPR rankings payload
+    ({"scraped_at": "<ISO UTC timestamp>", "rows": [...]} - see
+    scripts/scrape_fantasypros_ros.py and FP_ROS_PPR_URL) from this repo's
+    own GitHub raw content, published by the scheduled scraper workflow.
+    Reused from disk cache in .cache_data/market_csvs/ when younger than
+    FP_ROS_CACHE_TTL_SECONDS; falls back to a stale cached copy on fetch
+    failure, same resilience pattern as the other raw fetchers in this module.
+
+    Internal - callers want either get_fp_ros_rankings_raw() (the "rows"
+    list, for build_positional_lookup) or get_fp_ros_rankings_scraped_at()
+    (the timestamp, for freshness checks) - both share this same fetch/cache
+    so the payload is only ever downloaded once per TTL window.
+    """
+    cache_path = os.path.join(CSV_CACHE_DIR, "fp_ros_ppr_latest.json")
+
+    if os.path.exists(cache_path):
+        cache_age = time.time() - os.path.getmtime(cache_path)
+        if cache_age < FP_ROS_CACHE_TTL_SECONDS:
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print(f"Info: Using cached FantasyPros ROS rankings (age {cache_age / 3600:.1f}h)")
+                    return json.load(f)
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached FantasyPros ROS rankings {cache_path}: {cache_err}")
+
+    try:
+        response = requests.get(FP_ROS_PPR_URL, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        if data and data.get("rows"):
+            try:
+                os.makedirs(CSV_CACHE_DIR, exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+            except Exception:
+                pass
+        return data
+    except Exception as e:
+        print(f"Warning: Failed to fetch FantasyPros ROS rankings: {e}")
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print("Info: Loaded cached backup for FantasyPros ROS rankings")
+                    return json.load(f)
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached FantasyPros ROS rankings {cache_path}: {cache_err}")
+        return {"scraped_at": None, "rows": []}
+
+
+def get_fp_ros_rankings_raw():
+    """
+    Returns the "redraft-*" page_type rows list (the part
+    build_positional_lookup actually consumes) from the scraped FantasyPros
+    ROS payload. See get_fp_ros_rankings_scraped_at() for the payload's
+    timestamp, used by get_market_data_freshness to detect a stale file.
+    """
+    return _fetch_fp_ros_payload().get("rows") or []
+
+
+def get_fp_ros_rankings_scraped_at():
+    """
+    Returns the ISO UTC timestamp string the scraped FantasyPros ROS payload
+    was generated at, or None if unavailable (fetch failed with no cache,
+    or an old-format cached file predates this field). Used by
+    get_market_data_freshness to flag the source as stale even when the
+    fetch itself succeeds but the underlying scrape hasn't run in days.
+    """
+    return _fetch_fp_ros_payload().get("scraped_at")
 
 
 def get_player_ids_raw():
@@ -587,6 +670,13 @@ def compute_composite_value(fc_val, ktc_val, dp_val, mode="equal", rank_ecr=None
     return round(composite, 1)
 
 
+# fp_ros_rankings is only re-scraped 3x/week (see
+# .github/workflows/scrape-fantasypros-ros.yml); this gives generous slack
+# over that ~2-3 day cadence before flagging the file as stale, since a
+# successful fetch of an old file looks identical to a fresh one otherwise.
+FP_ROS_STALE_THRESHOLD_DAYS = 4
+
+
 def get_market_data_freshness(
     fp_raw=None,
     dp_raw=None,
@@ -596,6 +686,8 @@ def get_market_data_freshness(
     fc_1qb=None,
     ktc_redraft_sf=None,
     ktc_redraft_1qb=None,
+    fp_ros_rows=None,
+    fp_ros_scraped_at=None,
 ):
     """
     Returns timestamp / scrape date status for each connected data source,
@@ -606,8 +698,16 @@ def get_market_data_freshness(
     list on failure instead of raising, so an empty payload here is the signal a
     source failed to update - "ok" reflects that, and "status" surfaces it in
     plain text instead of always claiming "Live Current" regardless of what happened.
+
+    fp_ros_rows/fp_ros_scraped_at (see get_fp_ros_rankings_raw/
+    get_fp_ros_rankings_scraped_at) get a second, independent check: a
+    successful fetch of that file only proves GitHub served *a* file, not
+    that the scheduled scraper actually ran recently - so "ok" reflects the
+    fetch outcome (same as every other source here) while "stale" separately
+    flags a file whose own scraped_at timestamp is older than
+    FP_ROS_STALE_THRESHOLD_DAYS, which a plain fetch-success check can't see.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     fp_date = None
@@ -625,6 +725,26 @@ def get_market_data_freshness(
     ktc_ok = bool(ktc_sf) and bool(ktc_1qb)
     fc_ok = bool(fc_sf) and bool(fc_1qb)
     ktc_redraft_ok = bool(ktc_redraft_sf) and bool(ktc_redraft_1qb)
+
+    fp_ros_ok = bool(fp_ros_rows)
+    fp_ros_stale = False
+    fp_ros_age_days = None
+    if fp_ros_scraped_at:
+        try:
+            scraped_dt = datetime.fromisoformat(fp_ros_scraped_at)
+            fp_ros_age_days = (datetime.now(timezone.utc) - scraped_dt).total_seconds() / 86400.0
+            fp_ros_stale = fp_ros_age_days > FP_ROS_STALE_THRESHOLD_DAYS
+        except (ValueError, TypeError):
+            pass
+
+    if not fp_ros_ok:
+        fp_ros_status = "Unavailable (fetch failed)"
+    elif fp_ros_stale:
+        fp_ros_status = f"Stale (last scraped {fp_ros_age_days:.1f} days ago)"
+    elif fp_ros_scraped_at:
+        fp_ros_status = f"Updated ({fp_ros_scraped_at[:10]})"
+    else:
+        fp_ros_status = "Live Current"
 
     return {
         "fantasycalc": {
@@ -661,6 +781,14 @@ def get_market_data_freshness(
             "date": now_str,
             "status": "Live Current" if ktc_redraft_ok else "Unavailable (fetch failed)",
             "ok": ktc_redraft_ok,
+        },
+        "fp_ros": {
+            "source": "FantasyPros ROS PPR",
+            "type": "Rest-of-season redraft rankings (scraped 3x/week)",
+            "date": fp_ros_scraped_at[:10] if fp_ros_scraped_at else now_str,
+            "status": fp_ros_status,
+            "ok": fp_ros_ok,
+            "stale": fp_ros_stale,
         },
     }
 

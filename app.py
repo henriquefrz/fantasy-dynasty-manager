@@ -97,6 +97,8 @@ except ImportError:
 from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
+    get_fp_ros_rankings_raw,
+    get_fp_ros_rankings_scraped_at,
     get_player_ids_raw,
     build_positional_lookup,
     get_values_players_raw,
@@ -2332,10 +2334,11 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=86400, show_spinner=False)
-def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
+def fetch_market_database(_cache_version="v27_fp_ros_scraper"):
     """Fetches all foundational market datasets and raw API feeds once per 24 hours."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
+    fp_ros_rankings = get_fp_ros_rankings_raw()
     player_ids = get_player_ids_raw()
     values_players = get_values_players_raw()
     values_picks = get_values_picks_raw()
@@ -2367,7 +2370,7 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
     except TypeError:
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
 
-    base_redraft = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
+    base_redraft = build_positional_lookup(fp_ros_rankings, player_ids, "redraft", is_superflex=False)
     enrich_lookup_with_redraft_values(
         base_redraft,
         ktc_fantasy_raw=ktc_redraft_1qb,
@@ -2385,12 +2388,14 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
         fp_rankings, values_players,
         ktc_sf=ktc_sf, ktc_1qb=ktc_1qb, fc_sf=fc_sf, fc_1qb=fc_1qb,
         ktc_redraft_sf=ktc_redraft_sf, ktc_redraft_1qb=ktc_redraft_1qb,
+        fp_ros_rows=fp_ros_rankings, fp_ros_scraped_at=get_fp_ros_rankings_scraped_at(),
     )
 
     return {
         "players": players,
         "player_ids": player_ids,
         "fp_rankings": fp_rankings,
+        "fp_ros_rankings": fp_ros_rankings,
         "values_players": values_players,
         "values_picks": values_picks,
         "ktc_sf": ktc_sf,
@@ -2411,7 +2416,7 @@ def fetch_market_database(_cache_version="v26_fp_ecr_sf_redraft_sync"):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1, _cache_version: str = "v26_fp_ecr_sf_redraft_sync"):
+def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1, _cache_version: str = "v27_fp_ros_scraper"):
     """
     Returns a cached redraft/ROS valuation lookup customized for the league's exact
     scoring settings (PPR/Half-PPR, TE Premium, pass TD weight) and superflex format.
@@ -2447,7 +2452,7 @@ def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superf
         return _market_db["redraft_lookup"]
 
     base_lk = build_positional_lookup(
-        _market_db["fp_rankings"],
+        _market_db["fp_ros_rankings"],
         _market_db["player_ids"],
         "redraft",
         is_superflex=is_superflex,
@@ -3392,11 +3397,13 @@ with st.container(key="topbar_nav_container"):
             dp_stat = (fresh.get("dynastyprocess") or {}).get("status", "Updated")
             fp_stat = (fresh.get("fantasypros") or {}).get("status", "Updated")
             ktc_redraft_stat = (fresh.get("ktc_redraft") or {}).get("status", "Live Current")
+            fp_ros_stat = (fresh.get("fp_ros") or {}).get("status", "Live Current")
             st.markdown(f"**KeepTradeCut:** `{ktc_stat}`")
             st.markdown(f"**FantasyCalc:** `{fc_stat}`")
             st.markdown(f"**DynastyProcess:** `{dp_stat}`")
             st.markdown(f"**FantasyPros ECR:** `{fp_stat}`")
             st.markdown(f"**KTC Fantasy Rankings:** `{ktc_redraft_stat}`")
+            st.markdown(f"**FantasyPros ROS PPR:** `{fp_ros_stat}`")
             st.caption("KeepTradeCut & Sleeper projections update live every 30 mins from API.")
             st.markdown("---")
             if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
@@ -3431,6 +3438,18 @@ if _failed_sources:
     st.warning(
         f"⚠️ Some market data sources failed to refresh this session: **{', '.join(_failed_sources)}**. "
         "Affected valuations may be based on stale or partial data. "
+        "See Settings → Market Data Freshness for details."
+    )
+
+# A source can also fetch successfully (ok=True) while its own underlying
+# scrape hasn't actually run in days - e.g. fp_ros_rankings served fine from
+# GitHub, but the scheduled scraper behind it silently stopped updating.
+# That's invisible to the check above, so it gets its own banner.
+_stale_sources = [info.get("source", key) for key, info in _freshness_info.items() if info.get("stale")]
+if _stale_sources:
+    st.warning(
+        f"🕓 Some market data sources are stale (fetched fine, but the underlying data hasn't "
+        f"updated recently): **{', '.join(_stale_sources)}**. "
         "See Settings → Market Data Freshness for details."
     )
 

@@ -1,0 +1,41 @@
+name: Scrape FantasyPros ROS Rankings
+
+# Runs Tue/Thu/Sat at 13:00 America/Sao_Paulo (BRT, fixed UTC-3, no DST since
+# 2019) = 16:00 UTC. Cron day-of-week: 2=Tue, 4=Thu, 6=Sat.
+on:
+  schedule:
+    - cron: "0 16 * * 2,4,6"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run FantasyPros ROS scraper
+        run: python scripts/scrape_fantasypros_ros.py
+
+      - name: Commit and push updated rankings
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data/fp_ros_ppr_latest.json; then
+            echo "No changes to data/fp_ros_ppr_latest.json - skipping commit."
+          else
+            git add data/fp_ros_ppr_latest.json
+            git commit -m "Update FantasyPros ROS PPR rankings ($(date -u +%Y-%m-%d))"
+            git push
+          fi

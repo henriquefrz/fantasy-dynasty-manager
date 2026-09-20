@@ -19,6 +19,7 @@ from src.sleeper_api import (
 from src.league_classifier import classify_league, is_superflex_league
 from src.market_data import (
     get_fp_rankings_raw,
+    get_fp_ros_rankings_raw,
     get_player_ids_raw,
     build_positional_lookup,
     get_values_players_raw,
@@ -139,6 +140,7 @@ print()
 print("Downloading rankings & market values (FantasyCalc / KeepTradeCut / DynastyProcess):")
 
 fp_rankings = get_fp_rankings_raw()
+fp_ros_rankings = get_fp_ros_rankings_raw()
 player_ids = get_player_ids_raw()
 values_players = get_values_players_raw()
 values_picks = get_values_picks_raw()
@@ -162,7 +164,7 @@ enrich_lookup_with_consensus_values(dynasty_lookup_sf, values_players, player_id
 dynasty_lookup_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty")
 enrich_lookup_with_consensus_values(dynasty_lookup_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
-redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "redraft")
+redraft_lookup = build_positional_lookup(fp_ros_rankings, player_ids, "redraft")
 enrich_lookup_with_redraft_values(
     redraft_lookup,
     ktc_fantasy_raw=ktc_fantasy_1qb,
