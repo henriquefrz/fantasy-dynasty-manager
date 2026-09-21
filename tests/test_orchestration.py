@@ -151,7 +151,6 @@ def test_redraft_league_skips_dynasty_scoring_and_picks(orchestration_redraft_le
     )
 
     assert result["dynasty_score_pairs"] == []
-    assert result["team_tiers"] == {}
     for prof in result["all_team_profiles"]:
         assert prof["dynasty_tier"] is None
         assert prof["pick_assets"] == []
@@ -168,3 +167,127 @@ def test_sim_results_and_rank_map_cover_every_roster(orchestration_dynasty_leagu
     assert set(result["sim_rank_map"].keys()) == {1, 2, 3, 4}
     ranks = [pos for pos, _ in result["sim_rank_map"].values()]
     assert sorted(ranks) == [1, 2, 3, 4], "every roster should get a distinct Season Power Score rank 1-4"
+
+
+# ---------------------------------------------------------------------------
+# Concurrency safety - written BEFORE migrating evaluate_league_quick_status /
+# _build_league_card_html / fetch_portfolio_exposure onto build_league_context
+# / build_team_profiles, since all 3 call sites run inside a
+# ThreadPoolExecutor (one call per league, in parallel) and share the SAME
+# market_db object across every thread. This is the same bug class as the
+# apply_ktc_te_premium/apply_valuation_mode shared-mutation bug fixed earlier
+# this session (see test_market_data.py) - hammer it with many threads and
+# many distinct league configurations racing on one shared market_db, not a
+# single sequential pass.
+# ---------------------------------------------------------------------------
+
+def test_concurrent_build_league_context_no_cross_contamination(
+    orchestration_market_db, orchestration_rosters, orchestration_users,
+    orchestration_dynasty_league, orchestration_tep_league, orchestration_full_ppr_league, orchestration_redraft_league,
+):
+    import concurrent.futures
+    import copy
+
+    market_db = orchestration_market_db
+    market_db_snapshot = copy.deepcopy(market_db)
+
+    # orchestration_dynasty_league and orchestration_redraft_league both use
+    # standard baseline scoring, so compute_custom_redraft_lookup's fast path
+    # returns market_db["redraft_lookup"] - the literal SAME object reference
+    # - to both of them. That is exactly the scenario that would surface a
+    # shared-mutation bug: two "leagues" on different threads holding the
+    # identical dict object.
+    leagues_by_label = {
+        "dynasty_standard": orchestration_dynasty_league,
+        "dynasty_tep": orchestration_tep_league,
+        "dynasty_full_ppr": orchestration_full_ppr_league,
+        "redraft_standard": orchestration_redraft_league,
+    }
+
+    def compute(label):
+        league = leagues_by_label[label]
+        context = build_league_context(league, orchestration_rosters, orchestration_users, market_db, active_week=1)
+        return {
+            "is_dynasty": context["is_dynasty"],
+            "is_superflex": context["is_superflex"],
+            "tep_bonus": context["tep_bonus"],
+            "primary_values": {pid: p.get("market_value") for pid, p in context["primary_lookup"].items()},
+            "redraft_values": {pid: p.get("market_value") for pid, p in context["redraft_lookup"].items()},
+        }
+
+    expected_by_label = {label: compute(label) for label in leagues_by_label}
+
+    jobs = list(leagues_by_label.keys()) * 30  # 120 concurrent calls, 4 distinct configs racing on one market_db
+    mismatches = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        future_to_label = {executor.submit(compute, label): label for label in jobs}
+        for future in concurrent.futures.as_completed(future_to_label):
+            label = future_to_label[future]
+            result = future.result()
+            if result != expected_by_label[label]:
+                mismatches.append(label)
+
+    assert not mismatches, f"cross-contamination detected across {len(mismatches)} concurrent build_league_context calls: {mismatches[:5]}"
+    assert market_db == market_db_snapshot, "shared market_db was mutated by concurrent build_league_context calls"
+
+
+def test_concurrent_build_team_profiles_no_cross_contamination(
+    orchestration_market_db, orchestration_rosters, orchestration_users,
+    orchestration_dynasty_league, orchestration_redraft_league,
+):
+    """
+    Only checks the value-derived fields (dynasty_score_pairs, redraft_ranked)
+    for exact cross-thread reproducibility - these depend solely on
+    primary_lookup/redraft_lookup/picks_lookup market values, never on the
+    Monte Carlo simulation. sim_results/current_tier/status are intentionally
+    NOT compared for exact equality here: run_monte_carlo_simulation seeds
+    and reads Python's global `random` module state (random.seed +
+    random.gauss), which is a second, pre-existing, unrelated concurrency
+    issue - concurrent leagues racing on that shared global RNG state produce
+    non-deterministic (but not corrupted or crashing) simulation outputs
+    regardless of build_team_profiles. That is a bug in
+    run_monte_carlo_simulation itself (src/playoff_simulator.py), not a
+    shared-mutation bug in the orchestration layer, and is out of scope for
+    this migration - flagged separately.
+    """
+    import concurrent.futures
+    import copy
+
+    market_db = orchestration_market_db
+    market_db_snapshot = copy.deepcopy(market_db)
+
+    leagues_by_label = {
+        "dynasty": orchestration_dynasty_league,
+        "redraft": orchestration_redraft_league,
+    }
+    contexts_by_label = {
+        label: build_league_context(league, orchestration_rosters, orchestration_users, market_db, active_week=1)
+        for label, league in leagues_by_label.items()
+    }
+
+    def compute(label):
+        league = leagues_by_label[label]
+        context = contexts_by_label[label]
+        result = build_team_profiles(
+            context, league, orchestration_rosters, active_week=1,
+            weekly_projections={}, schedule={}, num_simulations=50,
+        )
+        return {
+            "dynasty_score_pairs": result["dynasty_score_pairs"],
+            "redraft_ranked": result["redraft_ranked"],
+        }
+
+    expected_by_label = {label: compute(label) for label in leagues_by_label}
+
+    jobs = list(leagues_by_label.keys()) * 25  # 50 concurrent calls
+    mismatches = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        future_to_label = {executor.submit(compute, label): label for label in jobs}
+        for future in concurrent.futures.as_completed(future_to_label):
+            label = future_to_label[future]
+            result = future.result()
+            if result != expected_by_label[label]:
+                mismatches.append(label)
+
+    assert not mismatches, f"cross-contamination detected across {len(mismatches)} concurrent build_team_profiles calls: {mismatches[:5]}"
+    assert market_db == market_db_snapshot, "shared market_db was mutated by concurrent build_team_profiles calls"

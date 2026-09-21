@@ -1807,6 +1807,52 @@ def build_picks_sources_bundle(
     }
 
 
+# Deepest draft round any league in this app currently runs (confirmed via
+# each league's live settings.draft_rounds); source market data (KTC /
+# FantasyCalc / DynastyProcess) only natively prices rounds 1-5, so rounds
+# beyond that are synthesized - see _extrapolate_deep_rounds.
+MAX_PROJECTED_DRAFT_ROUND = 10
+
+
+def _extrapolate_deep_rounds(consensus_picks, max_round=MAX_PROJECTED_DRAFT_ROUND):
+    """
+    Synthesizes a generic ('mid'-equivalent) value for rounds beyond the
+    deepest round the source data natively prices (currently round 5), so a
+    league with more draft rounds (e.g. an 8-round league) doesn't silently
+    price those late picks at 0.0. Continues each season's own
+    round-over-round point increments outward using the average decay ratio
+    already observed between its known rounds (the increments shrink as
+    rounds get later/more replaceable), instead of guessing a flat value.
+    Mutates and returns consensus_picks; only touches (season, round_num)
+    generic keys - 'early'/'mid'/'late' tiers for the new rounds are then
+    derived by the existing tier-population step below, same as any other
+    round.
+    """
+    by_season = {}
+    for (season, round_num), val in [(k, v) for k, v in consensus_picks.items() if len(k) == 2]:
+        by_season.setdefault(season, {})[round_num] = val
+
+    for season, rounds in by_season.items():
+        known_rounds = sorted(rounds)
+        if not known_rounds or max(known_rounds) >= max_round:
+            continue
+
+        deltas = [rounds[known_rounds[i + 1]] - rounds[known_rounds[i]] for i in range(len(known_rounds) - 1)]
+        ratios = [deltas[i + 1] / deltas[i] for i in range(len(deltas) - 1) if deltas[i] > 0]
+        decay_ratio = min(0.95, max(0.5, sum(ratios) / len(ratios))) if ratios else 0.75
+
+        last_round = known_rounds[-1]
+        last_val = rounds[last_round]
+        last_delta = deltas[-1] if deltas else last_val * 0.15
+
+        for r in range(last_round + 1, max_round + 1):
+            last_delta *= decay_ratio
+            last_val += last_delta
+            consensus_picks[(season, r)] = round(last_val, 1)
+
+    return consensus_picks
+
+
 def compute_picks_lookup_from_bundle(bundle, mode="equal"):
     """
     Computes a picks lookup mapping (season, round_num, tier) -> float for any valuation mode.
@@ -1826,6 +1872,8 @@ def compute_picks_lookup_from_bundle(bundle, mode="equal"):
         if val > 0:
             consensus_picks[k] = val
 
+    _extrapolate_deep_rounds(consensus_picks)
+
     # Ensure all rounds have 'early', 'mid', 'late' populated
     two_tuple_items = [(k, v) for k, v in list(consensus_picks.items()) if len(k) == 2]
     for (season, round_num), val in two_tuple_items:
@@ -1842,7 +1890,7 @@ def compute_picks_lookup_from_bundle(bundle, mode="equal"):
     if known_seasons:
         max_season = max(known_seasons)
         for future_year in range(max_season + 1, max_season + 4):
-            for r in range(1, 6):
+            for r in range(1, MAX_PROJECTED_DRAFT_ROUND + 1):
                 for tier in ["early", "mid", "late"]:
                     key = (str(future_year), r, tier)
                     if key not in consensus_picks:

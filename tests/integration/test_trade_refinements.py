@@ -43,9 +43,7 @@ from src.team_strength import (
     classify_dynasty_team,
     get_current_strength_tier,
     get_strength_tier,
-    percentile_score,
     rank_teams_in_league,
-    score_to_tier,
 )
 from src.trade_engine import analyze_team_profile, format_asset_str, generate_trade_suggestions
 
@@ -80,7 +78,7 @@ def _sim_rank_map_for_league(league, rosters, all_rosters_players, season, week)
         num_simulations=500,
     )
     ranked = sorted(sim_results, key=lambda rid: sim_results[rid].get("power_score", 0.0), reverse=True)
-    sim_rank_map = {rid: idx for idx, rid in enumerate(ranked, 1)}
+    sim_rank_map = {rid: (idx, sim_results[rid].get("power_score", 0.0)) for idx, rid in enumerate(ranked, 1)}
     return sim_results, sim_rank_map
 
 
@@ -88,7 +86,6 @@ def _build_profiles(league, rosters, players, dyn_lookup, redraft_lookup, picks_
     all_rosters_players = {r["roster_id"]: get_roster_players(r, players) for r in rosters if r.get("players")}
     d_ranked = rank_teams_in_league(all_rosters_players, dyn_lookup, league["roster_positions"], is_dynasty=True)
     r_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, league["roster_positions"], is_dynasty=False)
-    team_tiers = {item[0]: score_to_tier(percentile_score(idx, len(r_ranked))) for idx, item in enumerate(r_ranked, 1)}
 
     users = get_league_users(league["league_id"])
     user_map = {
@@ -113,7 +110,7 @@ def _build_profiles(league, rosters, players, dyn_lookup, redraft_lookup, picks_
         d_tier, _, _ = get_strength_tier(rid, d_ranked)
         r_sim = sim_results.get(rid, {})
         c_tier, _ = get_current_strength_tier(
-            r, sim_rank_map.get(rid, total), total,
+            r, sim_rank_map.get(rid, (total, 0.0))[0], total,
             playoff_pct=r_sim.get("playoff_pct"),
             is_eliminated=r_sim.get("is_eliminated", False),
         )
@@ -125,13 +122,14 @@ def _build_profiles(league, rosters, players, dyn_lookup, redraft_lookup, picks_
             primary_lookup=dyn_lookup,
             redraft_lookup=redraft_lookup,
             picks_lookup=picks_lookup,
-            team_tiers=team_tiers,
+            sim_rank_map=sim_rank_map,
             roster_positions=league["roster_positions"],
             is_dynasty=True,
             status=status,
             category=category,
             manager_name=user_map.get(r.get("owner_id"), f"Team {rid}"),
             total_rosters=league["total_rosters"],
+            target_season=str(int(league["season"]) + 1),
         )
         profiles.append(prof)
         if rid == user_roster["roster_id"]:
@@ -141,7 +139,12 @@ def _build_profiles(league, rosters, players, dyn_lookup, redraft_lookup, picks_
 
 
 def test_league_size_pick_scaling(real_user_leagues):
-    """An 8-team league's mid-2nd is worth more than a 12-team league's, since it's a proportionally earlier overall pick."""
+    """
+    A round-2 pick from a team projected squarely mid-table is worth more
+    in an 8-team league than in a 12-team league, since it's a
+    proportionally earlier overall pick (8-team round 2 starts at overall
+    pick 9; 12-team round 2 starts at overall pick 13).
+    """
     fp_rankings = get_fp_rankings_raw()
     player_ids = get_player_ids_raw()
     values_players = get_values_players_raw()
@@ -150,8 +153,10 @@ def test_league_size_pick_scaling(real_user_leagues):
     fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
     picks_lookup = build_consensus_picks_lookup(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
 
-    p_12t_r2 = get_single_pick_value("2026", 2, "mid", picks_lookup, total_rosters=12)
-    p_8t_r2 = get_single_pick_value("2026", 2, "mid", picks_lookup, total_rosters=8)
+    # Projected rank squarely in the middle of each league (fraction ~0.5,
+    # landing in the 'mid' tier bucket either way).
+    p_12t_r2 = get_single_pick_value("2026", 2, 6, picks_lookup, total_rosters=12)
+    p_8t_r2 = get_single_pick_value("2026", 2, 4, picks_lookup, total_rosters=8)
 
     assert p_8t_r2 > p_12t_r2
 

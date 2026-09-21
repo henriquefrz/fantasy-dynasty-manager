@@ -15,6 +15,7 @@ from src.sleeper_api import (
     get_weekly_stats,
     get_league_schedule,
     get_ros_projections,
+    get_league_draft_type,
 )
 from src.league_classifier import classify_league
 from src.market_data import (
@@ -232,8 +233,12 @@ for league in leagues:
     roster_pos = league.get("roster_positions", [])
     league_users = get_league_users(league["league_id"])
     traded_picks = get_traded_picks(league["league_id"])
+    draft_type = get_league_draft_type(league["league_id"], expected_rounds=league.get("settings", {}).get("draft_rounds"))
 
-    context = build_league_context(league, league_rosters, league_users, market_db, active_nfl_week, traded_picks=traded_picks)
+    context = build_league_context(
+        league, league_rosters, league_users, market_db, active_nfl_week,
+        traded_picks=traded_picks, draft_type=draft_type,
+    )
     is_dynasty = context["is_dynasty"]
     is_superflex = context["is_superflex"]
     tep_bonus = context["tep_bonus"]
@@ -261,7 +266,7 @@ for league in leagues:
     )
     all_team_profiles = profiles["all_team_profiles"]
     sim_results = profiles["sim_results"]
-    team_tiers = profiles["team_tiers"]
+    sim_rank_map = profiles["sim_rank_map"]
 
     user_profile = next((p for p in all_team_profiles if p["roster_id"] == user_roster["roster_id"]), None)
     if user_profile is None:
@@ -288,9 +293,16 @@ for league in leagues:
 
         my_picks = get_picks_for_roster(picks_ownership, user_roster["roster_id"])
         total_rosters = league.get("total_rosters", 12)
-        my_picks_points = get_picks_capital_value(my_picks, picks_lookup, team_tiers, target_season="2027", total_rosters=total_rosters)
+        target_season = context["target_season"]
+        my_picks_points = get_picks_capital_value(
+            my_picks, picks_lookup, sim_rank_map=sim_rank_map, total_rosters=total_rosters,
+            target_season=target_season, draft_type=draft_type,
+        )
 
-        picks_ranked = rank_teams_by_picks(picks_ownership, total_rosters, picks_lookup, team_tiers, target_season="2027")
+        picks_ranked = rank_teams_by_picks(
+            picks_ownership, total_rosters, picks_lookup, sim_rank_map=sim_rank_map,
+            target_season=target_season, draft_type=draft_type,
+        )
         picks_tier, picks_pos, picks_total = get_strength_tier(user_roster["roster_id"], picks_ranked)
         qualifier = get_picks_qualifier(category, picks_tier)
 
@@ -304,7 +316,7 @@ for league in leagues:
         )
         print(
             f"Available Picks ({len(my_picks)}, Capital: #{picks_pos} of {picks_total}, {my_picks_points:,.0f} pts): "
-            f"{format_picks_summary(my_picks, team_tiers, target_season='2027')}"
+            f"{format_picks_summary(my_picks, sim_rank_map=sim_rank_map, total_rosters=total_rosters, target_season=target_season, draft_type=draft_type)}"
         )
 
     # -------------------------------------------------------------

@@ -166,14 +166,21 @@ def make_player_asset(player_obj: Dict[str, Any], ranking_data: Dict[str, Any], 
 def make_pick_asset(
     pick_tuple: Tuple[str, int, int],
     picks_lookup: Dict[str, float],
-    team_tiers: Dict[int, str],
-    target_season: str = "2027",
+    sim_rank_map: Dict[int, Tuple[int, float]],
+    target_season: str,
     total_rosters: int = 12,
+    draft_type: str = "linear",
 ) -> Dict[str, Any]:
     """Wraps a draft pick tuple into a standardized trade asset with league-size scaling."""
     season, round_num, orig_roster_id = pick_tuple
-    tier = project_pick_tier(orig_roster_id, team_tiers=team_tiers, season=season, target_season=target_season)
-    pt_val = get_single_pick_value(season, round_num, tier, picks_lookup, total_rosters=total_rosters)
+    sim_projected_rank = (sim_rank_map or {}).get(orig_roster_id, (None, 0.0))[0]
+    tier = project_pick_tier(
+        sim_projected_rank, total_rosters, round_num, season=season, target_season=target_season, draft_type=draft_type
+    )
+    pt_val = get_single_pick_value(
+        season, round_num, sim_projected_rank, picks_lookup,
+        total_rosters=total_rosters, target_season=target_season, draft_type=draft_type,
+    )
 
     tier_label = f" ({tier.capitalize()})" if season == target_season and round_num <= 3 else ""
     league_size_label = f" [{total_rosters}T]" if total_rosters != 12 else ""
@@ -198,13 +205,15 @@ def analyze_team_profile(
     primary_lookup: Dict[str, Any],
     redraft_lookup: Dict[str, Any],
     picks_lookup: Dict[str, float],
-    team_tiers: Dict[int, str],
+    sim_rank_map: Dict[int, Tuple[int, float]],
     roster_positions: List[str],
     is_dynasty: bool,
     status: str,
     category: str,
     manager_name: str,
     total_rosters: int = 12,
+    target_season: str = None,
+    draft_type: str = "linear",
 ) -> Dict[str, Any]:
     """
     Profiles a team's starters, bench depth, positional strengths/deficits, and tradeable assets.
@@ -229,7 +238,7 @@ def analyze_team_profile(
         if p.get("player_id") in taxi_ids
     ]
     pick_assets = [
-        make_pick_asset(pk, picks_lookup, team_tiers, target_season="2027", total_rosters=total_rosters)
+        make_pick_asset(pk, picks_lookup, sim_rank_map, target_season=target_season, total_rosters=total_rosters, draft_type=draft_type)
         for pk in owned_picks
     ]
     # Sort pick assets chronologically (nearest season first, round ascending)

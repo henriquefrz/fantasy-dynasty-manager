@@ -66,24 +66,33 @@ from src.team_strength import (
 from src.trade_engine import analyze_team_profile
 
 
-def build_league_context(league, rosters, users, market_db, active_week, mode="equal", traded_picks=None):
+def build_league_context(league, rosters, users, market_db, active_week, mode="equal", traded_picks=None, draft_type="linear"):
     """
     Resolves the per-league flags and valuation lookups every entry point
     needs, regardless of how much further analysis it runs on top:
     is_dynasty, is_superflex, tep_bonus, primary_lookup, redraft_lookup,
-    picks_lookup, all_rosters_players, user_map, picks_ownership.
+    picks_lookup, all_rosters_players, user_map, picks_ownership,
+    target_season, draft_type.
 
     market_db is the global, fetched-once-per-run bundle every league reuses
     (dynasty_sf_lookup, dynasty_1qb_lookup, ktc_sf, ktc_1qb, player_ids,
     fp_ros_rankings, ros_projections_raw, ktc_redraft_sf, ktc_redraft_1qb,
     redraft_lookup, picks_bundle_sf, picks_bundle_1qb, players - the shape
     app.py's fetch_market_database already builds).
+
+    draft_type ("linear" or "snake") is the league's rookie-draft order
+    convention - callers fetch it once per league (src.sleeper_api's
+    get_league_draft_type) alongside traded_picks, since it's live Sleeper
+    data this function can't reach out and fetch itself. Only matters for
+    pick-asset valuation (build_team_profiles); defaults to "linear", the
+    standard dynasty rookie-draft convention.
     """
     ltype = classify_league(league, rosters)
     is_dynasty = ltype.get("type") != "redraft"
     roster_pos = league.get("roster_positions", [])
     is_superflex = is_superflex_league(roster_pos)
     total_rosters = league.get("total_rosters", len(rosters))
+    target_season = str(int(league["season"]) + 1)
 
     scoring = league.get("scoring_settings", {})
     tep_bonus = (
@@ -141,6 +150,8 @@ def build_league_context(league, rosters, users, market_db, active_week, mode="e
         "all_rosters_players": all_rosters_players,
         "user_map": user_map,
         "picks_ownership": picks_ownership,
+        "target_season": target_season,
+        "draft_type": draft_type,
     }
 
 
@@ -148,9 +159,24 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
     """
     Builds the dynasty_tier / current_tier / per-team profile layer on top of
     a build_league_context() result: dynasty_score_pairs, redraft_ranked,
-    team_tiers, sim_results/sim_rank_map, and all_team_profiles (each entry
-    carrying current_tier, dynasty_tier, status, and category alongside the
-    usual analyze_team_profile asset breakdown).
+    sim_results/sim_rank_map, and all_team_profiles (each entry carrying
+    current_tier, dynasty_tier, status, and category alongside the usual
+    analyze_team_profile asset breakdown).
+
+    Pick-asset valuation is driven entirely by sim_rank_map (each roster's
+    Monte Carlo Season Power Score standing), which is available before any
+    profile is built - unlike the old team_tiers/current_tier signal it
+    replaced, it has zero dependency on dynasty_score_pairs or on
+    all_team_profiles. That's what lets every roster's full profile
+    (starters/bench/picks) be built in a SINGLE pass below: dynasty_tier
+    still needs a full-league dynasty_score_pairs ranking (itself built from
+    these same profiles) to classify status/category, but that no longer
+    requires rebuilding the asset values themselves a second time with a
+    different pick-tier input - the earlier two-pass shape (a "prepass"
+    with team_tiers={} feeding dynasty_score_pairs, then a "final" pass with
+    real team_tiers) was the root cause of the Portal-vs-Workspace dynasty
+    rank divergence this consolidation fixes: two passes computing pick
+    values two different ways could - and did - disagree.
     """
     is_dynasty = context["is_dynasty"]
     roster_pos = context["roster_positions"]
@@ -161,6 +187,8 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
     picks_ownership = context["picks_ownership"]
     user_map = context["user_map"]
     total_rosters = context["total_rosters"]
+    target_season = context.get("target_season") or str(int(league["season"]) + 1)
+    draft_type = context.get("draft_type", "linear")
 
     playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
     team_expectations = {
@@ -188,34 +216,6 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
 
     redraft_ranked = rank_teams_in_league(all_rosters_players, redraft_lookup, roster_pos, is_dynasty=False)
 
-    dynasty_score_pairs = []
-    if is_dynasty:
-        dynasty_prepass_profiles = []
-        for r in rosters:
-            rid = r["roster_id"]
-            if rid not in all_rosters_players:
-                continue
-            dynasty_prepass_profiles.append(
-                analyze_team_profile(
-                    roster=r,
-                    roster_players=all_rosters_players[rid],
-                    owned_picks=get_picks_for_roster(picks_ownership, rid),
-                    primary_lookup=primary_lookup,
-                    redraft_lookup=redraft_lookup,
-                    picks_lookup=picks_lookup,
-                    team_tiers={},
-                    roster_positions=roster_pos,
-                    is_dynasty=True,
-                    status="Unknown",
-                    category="neutral",
-                    manager_name=user_map.get(r.get("owner_id"), f"Team {rid}"),
-                    total_rosters=total_rosters,
-                )
-            )
-        dynasty_prepass_results = compute_dynasty_power_rankings(dynasty_prepass_profiles)
-        ranked_dynasty_prepass = sorted(dynasty_prepass_results.values(), key=lambda x: x["dynasty_score"], reverse=True)
-        dynasty_score_pairs = [(d["roster_id"], d["dynasty_score"]) for d in ranked_dynasty_prepass]
-
     def _current_tier_for(r):
         rid = r["roster_id"]
         r_sim = sim_results.get(rid, {})
@@ -227,16 +227,18 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
             is_eliminated=r_sim.get("is_eliminated", False),
         )
 
-    # team_tiers (current_tier per roster) feeds pick-asset valuation, and is
-    # only meaningful for dynasty leagues (redraft leagues have no picks to
-    # value).
-    team_tiers = {}
-    if is_dynasty:
-        for r in rosters:
-            if r["roster_id"] not in all_rosters_players:
-                continue
-            c_tier, _ = _current_tier_for(r)
-            team_tiers[r["roster_id"]] = c_tier
+    # current_tier has zero dependency on dynasty_score_pairs/all_team_profiles
+    # (only sim_results/redraft_ranked/roster settings), so it's safe and
+    # cheap to resolve for every roster up front.
+    current_tiers = {}
+    games_played_map = {}
+    for r in rosters:
+        rid = r["roster_id"]
+        if rid not in all_rosters_players:
+            continue
+        c_tier, games_played = _current_tier_for(r)
+        current_tiers[rid] = c_tier
+        games_played_map[rid] = games_played
 
     all_team_profiles = []
     for r in rosters:
@@ -244,14 +246,15 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
         if rid not in all_rosters_players:
             continue
 
-        c_tier, games_played = _current_tier_for(r)
-
         if is_dynasty:
-            d_tier, _, _ = get_strength_tier(rid, dynasty_score_pairs)
-            status, category = classify_dynasty_team(c_tier, d_tier)
+            # status/category need dynasty_tier, which needs a full-league
+            # dynasty_score_pairs ranking built from these same profiles -
+            # placeholder here, overwritten in place once that ranking
+            # exists below (asset values themselves don't need it).
+            status, category = "Unknown", "neutral"
             owned_picks = get_picks_for_roster(picks_ownership, rid)
         else:
-            d_tier = None
+            c_tier = current_tiers[rid]
             status = classify_redraft_team(c_tier)
             category = "win" if c_tier == "high" else ("rebuild" if c_tier == "low" else "neutral")
             owned_picks = []
@@ -263,27 +266,44 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
             primary_lookup=primary_lookup,
             redraft_lookup=redraft_lookup,
             picks_lookup=picks_lookup if is_dynasty else {},
-            team_tiers=team_tiers if is_dynasty else {},
+            sim_rank_map=sim_rank_map if is_dynasty else {},
             roster_positions=roster_pos,
             is_dynasty=is_dynasty,
             status=status,
             category=category,
             manager_name=user_map.get(r.get("owner_id"), f"Team {rid}"),
             total_rosters=total_rosters,
+            target_season=target_season,
+            draft_type=draft_type,
         )
-        prof["current_tier"] = c_tier
-        prof["dynasty_tier"] = d_tier
-        prof["games_played"] = games_played
+        prof["current_tier"] = current_tiers[rid]
+        prof["dynasty_tier"] = None
+        prof["games_played"] = games_played_map[rid]
         prof["playoff_pct"] = sim_results.get(rid, {}).get("playoff_pct")
         prof["is_eliminated"] = sim_results.get(rid, {}).get("is_eliminated", False)
 
         all_team_profiles.append(prof)
+
+    dynasty_score_pairs = []
+    if is_dynasty:
+        dynasty_results = compute_dynasty_power_rankings(all_team_profiles)
+        ranked_dynasty = sorted(dynasty_results.values(), key=lambda x: x["dynasty_score"], reverse=True)
+        dynasty_score_pairs = [(d["roster_id"], d["dynasty_score"]) for d in ranked_dynasty]
+
+        for prof in all_team_profiles:
+            rid = prof["roster_id"]
+            d_tier, d_pos, _ = get_strength_tier(rid, dynasty_score_pairs)
+            status, category = classify_dynasty_team(current_tiers[rid], d_tier)
+            prof["status"] = status
+            prof["category"] = category
+            prof["dynasty_tier"] = d_tier
+            prof["dynasty_rank"] = d_pos
+            prof["dynasty_score"] = dynasty_results.get(rid, {}).get("dynasty_score")
 
     return {
         "sim_results": sim_results,
         "sim_rank_map": sim_rank_map,
         "dynasty_score_pairs": dynasty_score_pairs,
         "redraft_ranked": redraft_ranked,
-        "team_tiers": team_tiers,
         "all_team_profiles": all_team_profiles,
     }

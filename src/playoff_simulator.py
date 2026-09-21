@@ -59,13 +59,18 @@ def compute_team_lineup_expectation(
     }
 
 
-def simulate_single_matchup(mu1: float, sigma1: float, mu2: float, sigma2: float) -> Tuple[float, float]:
+def simulate_single_matchup(mu1: float, sigma1: float, mu2: float, sigma2: float, rng: random.Random) -> Tuple[float, float]:
     """
     Simulates a head-to-head weekly fantasy matchup between two teams
     using Gaussian scoring distributions. Scores are floored at 40.0 pts.
+
+    Takes an explicit `rng` (a random.Random instance private to one
+    run_monte_carlo_simulation call) instead of the `random` module's global
+    functions - see that function's docstring for why concurrent callers
+    sharing the module-level RNG state is unsafe.
     """
-    s1 = max(40.0, random.gauss(mu1, sigma1))
-    s2 = max(40.0, random.gauss(mu2, sigma2))
+    s1 = max(40.0, rng.gauss(mu1, sigma1))
+    s2 = max(40.0, rng.gauss(mu2, sigma2))
     return round(s1, 2), round(s2, 2)
 
 
@@ -244,10 +249,18 @@ def run_monte_carlo_simulation(
     # playoff seeding. Only leagues with 2+ configured divisions trigger that logic.
     divisions_by_roster = {r["roster_id"]: r.get("settings", {}).get("division") for r in rosters}
 
-    # Deterministic simulation seed derived from hash(league_id) + week * 1000 to eliminate UI rerun jitter
+    # Deterministic simulation seed derived from hash(league_id) + week * 1000
+    # to eliminate UI rerun jitter. Uses a PRIVATE random.Random instance, not
+    # random.seed()/the module-level functions: those mutate one process-wide
+    # global RNG, so concurrent calls to this function for different leagues
+    # (e.g. the Portal grid's ThreadPoolExecutor, one call per league) would
+    # race on that shared state - one thread's random.seed() call could land
+    # in the middle of another thread's sequence of random.gauss() draws,
+    # silently breaking the "same league_id+week always simulates the same
+    # way" guarantee. A local random.Random(seed) is fully isolated per call.
     league_id_str = str(league.get("league_id", 0))
     league_hash = int(hashlib.md5(league_id_str.encode("utf-8")).hexdigest()[:8], 16)
-    random.seed(league_hash + int(current_week) * 1000)
+    rng = random.Random(league_hash + int(current_week) * 1000)
 
     # Initial records (if season has already started or custom historical records provided)
     initial_records = {}
@@ -326,7 +339,7 @@ def run_monte_carlo_simulation(
                 mu2 = team_expectations[r2]["expected_pts"]
                 sig2 = team_expectations[r2]["std_dev"]
 
-                s1, s2 = simulate_single_matchup(mu1, sig1, mu2, sig2)
+                s1, s2 = simulate_single_matchup(mu1, sig1, mu2, sig2, rng)
                 cur_records[r1]["pf"] += s1
                 cur_records[r2]["pf"] += s2
 
@@ -372,18 +385,18 @@ def run_monte_carlo_simulation(
         finalist_ids = ()
         if playoff_teams_count == 8 and len(playoff_seeds) >= 8:
             # Quarterfinals: 1 vs 8, 4 vs 5, 2 vs 7, 3 vs 6
-            q1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[7], team_expectations)
-            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], team_expectations)
-            q3_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[6], team_expectations)
-            q4_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], team_expectations)
+            q1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[7], team_expectations, rng)
+            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], team_expectations, rng)
+            q3_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[6], team_expectations, rng)
+            q4_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], team_expectations, rng)
 
             # Semifinals: Winner(1v8) vs Winner(4v5), Winner(2v7) vs Winner(3v6)
-            semi1_w = _simulate_knockout(q1_w, q2_w, team_expectations)
-            semi2_w = _simulate_knockout(q3_w, q4_w, team_expectations)
+            semi1_w = _simulate_knockout(q1_w, q2_w, team_expectations, rng)
+            semi2_w = _simulate_knockout(q3_w, q4_w, team_expectations, rng)
 
             # Championship
             finalist_ids = (semi1_w, semi2_w)
-            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations)
+            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations, rng)
 
         elif playoff_teams_count == 6 and len(playoff_seeds) >= 6:
             # Seeds 1 & 2 get first-round byes
@@ -391,31 +404,31 @@ def run_monte_carlo_simulation(
             sim_byes[playoff_seeds[1]] += 1
 
             # Quarterfinals: 3 vs 6, 4 vs 5
-            q1_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], team_expectations)
-            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], team_expectations)
+            q1_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], team_expectations, rng)
+            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], team_expectations, rng)
 
             # Semifinals: Seed 1 vs lower seed, Seed 2 vs higher seed
             remaining_after_q = sorted([q1_w, q2_w], key=lambda rid: playoff_seeds.index(rid), reverse=True)
-            semi1_w = _simulate_knockout(playoff_seeds[0], remaining_after_q[0], team_expectations)
-            semi2_w = _simulate_knockout(playoff_seeds[1], remaining_after_q[1], team_expectations)
+            semi1_w = _simulate_knockout(playoff_seeds[0], remaining_after_q[0], team_expectations, rng)
+            semi2_w = _simulate_knockout(playoff_seeds[1], remaining_after_q[1], team_expectations, rng)
 
             # Championship
             finalist_ids = (semi1_w, semi2_w)
-            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations)
+            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations, rng)
 
         elif playoff_teams_count == 4 and len(playoff_seeds) >= 4:
             # Semifinals: 1 vs 4, 2 vs 3
-            semi1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[3], team_expectations)
-            semi2_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[2], team_expectations)
+            semi1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[3], team_expectations, rng)
+            semi2_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[2], team_expectations, rng)
 
             # Championship
             finalist_ids = (semi1_w, semi2_w)
-            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations)
+            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations, rng)
 
         elif playoff_teams_count == 2 and len(playoff_seeds) >= 2:
             # The only game IS the championship, so both seeds are finalists.
             finalist_ids = (playoff_seeds[0], playoff_seeds[1])
-            champion_id = _simulate_knockout(playoff_seeds[0], playoff_seeds[1], team_expectations)
+            champion_id = _simulate_knockout(playoff_seeds[0], playoff_seeds[1], team_expectations, rng)
         else:
             # Default to top seed if bracket configuration is non-standard -
             # there's no real second finalist to name in this degenerate path.
@@ -594,7 +607,7 @@ def _compute_playoff_seeds(
     return (champs_sorted + wildcards_sorted)[:playoff_teams_count]
 
 
-def _simulate_knockout(rid1: int, rid2: int, team_expectations: Dict[int, Dict[str, Any]]) -> int:
+def _simulate_knockout(rid1: int, rid2: int, team_expectations: Dict[int, Dict[str, Any]], rng: random.Random) -> int:
     """
     Simulates a single playoff knockout game between two teams.
     Returns the winning roster_id.
@@ -604,7 +617,7 @@ def _simulate_knockout(rid1: int, rid2: int, team_expectations: Dict[int, Dict[s
     mu2 = team_expectations[rid2]["expected_pts"]
     sig2 = team_expectations[rid2]["std_dev"]
 
-    s1, s2 = simulate_single_matchup(mu1, sig1, mu2, sig2)
+    s1, s2 = simulate_single_matchup(mu1, sig1, mu2, sig2, rng)
     if s1 == s2:
         return rid1 if mu1 >= mu2 else rid2
     return rid1 if s1 > s2 else rid2

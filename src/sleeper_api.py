@@ -200,6 +200,33 @@ def get_league_users(league_id):
         return []
 
 
+def get_league_draft_type(league_id, expected_rounds=None):
+    """
+    Returns the league's rookie draft order convention ("linear" or "snake"),
+    used to project a team's absolute draft slot from its standing. Prefers
+    the draft object whose round count matches expected_rounds (the league's
+    current settings.draft_rounds) over a stale startup draft with a
+    different round count; falls back to "linear" (the standard dynasty
+    rookie-draft convention) when no matching draft is found.
+    """
+    url = f"{BASE_URL}/league/{league_id}/drafts"
+
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        drafts = response.json() or []
+    except Exception as e:
+        print(f"Warning: Failed to fetch drafts for league {league_id}: {e}")
+        return "linear"
+
+    if expected_rounds is not None:
+        matching = [d for d in drafts if (d.get("settings") or {}).get("rounds") == expected_rounds]
+        if matching:
+            return matching[0].get("type") or "linear"
+
+    return (drafts[0].get("type") if drafts else None) or "linear"
+
+
 def get_nfl_state():
     """
     Returns the current NFL state from Sleeper (season, week, season_type).

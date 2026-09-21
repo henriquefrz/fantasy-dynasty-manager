@@ -60,6 +60,7 @@ try:
         get_roster_players,
         get_free_agents,
         get_traded_picks,
+        get_league_draft_type,
         get_league_users,
         get_nfl_state,
         get_weekly_projections,
@@ -84,6 +85,7 @@ except ImportError:
     get_roster_players = getattr(_s_api, "get_roster_players")
     get_free_agents = getattr(_s_api, "get_free_agents")
     get_traded_picks = getattr(_s_api, "get_traded_picks")
+    get_league_draft_type = getattr(_s_api, "get_league_draft_type")
     get_league_users = getattr(_s_api, "get_league_users")
     get_nfl_state = getattr(_s_api, "get_nfl_state")
     get_weekly_projections = getattr(_s_api, "get_weekly_projections")
@@ -246,7 +248,6 @@ try:
     from src.playoff_simulator import (
         compute_team_lineup_expectation,
         run_monte_carlo_simulation,
-        compute_dynasty_power_rankings,
         compute_ros_power_rankings,
         run_historical_simulation_snapshot,
         compute_weekly_evolution_history,
@@ -257,7 +258,6 @@ except ImportError:
     importlib.reload(_ps)
     compute_team_lineup_expectation = getattr(_ps, "compute_team_lineup_expectation")
     run_monte_carlo_simulation = getattr(_ps, "run_monte_carlo_simulation")
-    compute_dynasty_power_rankings = getattr(_ps, "compute_dynasty_power_rankings")
     compute_ros_power_rankings = getattr(_ps, "compute_ros_power_rankings")
     run_historical_simulation_snapshot = getattr(_ps, "run_historical_simulation_snapshot")
     compute_weekly_evolution_history = getattr(_ps, "compute_weekly_evolution_history")
@@ -2592,6 +2592,7 @@ def fetch_league_data(league_id, season, week):
     users = get_league_users(league_id)
     schedule = get_league_schedule(league_id, start_week=1, end_week=18, current_week=week)
     traded_picks = get_traded_picks(league_id)
+    draft_type = get_league_draft_type(league_id)
     projections = get_weekly_projections(season, week)
     stats = get_weekly_stats(season, week)
     matchups = get_league_matchups(league_id, week, current_week=week)
@@ -2600,6 +2601,7 @@ def fetch_league_data(league_id, season, week):
         "users": users,
         "schedule": schedule,
         "traded_picks": traded_picks,
+        "draft_type": draft_type,
         "projections": projections,
         "stats": stats,
         "matchups": matchups,
@@ -2644,21 +2646,14 @@ def fetch_portfolio_exposure(user_id, league_ids, league_names, _players_db, _ma
             if not my_pids:
                 return None
 
-            is_dyn = lg.get("settings", {}).get("type") == 2
-            roster_pos = lg.get("roster_positions", [])
-            is_sf = is_superflex_league(roster_pos)
-            scoring = lg.get("scoring_settings", {})
-            tep_b = scoring.get("bonus_rec_te", 0.0) or scoring.get("te_bonus", 0.0)
-
-            if is_dyn:
-                lookup_base = _market_db["dynasty_sf_lookup"] if is_sf else _market_db["dynasty_1qb_lookup"]
-                lookup = apply_valuation_mode(lookup_base, mode=selected_mode)
-                if tep_b > 0:
-                    ktc_raw = _market_db["ktc_sf"] if is_sf else _market_db["ktc_1qb"]
-                    lookup = apply_ktc_te_premium(lookup, tep_b, ktc_raw, _market_db["player_ids"], is_superflex=is_sf, mode=selected_mode)
-            else:
-                lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
-                lookup = get_league_custom_redraft_lookup(_market_db, lg_scoring_tuple, is_sf, active_week)
+            # Same is_dynasty/is_superflex/tep_bonus/primary_lookup resolution
+            # as the League Workspace and main.py (src/orchestration.py) -
+            # already redirects primary_lookup to the redraft lookup for
+            # non-dynasty leagues internally, so no separate branch is needed
+            # here.
+            context = build_league_context(lg, rosters, [], _market_db, active_week, mode=selected_mode)
+            is_dyn = context["is_dynasty"]
+            lookup = context["primary_lookup"]
 
             settings = my_roster.get("settings", {})
             w = settings.get("wins", 0)
@@ -3097,12 +3092,38 @@ def render_hub_lineup_row_html(alert):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _redraft_lookup, _players, _picks_lookup=None, _weekly_proj=None, league_obj=None, current_week: int = 1, _cache_version: str = "v3_synchronized_ranks"):
-    """Accurately calculates franchise status, category, record, and synchronized rank across leagues."""
+def evaluate_league_quick_status(lid, user_id, _market_db, selected_mode, _weekly_proj, league_obj, current_week: int = 1, _cache_version: str = "v5_montecarlo_pick_tiers"):
+    """
+    Accurately calculates franchise status, category, record, and
+    synchronized rank across leagues - via the same shared
+    build_league_context/build_team_profiles skeleton as the League
+    Workspace and main.py (src/orchestration.py), instead of an
+    independently-maintained reimplementation of the same dynasty prepass /
+    Monte Carlo / redraft ranking logic.
+    """
     try:
         rosters = get_league_rosters(lid)
         my_r = next((r for r in rosters if r.get("owner_id") == user_id or user_id in (r.get("co_owners") or [])), None)
         if not my_r or not my_r.get("players"):
+            return "Pre-Draft", "neutral", 0, 0, 0.0, 0, "Pre-Draft", 0, 0
+
+        traded_picks = get_traded_picks(lid)
+        draft_type = get_league_draft_type(lid, expected_rounds=league_obj.get("settings", {}).get("draft_rounds"))
+        context = build_league_context(
+            league_obj, rosters, [], _market_db, current_week, mode=selected_mode,
+            traded_picks=traded_picks, draft_type=draft_type,
+        )
+
+        playoff_start = league_obj.get("settings", {}).get("playoff_week_start", 15)
+        schedule = get_league_schedule(lid, 1, max(1, playoff_start - 1), current_week=current_week)
+        profiles = build_team_profiles(
+            context, league_obj, rosters, current_week,
+            weekly_projections=_weekly_proj, schedule=schedule, num_simulations=1000,
+        )
+
+        my_rid = my_r["roster_id"]
+        my_profile = next((p for p in profiles["all_team_profiles"] if p["roster_id"] == my_rid), None)
+        if my_profile is None:
             return "Pre-Draft", "neutral", 0, 0, 0.0, 0, "Pre-Draft", 0, 0
 
         m_settings = my_r.get("settings", {})
@@ -3110,114 +3131,18 @@ def evaluate_league_quick_status(lid, user_id, is_dyn, roster_pos, _lookup, _red
         l = m_settings.get("losses", 0)
         fpts = m_settings.get("fpts", 0) + (m_settings.get("fpts_decimal", 0) / 100.0)
         p_count = len(my_r.get("players") or [])
-        tot_rosters = len(rosters)
 
-        all_rosters_players = {
-            r["roster_id"]: get_roster_players(r, _players)
-            for r in rosters if r.get("players")
-        }
+        # r_pos is the Season Power Score rank (same signal as the "Season"
+        # card badge) - shared by both branches below, matching what the
+        # workspace's current_tier already reads off the same rank.
+        _, redraft_pos, redraft_total = get_strength_tier(my_rid, profiles["redraft_ranked"])
+        r_pos = profiles["sim_rank_map"].get(my_rid, (redraft_pos, 0.0))[0]
 
-        # Compute redraft_ranked and team_tiers exactly as done in the workspace
-        redraft_ranked = rank_teams_in_league(all_rosters_players, _redraft_lookup, roster_pos, is_dynasty=False)
-        team_tiers = {}
-        for pos_idx, item in enumerate(redraft_ranked, start=1):
-            team_tiers[item[0]] = score_to_tier(percentile_score(pos_idx, len(redraft_ranked)))
-
-        # 1. Season rank based on live Monte Carlo simulation if schedule available, or lineup expectations
-        scoring = league_obj.get("scoring_settings", {}) if league_obj else {}
-        playoff_start = league_obj.get("settings", {}).get("playoff_week_start", 15) if league_obj else 15
-        season_length = max(1, playoff_start - 1)
-        schedule = get_league_schedule(lid, 1, season_length, current_week=current_week) if league_obj else {}
-
-        # my_playoff_pct/my_is_elim default to "unknown" and are only filled in
-        # below when the Monte Carlo simulation actually runs (schedule available).
-        my_playoff_pct = None
-        my_is_elim = False
-
-        if _weekly_proj:
-            expectations = {
-                r["roster_id"]: compute_team_lineup_expectation(
-                    r, all_rosters_players.get(r["roster_id"], []), _weekly_proj, scoring, roster_pos
-                )
-                for r in rosters if r["roster_id"] in all_rosters_players
-            }
-            if schedule:
-                sim_res = run_monte_carlo_simulation(
-                    league=league_obj,
-                    rosters=rosters,
-                    schedule=schedule,
-                    team_expectations=expectations,
-                    current_week=current_week,
-                    playoff_week_start=playoff_start,
-                    num_simulations=1000,
-                )
-                ranked_sim = sorted(sim_res.values(), key=lambda x: x.get("power_score", 0.0), reverse=True)
-                power_score_rank_map = {x["roster_id"]: idx for idx, x in enumerate(ranked_sim, 1)}
-                redraft_pos = power_score_rank_map.get(my_r["roster_id"], 0)
-                redraft_total = tot_rosters
-
-                my_sim = sim_res.get(my_r["roster_id"], {})
-                my_playoff_pct = my_sim.get("playoff_pct")
-                my_is_elim = my_sim.get("is_eliminated", False)
-
-                # Calibrate team_tiers using simulation-backed strength for draft capital projection
-                for r in rosters:
-                    rid = r["roster_id"]
-                    r_sim = sim_res.get(rid, {})
-                    r_playoff_pct = r_sim.get("playoff_pct")
-                    r_is_elim = r_sim.get("is_eliminated", False)
-                    r_sps_pos = power_score_rank_map.get(rid, tot_rosters)
-                    c_tier, _ = get_current_strength_tier(
-                        r, r_sps_pos, tot_rosters,
-                        playoff_pct=r_playoff_pct,
-                        is_eliminated=r_is_elim,
-                    )
-                    team_tiers[rid] = c_tier
-            else:
-                ranked_pts = sorted(expectations.values(), key=lambda x: x["expected_pts"], reverse=True)
-                redraft_pos = next((i for i, x in enumerate(ranked_pts, 1) if x["roster_id"] == my_r["roster_id"]), 0)
-                redraft_total = tot_rosters
+        if context["is_dynasty"]:
+            _, dynasty_pos, dynasty_total = get_strength_tier(my_rid, profiles["dynasty_score_pairs"])
+            return my_profile["status"], my_profile["category"], w, l, fpts, p_count, f"#{dynasty_pos}/{dynasty_total}", dynasty_pos, r_pos
         else:
-            _, redraft_pos, redraft_total = get_strength_tier(my_r["roster_id"], redraft_ranked)
-
-        # redraft_pos/redraft_total is already the Season Power Score rank computed
-        # above (the same signal shown on the "Season" card badge), so current_tier
-        # and that badge are guaranteed to reflect the exact same underlying data.
-        current_tier, _ = get_current_strength_tier(
-            my_r, redraft_pos, redraft_total,
-            playoff_pct=my_playoff_pct,
-            is_eliminated=my_is_elim,
-        )
-
-        if is_dyn:
-            # 2. Dynasty rank based on 50% Starters + 30% Bench + 20% Draft Capital (exact match with Tab 4)
-            traded_picks = get_traded_picks(lid)
-            p_ownership = build_picks_ownership(league_obj or {"settings": {"draft_rounds": 3}, "season": "2026", "total_rosters": tot_rosters, "status": "in_season"}, traded_picks)
-            all_profs = []
-            for r in rosters:
-                rid = r["roster_id"]
-                rp = all_rosters_players.get(rid, [])
-                pks = get_picks_for_roster(p_ownership, rid)
-                prof = analyze_team_profile(
-                    roster=r, roster_players=rp, owned_picks=pks,
-                    primary_lookup=_lookup, redraft_lookup=_redraft_lookup, picks_lookup=_picks_lookup or {},
-                    team_tiers=team_tiers, roster_positions=roster_pos, is_dynasty=True,
-                    status="Active", category="neutral", manager_name=f"Team {rid}",
-                    total_rosters=tot_rosters
-                )
-                all_profs.append(prof)
-
-            dyn_res = compute_dynasty_power_rankings(all_profs)
-            ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
-            dynasty_pos = next((i for i, d in enumerate(ranked_dyn, 1) if d["roster_id"] == my_r["roster_id"]), 0)
-            d_tier, _, dynasty_total = get_strength_tier(my_r["roster_id"], [(d["roster_id"], d["dynasty_score"]) for d in ranked_dyn])
-
-            status, cat = classify_dynasty_team(current_tier, d_tier)
-            return status, cat, w, l, fpts, p_count, f"#{dynasty_pos}/{dynasty_total}", dynasty_pos, redraft_pos
-        else:
-            status = classify_redraft_team(current_tier)
-            cat = "win" if current_tier == "high" else ("rebuild" if current_tier == "low" else "neutral")
-            return status, cat, w, l, fpts, p_count, f"#{redraft_pos}/{redraft_total}", redraft_pos, redraft_pos
+            return my_profile["status"], my_profile["category"], w, l, fpts, p_count, f"#{r_pos}/{redraft_total}", r_pos, r_pos
     except Exception:
         return "Active", "neutral", 0, 0, 0.0, 0, "—", 0, 0
 
@@ -3570,19 +3495,14 @@ if st.session_state.get("selected_league_id") is None:
         # mid-render); instead it degrades this one card's dynamic fields to
         # "N/A" and keeps rendering every other league normally.
         try:
-            # Accurately compute quick status, category, record, and synchronized ranks
-            lg_scoring_tuple = tuple(sorted((k, float(v)) for k, v in scoring.items() if isinstance(v, (int, float))))
-            league_redraft_lookup = get_league_custom_redraft_lookup(market_db, lg_scoring_tuple, is_sf, active_week)
-            league_lookup_base = market_db["dynasty_sf_lookup"] if is_sf else market_db["dynasty_1qb_lookup"]
-            league_lookup = apply_valuation_mode(league_lookup_base, mode=selected_mode) if is_dyn else league_redraft_lookup
-            if tep_b > 0 and is_dyn:
-                league_ktc_raw = market_db["ktc_sf"] if is_sf else market_db["ktc_1qb"]
-                league_lookup = apply_ktc_te_premium(league_lookup, tep_b, league_ktc_raw, market_db["player_ids"], is_superflex=is_sf, mode=selected_mode)
-            league_picks_bundle = market_db["picks_bundle_sf"] if is_sf else market_db["picks_bundle_1qb"]
-            league_picks = compute_picks_lookup_from_bundle(league_picks_bundle, mode=selected_mode) if is_dyn else {}
+            # Accurately compute quick status, category, record, and
+            # synchronized ranks - build_league_context/build_team_profiles
+            # (src/orchestration.py) resolve the league's own lookups
+            # internally now, so there's no separate lookup-building block
+            # here anymore (previously duplicated against
+            # evaluate_league_quick_status's own copy of the same logic).
             t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
-                lid, user["user_id"], is_dyn, roster_pos, league_lookup, league_redraft_lookup, players,
-                _picks_lookup=league_picks, _weekly_proj=weekly_proj_all, league_obj=lg, current_week=active_week
+                lid, user["user_id"], market_db, selected_mode, weekly_proj_all, lg, current_week=active_week
             )
 
             # Trajectory badge - shows the real Franchise Trajectory tier name
@@ -3789,6 +3709,7 @@ else:
     users = league_data["users"]
     schedule = league_data["schedule"]
     traded_picks = league_data["traded_picks"]
+    draft_type = league_data["draft_type"]
     weekly_projections = league_data["projections"]
     weekly_stats = league_data["stats"]
     scoring = selected_league.get("scoring_settings", {})
@@ -3810,7 +3731,10 @@ else:
     # shared src/orchestration.py skeleton (also used by main.py and
     # scripts/weekly_automation.py; see that module's docstring for the
     # duplication history this replaces).
-    context = build_league_context(selected_league, rosters, users, market_db, active_week, mode=selected_mode, traded_picks=traded_picks)
+    context = build_league_context(
+        selected_league, rosters, users, market_db, active_week, mode=selected_mode,
+        traded_picks=traded_picks, draft_type=draft_type,
+    )
     is_dynasty = context["is_dynasty"]
     is_superflex = context["is_superflex"]
     tep_bonus = context["tep_bonus"]
@@ -3830,7 +3754,6 @@ else:
     sim_rank_map = profiles["sim_rank_map"]
     dynasty_score_pairs = profiles["dynasty_score_pairs"]
     redraft_ranked = profiles["redraft_ranked"]
-    team_tiers = profiles["team_tiers"]
     all_team_profiles = profiles["all_team_profiles"]
 
     user_rid = user_roster["roster_id"]
@@ -3892,7 +3815,7 @@ else:
                 primary_lookup=redraft_lookup,
                 redraft_lookup=redraft_lookup,
                 picks_lookup={},
-                team_tiers={},
+                sim_rank_map={},
                 roster_positions=roster_pos,
                 is_dynasty=False,
                 status=base_prof["status"],
@@ -3918,21 +3841,11 @@ else:
             if rid == user_rid:
                 user_ros_profile = base_prof
 
-    # Map dynasty power rankings alignment
-    dyn_rank_map = {}
-    if is_dynasty:
-        try:
-            dyn_res = compute_dynasty_power_rankings(all_team_profiles)
-            ranked_dyn = sorted(dyn_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
-            dyn_rank_map = {d["roster_id"]: (idx, d["dynasty_score"]) for idx, d in enumerate(ranked_dyn, 1)}
-            for p in all_team_profiles:
-                r_id = p["roster_id"]
-                if r_id in dyn_rank_map:
-                    p["dynasty_rank"] = dyn_rank_map[r_id][0]
-                    p["dynasty_score"] = dyn_rank_map[r_id][1]
-        except Exception:
-            pass
-
+    # dynasty_rank/dynasty_score are already set on every profile by
+    # build_team_profiles (src/orchestration.py) - computed once, from the
+    # same single pass dynasty_score_pairs comes from, so this view and the
+    # Portal are guaranteed to agree instead of risking a second,
+    # independently-computed dynasty ranking drifting from the first.
     for p in all_team_profiles:
         r_id = p["roster_id"]
         if r_id in sim_rank_map:
@@ -5351,20 +5264,22 @@ else:
 
         def render_dynasty_power_view():
             st.caption("Dynasty Power Formula: 50% Starters Value + 30% Bench Depth + 20% Future Draft Capital (Industry Standard).")
-            dynasty_res = compute_dynasty_power_rankings(all_team_profiles)
-            ranked_dyn = sorted(dynasty_res.values(), key=lambda x: x["dynasty_score"], reverse=True)
+            # dynasty_score/dynasty_rank are already set on every profile by
+            # build_team_profiles (src/orchestration.py) - reused here
+            # instead of a third recomputation of the same ranking.
+            ranked_dyn = sorted(all_team_profiles, key=lambda p: p.get("dynasty_score", 0.0), reverse=True)
 
             dyn_data = []
-            for rank_idx, t in enumerate(ranked_dyn, 1):
+            for t in ranked_dyn:
                 rid = t["roster_id"]
                 dyn_data.append({
                     "roster_id": rid,
-                    "Rank": f"#{rank_idx}",
+                    "Rank": f"#{t.get('dynasty_rank', 0)}",
                     "Manager / Team": t["manager_name"],
-                    "Dynasty Score": f"{t['dynasty_score']:.1f} / 100",
-                    "Starters Val (50%)": f"{t['starters_val']:,.0f} pts",
-                    "Bench Val (30%)": f"{t['bench_val']:,.0f} pts",
-                    "Picks Capital (20%)": f"{t['picks_val']:,.0f} pts",
+                    "Dynasty Score": f"{t.get('dynasty_score', 0.0):.1f} / 100",
+                    "Starters Val (50%)": f"{t.get('starter_value', 0.0):,.0f} pts",
+                    "Bench Val (30%)": f"{t.get('bench_value', 0.0):,.0f} pts",
+                    "Picks Capital (20%)": f"{t.get('picks_value', 0.0):,.0f} pts",
                     "Competitive Tier": t["status"].split("(")[0].strip() if t.get("status") else "Active",
                     "Category": t.get("category", "neutral"),
                 })
