@@ -110,6 +110,7 @@ from src.market_data import (
     build_picks_sources_bundle,
     compute_picks_lookup_from_bundle,
     compute_custom_redraft_lookup,
+    compute_market_rank_divergence,
     enrich_lookup_with_consensus_values,
     enrich_lookup_with_redraft_values,
     apply_valuation_mode,
@@ -748,6 +749,25 @@ st.markdown(
         color: #f1f5f9;
         font-variant-numeric: tabular-nums;
     }
+    .market-signal-sell, .market-signal-buy {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .market-signal-sell {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+    }
+    .market-signal-buy {
+        background: rgba(52, 211, 153, 0.15);
+        color: #34d399;
+    }
+    .market-signal-neutral {
+        color: #64748b;
+    }
 
     /* Glowing Posture Capsules */
     .status-glow-win, .status-glow-contender {
@@ -1311,13 +1331,14 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 28%; text-align: left;'>Player</th>
-                    <th style='width: 16%; text-align: center;'>Consensus Value</th>
-                    <th style='width: 12%; text-align: center;'>Overall Rank</th>
-                    <th style='width: 12%; text-align: center;'>Pos Rank</th>
-                    <th style='width: 11%; text-align: center;'>KeepTradeCut</th>
-                    <th style='width: 11%; text-align: center;'>FantasyCalc</th>
-                    <th style='width: 10%; text-align: center;'>DynastyProcess</th>
+                    <th style='width: 24%; text-align: left;'>Player</th>
+                    <th style='width: 10%; text-align: center;' title='Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence'>Market Signal</th>
+                    <th style='width: 15%; text-align: center;'>Consensus Value</th>
+                    <th style='width: 11%; text-align: center;'>Overall Rank</th>
+                    <th style='width: 11%; text-align: center;'>Pos Rank</th>
+                    <th style='width: 10%; text-align: center;'>KeepTradeCut</th>
+                    <th style='width: 10%; text-align: center;'>FantasyCalc</th>
+                    <th style='width: 9%; text-align: center;'>DynastyProcess</th>
                 </tr>
             </thead>
             <tbody>
@@ -1338,6 +1359,11 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
         proj = r.get("Sleeper Proj PPG", "—")
         ktc_redraft = r.get("KTC Redraft Value", "—")
         dp = r.get("DynastyProcess", "—")
+        market_signal = r.get("Market Signal", "—")
+        market_signal_cls = {
+            "sell_high": "market-signal-sell",
+            "buy_low": "market-signal-buy",
+        }.get(r.get("market_signal"), "market-signal-neutral")
 
         is_pick = False if is_redraft else is_draft_pick_asset(pid, pname, pos)
 
@@ -1394,6 +1420,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                             </div>
                         </div>
                     </td>
+                    <td style='text-align: center;'><span class='{market_signal_cls}'>{market_signal}</span></td>
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
@@ -2343,7 +2370,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=86400, show_spinner=False)
-def fetch_market_database(_cache_version="v27_fp_ros_scraper"):
+def fetch_market_database(_cache_version="v28_market_rank_divergence"):
     """Fetches all foundational market datasets and raw API feeds once per 24 hours."""
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
@@ -2372,12 +2399,14 @@ def fetch_market_database(_cache_version="v27_fp_ros_scraper"):
         enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal", values_picks_raw=values_picks)
     except TypeError:
         enrich_lookup_with_consensus_values(base_dynasty_sf, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True, mode="equal")
+    market_signal_info_sf = compute_market_rank_divergence(base_dynasty_sf)
 
     base_dynasty_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=False)
     try:
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal", values_picks_raw=values_picks)
     except TypeError:
         enrich_lookup_with_consensus_values(base_dynasty_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False, mode="equal")
+    market_signal_info_1qb = compute_market_rank_divergence(base_dynasty_1qb)
 
     base_redraft = build_positional_lookup(fp_ros_rankings, player_ids, "redraft", is_superflex=False)
     enrich_lookup_with_redraft_values(
@@ -2421,6 +2450,8 @@ def fetch_market_database(_cache_version="v27_fp_ros_scraper"):
         "picks_bundle_sf": picks_bundle_sf,
         "picks_bundle_1qb": picks_bundle_1qb,
         "freshness": freshness_info,
+        "market_signal_info_sf": market_signal_info_sf,
+        "market_signal_info_1qb": market_signal_info_1qb,
     }
 
 
@@ -2463,6 +2494,12 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
         ktc_redraft_val = p_data.get("ktc_redraft_val")
         ktc_redraft_o = p_data.get("ktc_redraft_overall_rank")
         ktc_redraft_p = p_data.get("ktc_redraft_pos_rank")
+        market_signal = p_data.get("market_signal")
+        rank_diff = p_data.get("rank_diff")
+        market_signal_str = {
+            "sell_high": "🔥 Sell High",
+            "buy_low": "💎 Buy Low",
+        }.get(market_signal, "—")
 
         pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
         overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
@@ -2505,6 +2542,10 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
             ),
             "Sleeper Proj PPG": f"{proj_ppg:.1f} PPG" if proj_ppg is not None else "—",
             "KTC Redraft Value": f"{ktc_redraft_val:,.0f} pts" if ktc_redraft_val is not None else "—",
+            "Market Signal": market_signal_str,
+            "market_signal": market_signal,
+            "rank_diff": rank_diff,
+            "_rank_diff": float(rank_diff) if rank_diff is not None else 0.0,
             "proj_ppg": proj_ppg,
             "fp_ecr_overall": fp_o,
             "fp_ecr_pos": fp_p,
@@ -6360,19 +6401,35 @@ else:
         all_market_assets = build_market_assets_list(active_lookup, players, is_redraft=is_redraft)
 
         if "Database" in market_subview:
-            c_mkt1, c_mkt2 = st.columns([1, 2])
+            signal_mkt = "ALL"
+            if is_redraft:
+                c_mkt1, c_mkt2 = st.columns([1, 2])
+            else:
+                c_mkt1, c_mkt2, c_mkt3 = st.columns([1, 1.6, 1])
             with c_mkt1:
                 pos_options = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"] if is_redraft else ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"]
                 pos_mkt = st.selectbox("Position Filter:", pos_options, key=f"mkt_pos_filter_{'redraft' if is_redraft else 'dynasty'}")
             with c_mkt2:
                 search_label = "Search Player / Team:" if is_redraft else "Search Player / Team / Pick:"
                 search_mkt = st.text_input(search_label, "", key=f"mkt_search_filter_{'redraft' if is_redraft else 'dynasty'}")
+            if not is_redraft:
+                with c_mkt3:
+                    signal_mkt = st.selectbox(
+                        "Market Signal:",
+                        ["ALL", "🔥 Sell High", "💎 Buy Low"],
+                        key="mkt_signal_filter_dynasty",
+                        help="Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence.",
+                    )
+
+            signal_filter_map = {"🔥 Sell High": "sell_high", "💎 Buy Low": "buy_low"}
 
             filtered_rows = []
             for r in all_market_assets:
                 if pos_mkt != "ALL" and r["pos"] != pos_mkt:
                     continue
                 if search_mkt and (search_mkt.lower() not in r["name"].lower() and search_mkt.lower() not in r["team"].lower()):
+                    continue
+                if signal_mkt != "ALL" and r.get("market_signal") != signal_filter_map.get(signal_mkt):
                     continue
                 filtered_rows.append(r)
 
@@ -6382,7 +6439,7 @@ else:
                     sort_options = (
                         ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "KTC Redraft Value", "Player Name"]
                         if is_redraft
-                        else ["Consensus Value", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
+                        else ["Consensus Value", "Market Signal", "Overall Rank", "Pos Rank", "KeepTradeCut", "FantasyCalc", "DynastyProcess", "Player Name"]
                     )
                     sort_mkt_col = st.selectbox(
                         "Sort Market Players By:",
@@ -6423,6 +6480,12 @@ else:
                     sorted_mkt.sort(key=lambda x: x["_ktc_redraft_val"], reverse=is_desc)
                 elif sort_mkt_col == "DynastyProcess":
                     sorted_mkt.sort(key=lambda x: x["_dp"], reverse=is_desc)
+                elif sort_mkt_col == "Market Signal":
+                    # Descending = Buy Low first (rank_diff most positive - DP
+                    # undervalues vs. the market); Ascending = Sell High first
+                    # (rank_diff most negative - the market is more excited
+                    # than expert consensus).
+                    sorted_mkt.sort(key=lambda x: x["_rank_diff"], reverse=is_desc)
                 elif sort_mkt_col == "Player Name":
                     sorted_mkt.sort(key=lambda x: x["_name"], reverse=not is_desc)
 

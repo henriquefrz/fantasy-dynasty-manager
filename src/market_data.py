@@ -446,6 +446,27 @@ def _extract_fc_player_values(fc_raw):
     return fc_values
 
 
+def _extract_fc_player_ranks(fc_raw):
+    """
+    Extracts Sleeper ID -> FantasyCalc's own native overall rank
+    (item["overallRank"] - FantasyCalc ships this directly, already scoped to
+    whichever pool this fc_raw fetch was for, 1QB or Superflex). Powers the
+    rank-based Market Differential signal (see compute_market_rank_divergence).
+    """
+    fc_ranks = {}
+    for item in fc_raw:
+        player_info = item.get("player") or {}
+        sleeper_id = str(player_info.get("sleeperId") or "")
+        if sleeper_id and sleeper_id != "None":
+            rank = item.get("overallRank")
+            if rank is not None:
+                try:
+                    fc_ranks[sleeper_id] = int(rank)
+                except (ValueError, TypeError):
+                    continue
+    return fc_ranks
+
+
 def _extract_fc_player_metadata(fc_raw):
     """
     Extracts Sleeper ID -> dict(name, position) from FantasyCalc feed.
@@ -524,6 +545,48 @@ def _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex=True):
             continue
 
     return ktc_values
+
+
+def _extract_ktc_player_ranks(ktc_raw, player_ids_raw, is_superflex=True):
+    """
+    Extracts Sleeper ID -> KTC's own native overall rank (oneQBValues.rank /
+    superflexValues.rank - KTC already computes and ships this, no need to
+    derive it by sorting .value ourselves). Powers the rank-based Market
+    Differential signal (see compute_market_rank_divergence).
+    """
+    ktc_id_to_sleeper = {
+        str(r["ktc_id"]): str(r["sleeper_id"])
+        for r in player_ids_raw
+        if r.get("ktc_id") and r.get("sleeper_id")
+    }
+    mfl_id_to_sleeper = {
+        str(r["mfl_id"]): str(r["sleeper_id"])
+        for r in player_ids_raw
+        if r.get("mfl_id") and r.get("sleeper_id")
+    }
+
+    ktc_ranks = {}
+    val_key = "superflexValues" if is_superflex else "oneQBValues"
+
+    for p in ktc_raw:
+        if p.get("position") == "RDP":
+            continue
+
+        p_id = str(p.get("playerID", ""))
+        mfl_id = str(p.get("mflid", ""))
+
+        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
+        if not s_id:
+            continue
+
+        try:
+            rank = p.get(val_key, {}).get("rank")
+            if rank is not None:
+                ktc_ranks[s_id] = int(rank)
+        except (ValueError, TypeError):
+            continue
+
+    return ktc_ranks
 
 
 def _extract_ktc_te_tiers(ktc_raw, player_ids_raw, is_superflex=True):
@@ -813,7 +876,9 @@ def enrich_lookup_with_consensus_values(
     """
     fc_values = _extract_fc_player_values(fc_raw) if fc_raw else {}
     fc_meta = _extract_fc_player_metadata(fc_raw) if fc_raw else {}
+    fc_ranks = _extract_fc_player_ranks(fc_raw) if fc_raw else {}
     ktc_values = _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex) if ktc_raw else {}
+    ktc_ranks = _extract_ktc_player_ranks(ktc_raw, player_ids_raw, is_superflex) if ktc_raw else {}
     dp_values = _extract_dp_player_values(values_players_raw, player_ids_raw, is_superflex) if values_players_raw else {}
 
     try:
@@ -886,11 +951,26 @@ def enrich_lookup_with_consensus_values(
 
         composite = compute_composite_value(fc_val, ktc_val, dp_val, mode=mode, rank_ecr=rank_ecr, position=pos)
 
+        # Native overall ranks (not derived from value) - each source's own
+        # rank of this player within ITS OWN pool. Powers the rank-based
+        # Market Differential signal (see compute_market_rank_divergence),
+        # which re-ranks these within the intersection of all 3 pools before
+        # comparing, since the raw pool sizes differ (~365-500 players).
+        # Picks don't get a rank signal (Phase 1 is skill players only).
+        fc_rank_native = fc_ranks.get(pid) if not is_fc_pick else None
+        ktc_rank_native = ktc_ranks.get(pid) if not is_fc_pick else None
+        dp_rank_native = dp_ecr_overall.get(pid) if not is_fc_pick else None
+        if dp_rank_native is not None and dp_rank_native >= 999.0:
+            dp_rank_native = None
+
         if pid in lookup:
             lookup[pid]["market_value"] = composite
             lookup[pid]["fc_val"] = fc_val
             lookup[pid]["ktc_val"] = ktc_val
             lookup[pid]["dp_val"] = dp_val
+            lookup[pid]["fc_rank_native"] = fc_rank_native
+            lookup[pid]["ktc_rank_native"] = ktc_rank_native
+            lookup[pid]["dp_rank_native"] = dp_rank_native
             if lookup[pid].get("rank_ecr_overall", 999.0) >= 999.0 and pid in dp_ecr_overall:
                 lookup[pid]["rank_ecr_overall"] = dp_ecr_overall[pid]
             if lookup[pid].get("rank_ecr_pos", 999.0) >= 999.0 and pid in dp_ecr_pos:
@@ -910,6 +990,9 @@ def enrich_lookup_with_consensus_values(
                 "fc_val": fc_val,
                 "ktc_val": ktc_val,
                 "dp_val": dp_val,
+                "fc_rank_native": fc_rank_native,
+                "ktc_rank_native": ktc_rank_native,
+                "dp_rank_native": dp_rank_native,
             }
 
     for p in lookup.values():
@@ -955,6 +1038,100 @@ def recompute_consensus_ranks(lookup):
             p_data["rank_ecr"] = float(pos_idx)
 
     return lookup
+
+
+# Rank-based Market Differential (crowd-vs-expert divergence). Excludes K/DEF -
+# neither KTC nor DynastyProcess rank them the same way as skill players, and
+# they were never part of the validated investigation's pool.
+MARKET_DIVERGENCE_EXCLUDED_POSITIONS = {"K", "DEF", "DST"}
+MARKET_SIGNAL_LOWER_PCT = 10
+MARKET_SIGNAL_UPPER_PCT = 90
+
+
+def compute_market_rank_divergence(lookup):
+    """
+    Computes the rank-based Market Differential signal: for every player
+    present in all 3 sources (KTC, FantasyCalc, DynastyProcess - i.e. has a
+    fc_rank_native/ktc_rank_native/dp_rank_native), re-ranks each source 1..N
+    within that intersection, then computes:
+
+        rank_diff = dp_rank_aligned - avg(ktc_rank_aligned, fc_rank_aligned)
+
+    Re-ranking within the intersection (rather than comparing each source's
+    raw native rank directly) matters because the 3 sources' pools are
+    different sizes (~365-500 players) - a raw KTC #50 and a raw FC #50 are
+    not the same "position in the market" once the pools don't match.
+
+    A large positive rank_diff means DynastyProcess ranks the player much
+    worse than the market (KTC/FC) - a "Buy Low" candidate the crowd/trades
+    haven't caught up to yet. A large negative rank_diff means the opposite -
+    a "Sell High" candidate the market is more excited about than the expert
+    consensus.
+
+    Thresholds are the 10th/90th percentile of the CURRENT distribution
+    (recomputed every call, not hardcoded) - per the session's validated
+    investigation, raw VALUE-based divergence explodes for low-value players
+    (near-zero DynastyProcess denominators) and carries a strong positional
+    bias (QB/TE medians of +76%/+88% vs RB/WR's +33%/+49%); rank-based
+    divergence has neither problem (positional medians shrink to single
+    digits) and needs no minimum-value floor.
+
+    Mutates `lookup` in place, adding "rank_diff" (float) and "market_signal"
+    ("sell_high" | "buy_low" | None) to every player in the intersection.
+    Players outside it (missing a native rank from any of the 3 sources, or
+    at an excluded position) are left untouched - they simply won't have
+    these two keys.
+
+    Returns {"n": intersection size, "p10": ..., "p90": ...} for
+    transparency/testing (None values if the intersection is empty).
+    """
+    candidates = [
+        (pid, p) for pid, p in lookup.items()
+        if p.get("position") not in MARKET_DIVERGENCE_EXCLUDED_POSITIONS
+        and p.get("fc_rank_native") is not None
+        and p.get("ktc_rank_native") is not None
+        and p.get("dp_rank_native") is not None
+    ]
+    if not candidates:
+        return {"n": 0, "p10": None, "p90": None}
+
+    by_fc = sorted(candidates, key=lambda item: item[1]["fc_rank_native"])
+    fc_aligned = {pid: idx for idx, (pid, _) in enumerate(by_fc, 1)}
+
+    by_ktc = sorted(candidates, key=lambda item: item[1]["ktc_rank_native"])
+    ktc_aligned = {pid: idx for idx, (pid, _) in enumerate(by_ktc, 1)}
+
+    # dp_rank_native (ecr_1qb/ecr_2qb) is a continuous average-expert rank and
+    # can tie between players - break ties by player_name for a deterministic,
+    # reproducible order.
+    by_dp = sorted(candidates, key=lambda item: (item[1]["dp_rank_native"], item[1].get("player_name", "")))
+    dp_aligned = {pid: idx for idx, (pid, _) in enumerate(by_dp, 1)}
+
+    rank_diffs = {}
+    for pid, _ in candidates:
+        rank_market_avg = (ktc_aligned[pid] + fc_aligned[pid]) / 2.0
+        rank_diffs[pid] = dp_aligned[pid] - rank_market_avg
+
+    sorted_diffs = sorted(rank_diffs.values())
+    n = len(sorted_diffs)
+
+    def _percentile(p):
+        idx = min(int(n * p / 100.0), n - 1)
+        return sorted_diffs[idx]
+
+    p10 = _percentile(MARKET_SIGNAL_LOWER_PCT)
+    p90 = _percentile(MARKET_SIGNAL_UPPER_PCT)
+
+    for pid, rank_diff in rank_diffs.items():
+        lookup[pid]["rank_diff"] = rank_diff
+        if rank_diff <= p10:
+            lookup[pid]["market_signal"] = "sell_high"
+        elif rank_diff >= p90:
+            lookup[pid]["market_signal"] = "buy_low"
+        else:
+            lookup[pid]["market_signal"] = None
+
+    return {"n": n, "p10": p10, "p90": p90}
 
 
 def apply_valuation_mode(lookup, mode="equal"):
