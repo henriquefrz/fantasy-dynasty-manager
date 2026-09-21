@@ -1331,14 +1331,14 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 24%; text-align: left;'>Player</th>
-                    <th style='width: 10%; text-align: center;' title='Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence'>Market Signal</th>
+                    <th style='width: 26%; text-align: left;'>Player</th>
                     <th style='width: 15%; text-align: center;'>Consensus Value</th>
                     <th style='width: 11%; text-align: center;'>Overall Rank</th>
                     <th style='width: 11%; text-align: center;'>Pos Rank</th>
                     <th style='width: 10%; text-align: center;'>KeepTradeCut</th>
                     <th style='width: 10%; text-align: center;'>FantasyCalc</th>
                     <th style='width: 9%; text-align: center;'>DynastyProcess</th>
+                    <th style='width: 8%; text-align: center;' title='Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence'>Market Signal</th>
                 </tr>
             </thead>
             <tbody>
@@ -1420,13 +1420,13 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                             </div>
                         </div>
                     </td>
-                    <td style='text-align: center;'><span class='{market_signal_cls}'>{market_signal}</span></td>
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                     <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{fc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{dp}</td>
+                    <td style='text-align: center;'><span class='{market_signal_cls}'>{market_signal}</span></td>
                 </tr>
             """
     html += """
