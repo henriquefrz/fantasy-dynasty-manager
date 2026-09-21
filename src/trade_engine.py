@@ -141,8 +141,20 @@ def evaluate_trade_fairness(
     }
 
 
-def make_player_asset(player_obj: Dict[str, Any], ranking_data: Dict[str, Any], alt_lookup: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Wraps a Sleeper player and ranking data into a standardized trade asset."""
+def make_player_asset(
+    player_obj: Dict[str, Any],
+    ranking_data: Dict[str, Any],
+    alt_lookup: Optional[Dict[str, Any]] = None,
+    slot: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Wraps a Sleeper player and ranking data into a standardized trade asset.
+    slot is the actual lineup slot this player was assigned to by
+    simulate_optimal_lineup (e.g. "K", "FLEX") - None for bench/taxi assets,
+    which have no fixed slot. Callers must use this field directly instead
+    of reconstructing it by zipping starters against roster_positions by
+    index (see simulate_optimal_lineup's docstring for why that's unsafe).
+    """
     pid = player_obj.get("player_id")
     alt_data = alt_lookup.get(pid, {}) if alt_lookup else {}
 
@@ -160,6 +172,7 @@ def make_player_asset(player_obj: Dict[str, Any], ranking_data: Dict[str, Any], 
         "redraft_ecr": alt_data.get("rank_ecr", ranking_data.get("rank_ecr", 999.0)),
         "player_obj": player_obj,
         "ranking_data": ranking_data,
+        "slot": slot,
     }
 
 
@@ -226,7 +239,7 @@ def analyze_team_profile(
     reserve_ids = set(roster.get("reserve") or [])
     taxi_ids = set(roster.get("taxi") or [])
 
-    starter_assets = [make_player_asset(p, r, redraft_lookup) for p, r in starters_tuples]
+    starter_assets = [make_player_asset(p, r, redraft_lookup, slot=slot) for p, r, slot in starters_tuples]
     bench_assets = [
         make_player_asset(p, r, redraft_lookup)
         for p, r in bench_tuples
@@ -445,9 +458,9 @@ def check_lineup_and_deficit_viability(
             old_starters, _ = simulate_optimal_lineup(current_players, primary_lookup, roster_positions, is_dynasty=is_dynasty)
             new_starters, _ = simulate_optimal_lineup(new_players, primary_lookup, roster_positions, is_dynasty=is_dynasty)
 
-            old_starter_val = sum(r.get("market_value", 0.0) for _, r in old_starters)
-            new_starter_val = sum(r.get("market_value", 0.0) for _, r in new_starters)
-            new_starter_pids = {p.get("player_id") for p, _ in new_starters}
+            old_starter_val = sum(r.get("market_value", 0.0) for _, r, _slot in old_starters)
+            new_starter_val = sum(r.get("market_value", 0.0) for _, r, _slot in new_starters)
+            new_starter_pids = {p.get("player_id") for p, _, _slot in new_starters}
 
             recv_makes_lineup = any(
                 ra.get("player_id") in new_starter_pids

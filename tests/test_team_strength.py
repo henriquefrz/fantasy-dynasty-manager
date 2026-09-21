@@ -82,7 +82,12 @@ def _simulate_with_custom_idp_set(roster_players, lookup, roster_positions, idp_
 
 
 def _starter_names(starters):
-    return {p.get("full_name") for p, _ in starters}
+    """
+    Arity-agnostic on purpose: _simulate_with_custom_idp_set (this file's
+    reimplementation) still returns 2-tuples, while the real
+    simulate_optimal_lineup now returns 3-tuples (player, ranking, slot).
+    """
+    return {tup[0].get("full_name") for tup in starters}
 
 
 def test_old_team_strength_idp_flex_set_benched_elite_pass_rushers(
@@ -153,3 +158,114 @@ def test_idp_flex_eligible_positions_covers_every_real_sleeper_idp_position():
     idp_rule = dict(FLEX_RULES)["IDP_FLEX"]
     for pos in ("DE", "DT", "NT", "OLB", "ILB", "MLB", "CB", "S", "SS", "FS", "DL", "LB", "DB"):
         assert pos in idp_rule, f"unified IDP_FLEX set is missing real Sleeper position value {pos!r}"
+
+
+def _make_player(pid, name, pos, value):
+    return {"player_id": pid, "full_name": name, "position": pos}, {
+        pid: {"market_value": value, "rank_ecr": 10000.0 - value, "rank_ecr_overall": 10000.0 - value}
+    }
+
+
+def test_slot_labels_survive_a_fixed_slot_after_flex_in_roster_positions():
+    """
+    Regression test for a real production bug: a real league's
+    roster_positions can list a fixed slot (K/DEF/IDP) AFTER a flex slot
+    (e.g. Liga do Inguinho's ['QB','RB','RB','WR','WR','TE','FLEX','FLEX',
+    'K']) - simulate_optimal_lineup fills every fixed slot first regardless
+    of where it appears in roster_positions, then appends flex slots, so a
+    caller reconstructing the slot by zipping starters[i] against
+    roster_positions[i] mislabels two rows. Confirmed live: a Kicker
+    (Cam Little) rendered as "FLEX" and a WR (Jaylen Waddle) rendered as
+    "K" in the ROS/Dynasty roster breakdown tables. This pins the fix -
+    simulate_optimal_lineup now attaches the real slot to each starter
+    tuple instead of leaving it for the caller to reconstruct.
+    """
+    roster_positions = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "FLEX", "K", "BN", "BN"]
+
+    roster_players = []
+    lookup = {}
+    # Values chosen so the two lowest-value flex-eligible WRs are the ones
+    # left for FLEX after fixed slots are filled - deterministic selection.
+    for pid, name, pos, value in [
+        ("p_qb", "Test QB", "QB", 9000.0),
+        ("p_rb1", "Test RB1", "RB", 8000.0),
+        ("p_rb2", "Test RB2", "RB", 7000.0),
+        ("p_wr1", "Test WR1", "WR", 6000.0),
+        ("p_wr2", "Test WR2", "WR", 5000.0),
+        ("p_te", "Test TE", "TE", 4000.0),
+        ("p_k", "Test Kicker", "K", 3000.0),
+        ("p_wr3", "Flex WR3", "WR", 2000.0),
+        ("p_wr4", "Flex WR4", "WR", 1000.0),
+    ]:
+        player, entry = _make_player(pid, name, pos, value)
+        roster_players.append(player)
+        lookup.update(entry)
+
+    starters, _bench = simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty=True)
+
+    slot_by_name = {p.get("full_name"): slot for p, _r, slot in starters}
+
+    assert slot_by_name["Test Kicker"] == "K", (
+        f"the Kicker must be labeled 'K', not whatever roster_positions[i] happens to hold at his index - got {slot_by_name}"
+    )
+    assert slot_by_name["Flex WR3"] == "FLEX" and slot_by_name["Flex WR4"] == "FLEX", (
+        f"the two lowest-value WRs must fill FLEX and be labeled 'FLEX', not 'K' - got {slot_by_name}"
+    )
+    # The exact bug this reproduces: zipping starters[i] <-> roster_positions[i]
+    # by index would put the Kicker at index 6 (labeled "FLEX" there) and a
+    # flex WR at index 8 (labeled "K" there) - assert that never happens.
+    naive_zip_labels = {
+        p.get("full_name"): (roster_positions[i] if i < len(roster_positions) else "FLEX")
+        for i, (p, _r, _slot) in enumerate(starters)
+    }
+    assert naive_zip_labels["Test Kicker"] != slot_by_name["Test Kicker"], (
+        "sanity check: this fixture must actually reproduce the index-mismatch scenario, or the assertions above prove nothing"
+    )
+
+
+def test_analyze_team_profile_starter_assets_carry_the_real_slot():
+    """
+    Same scenario one layer up: src.trade_engine.analyze_team_profile's
+    starter_assets (what app.py's ROS/Dynasty roster breakdown tables
+    actually render) must carry the same correct, explicit slot - not rely
+    on app.py reconstructing it from roster_positions by index.
+    """
+    from src.trade_engine import analyze_team_profile
+
+    roster_positions = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "FLEX", "K", "BN", "BN"]
+    roster_players = []
+    lookup = {}
+    for pid, name, pos, value in [
+        ("p_qb", "Test QB", "QB", 9000.0),
+        ("p_rb1", "Test RB1", "RB", 8000.0),
+        ("p_rb2", "Test RB2", "RB", 7000.0),
+        ("p_wr1", "Test WR1", "WR", 6000.0),
+        ("p_wr2", "Test WR2", "WR", 5000.0),
+        ("p_te", "Test TE", "TE", 4000.0),
+        ("p_k", "Test Kicker", "K", 3000.0),
+        ("p_wr3", "Flex WR3", "WR", 2000.0),
+        ("p_wr4", "Flex WR4", "WR", 1000.0),
+    ]:
+        player, entry = _make_player(pid, name, pos, value)
+        roster_players.append(player)
+        lookup.update(entry)
+
+    profile = analyze_team_profile(
+        roster={"roster_id": 1, "reserve": [], "taxi": []},
+        roster_players=roster_players,
+        owned_picks=[],
+        primary_lookup=lookup,
+        redraft_lookup=lookup,
+        picks_lookup={},
+        sim_rank_map={},
+        roster_positions=roster_positions,
+        is_dynasty=True,
+        status="Active",
+        category="neutral",
+        manager_name="Test Manager",
+        total_rosters=12,
+    )
+
+    slot_by_name = {a["name"]: a["slot"] for a in profile["starter_assets"]}
+    assert slot_by_name["Test Kicker"] == "K"
+    assert slot_by_name["Flex WR3"] == "FLEX" and slot_by_name["Flex WR4"] == "FLEX"

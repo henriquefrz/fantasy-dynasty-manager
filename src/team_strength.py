@@ -37,7 +37,20 @@ def simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty
     Fills fixed position slots first, then flex slots in order of specificity.
     All remaining roster players are designated as the bench.
 
-    Returns (starters, bench) where each is a list of (player_obj, ranking_data).
+    Returns (starters, bench): starters is a list of (player_obj,
+    ranking_data, slot) - the slot each player was actually assigned to,
+    attached at selection time (same pattern as
+    src.start_sit.simulate_optimal_weekly_lineup) rather than left for a
+    caller to reconstruct by zipping the starters list against
+    roster_positions by index. That reconstruction is unsafe: this function
+    fills every fixed slot first (QB/RB/WR/TE/K/DEF/IDP, in their relative
+    order among themselves) and only then appends flex slots, so the
+    starters list's order does not match roster_positions' raw order
+    whenever a fixed slot appears after a flex slot there (e.g.
+    ['FLEX','FLEX','K']) - a caller doing starters[i] <-> roster_positions[i]
+    would mislabel two rows (confirmed real bug: a Kicker rendered as
+    "FLEX" and a WR rendered as "K"). bench is a list of (player_obj,
+    ranking_data) - unchanged, since bench players have no fixed slot.
     """
     if not roster_players:
         return [], []
@@ -79,7 +92,7 @@ def simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty
         for p_obj, r_data in sorted_players:
             pid = p_obj.get("player_id")
             if pid not in assigned_player_ids and p_obj.get("position") == pos:
-                starters.append((p_obj, r_data))
+                starters.append((p_obj, r_data, pos))
                 assigned_player_ids.add(pid)
                 count += 1
                 if count >= needed:
@@ -96,7 +109,7 @@ def simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty
         for p_obj, r_data in sorted_players:
             pid = p_obj.get("player_id")
             if pid not in assigned_player_ids and p_obj.get("position") in eligible_positions:
-                starters.append((p_obj, r_data))
+                starters.append((p_obj, r_data, flex_slot))
                 assigned_player_ids.add(pid)
                 break
 
@@ -124,7 +137,7 @@ def calculate_team_strength(roster_players, lookup, roster_positions, starter_we
     all_starter_ranks = []
     starter_counts_by_pos = {}
 
-    for p_obj, r_data in starters:
+    for p_obj, r_data, _slot in starters:
         pos = p_obj.get("position")
         rank = r_data.get("rank_ecr")
         if rank is not None:
@@ -137,7 +150,7 @@ def calculate_team_strength(roster_players, lookup, roster_positions, starter_we
     }
 
     overall_avg = sum(all_starter_ranks) / len(all_starter_ranks) if all_starter_ranks else None
-    starters_total = sum(r_data.get("market_value", 0.0) for _, r_data in starters)
+    starters_total = sum(r_data.get("market_value", 0.0) for _, r_data, _slot in starters)
     bench_total = sum(r_data.get("market_value", 0.0) for _, r_data in bench)
     blended_points = starter_weight * starters_total + bench_weight * bench_total
 

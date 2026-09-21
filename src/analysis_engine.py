@@ -106,7 +106,7 @@ def build_intelligent_waiver_suggestions(
     current_starters, current_bench = simulate_optimal_lineup(
         roster_players, primary_lookup, roster_positions, is_dynasty=is_dynasty
     )
-    starter_ids = {p.get("player_id") for p, _ in current_starters}
+    starter_ids = {p.get("player_id") for p, _, _slot in current_starters}
 
     # 2. Categorize roster players
     active_bench = []
@@ -199,7 +199,7 @@ def build_intelligent_waiver_suggestions(
         new_starters, _ = simulate_optimal_lineup(
             test_roster, primary_lookup, roster_positions, is_dynasty=is_dynasty
         )
-        new_starter_ids = {p.get("player_id") for p, _ in new_starters}
+        new_starter_ids = {p.get("player_id") for p, _, _slot in new_starters}
 
         is_starter = fa_id in new_starter_ids
 
@@ -207,7 +207,7 @@ def build_intelligent_waiver_suggestions(
         if is_starter:
             # Find which starter was displaced
             displaced_id = (starter_ids - new_starter_ids).pop() if (starter_ids - new_starter_ids) else None
-            displaced_p = next((p for p, _ in current_starters if p.get("player_id") == displaced_id), None) if displaced_id else None
+            displaced_p = next((p for p, _, _slot in current_starters if p.get("player_id") == displaced_id), None) if displaced_id else None
             displaced_ranking = primary_lookup.get(displaced_id, {}) if displaced_id else {}
 
             if fa_pos in ("K", "DEF"):

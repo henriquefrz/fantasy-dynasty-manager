@@ -5218,7 +5218,7 @@ else:
                 with insp_sub_starters:
                     st.caption(f"ROS Starting Lineup Valuation: **{selected_prof.get('starter_value', 0):,.0f} pts**")
                     st_rows = []
-                    for idx, a in enumerate(selected_prof["starters"]):
+                    for a in selected_prof["starters"]:
                         pid = a.get("player_id")
                         pos = a.get("position") or "UTIL"
                         team = a.get("team") or "FA"
@@ -5230,7 +5230,7 @@ else:
                         overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
                         eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
                         st_rows.append({
-                            "Slot": roster_pos[idx] if idx < len(roster_pos) else "FLEX",
+                            "Slot": a.get("slot") or "FLEX",
                             "Player": a.get("name", "Unknown"),
                             "Pos": pos,
                             "NFL Team": team,
@@ -5309,7 +5309,7 @@ else:
                 with insp_sub_starters:
                     st.caption(f"Starting Lineup Valuation: **{selected_prof.get('starter_value', 0):,.0f} pts**")
                     st_rows = []
-                    for idx, a in enumerate(selected_prof["starters"]):
+                    for a in selected_prof["starters"]:
                         pid = a.get("player_id")
                         pos = a.get("position") or "UTIL"
                         team = a.get("team") or "FA"
@@ -5321,7 +5321,7 @@ else:
                         overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
                         eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
                         st_rows.append({
-                            "Slot": roster_pos[idx] if idx < len(roster_pos) else "FLEX",
+                            "Slot": a.get("slot") or "FLEX",
                             "Player": a.get("name", "Unknown"),
                             "Pos": pos,
                             "NFL Team": team,
@@ -6121,8 +6121,8 @@ else:
                             old_st, _ = simulate_optimal_lineup(cur_p_objs, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
                             new_st, _ = simulate_optimal_lineup(new_p_objs, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
 
-                            old_st_val = sum(r.get("market_value", 0.0) for _, r in old_st)
-                            new_st_val = sum(r.get("market_value", 0.0) for _, r in new_st)
+                            old_st_val = sum(r.get("market_value", 0.0) for _, r, _slot in old_st)
+                            new_st_val = sum(r.get("market_value", 0.0) for _, r, _slot in new_st)
                             st_delta = new_st_val - old_st_val
                             st.metric(
                                 f"{prof_a['manager_name']} Lineup Impact",
@@ -6142,8 +6142,8 @@ else:
                             old_st_b, _ = simulate_optimal_lineup(cur_p_objs_b, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
                             new_st_b, _ = simulate_optimal_lineup(new_p_objs_b, active_calc_lookup, roster_pos, is_dynasty=not is_calc_redraft)
 
-                            old_st_val_b = sum(r.get("market_value", 0.0) for _, r in old_st_b)
-                            new_st_val_b = sum(r.get("market_value", 0.0) for _, r in new_st_b)
+                            old_st_val_b = sum(r.get("market_value", 0.0) for _, r, _slot in old_st_b)
+                            new_st_val_b = sum(r.get("market_value", 0.0) for _, r, _slot in new_st_b)
                             st_delta_b = new_st_val_b - old_st_val_b
                             st.metric(
                                 f"{prof_b['manager_name']} Lineup Impact",
