@@ -3144,6 +3144,15 @@ def evaluate_league_quick_status(lid, user_id, _market_db, selected_mode, _weekl
         else:
             return my_profile["status"], my_profile["category"], w, l, fpts, p_count, f"#{r_pos}/{redraft_total}", r_pos, r_pos
     except Exception:
+        # Never let one league's failure (transient API hiccup, bad data
+        # assumption) take down the whole Portal grid - but a silent,
+        # untraced except here means a real bug degrades every card to
+        # zeros with zero diagnostic trail (see the Portal-wide
+        # Record/Points/Dynasty-all-zeroed incident this traceback would
+        # have caught immediately). Logged, not raised.
+        import traceback
+        print(f"Warning: evaluate_league_quick_status failed for league {lid}:")
+        traceback.print_exc()
         return "Active", "neutral", 0, 0, 0.0, 0, "—", 0, 0
 
 

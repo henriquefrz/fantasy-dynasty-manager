@@ -9,6 +9,7 @@ so team 1 is the strongest roster and team 4 the weakest).
 from unittest import mock
 
 from src.orchestration import build_league_context, build_team_profiles
+from src.team_strength import get_strength_tier
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +121,44 @@ def test_redraft_ranked_also_reflects_engineered_roster_strength(orchestration_d
 
     ranked_roster_ids = [rid for rid, _, _ in result["redraft_ranked"]]
     assert ranked_roster_ids == [1, 2, 3, 4]
+
+
+def test_portal_card_extraction_never_degrades_to_zeroed_fallback(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db):
+    """
+    Regression test for a real production incident: app.py's
+    evaluate_league_quick_status (the Portal grid's per-league card) pulls
+    dynasty_pos/dynasty_total/r_pos/status out of build_team_profiles'
+    result using this exact extraction - get_strength_tier(my_rid,
+    dynasty_score_pairs), sim_rank_map.get(my_rid, ...), profile["status"].
+    A renamed dict key or field there doesn't raise where anyone would
+    notice: it's a KeyError/AttributeError caught by
+    evaluate_league_quick_status's bare except, which silently degrades
+    EVERY Portal card to Record 0-0 / Points 0.0 / Dynasty #0/N / Season
+    #0/N with no error surfaced anywhere (that except now logs a traceback
+    - see app.py - but this test catches the underlying breakage in CI
+    before it ever reaches that except in production). Pins the exact
+    extraction shape so a rename fails loudly here instead.
+    """
+    context = _build_context(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db)
+    profiles = build_team_profiles(
+        context, orchestration_dynasty_league, orchestration_rosters, active_week=1,
+        weekly_projections={}, schedule={}, num_simulations=100,
+    )
+
+    my_rid = 1
+    my_profile = next(p for p in profiles["all_team_profiles"] if p["roster_id"] == my_rid)
+
+    _, redraft_pos, redraft_total = get_strength_tier(my_rid, profiles["redraft_ranked"])
+    r_pos = profiles["sim_rank_map"].get(my_rid, (redraft_pos, 0.0))[0]
+    _, dynasty_pos, dynasty_total = get_strength_tier(my_rid, profiles["dynasty_score_pairs"])
+    p_count = len(next(r for r in orchestration_rosters if r["roster_id"] == my_rid).get("players") or [])
+
+    assert my_profile["status"] and my_profile["status"] != "Unknown", (
+        "status must be overwritten with the real dynasty classification, never leak the internal placeholder"
+    )
+    assert p_count > 0, "roster player count must reflect the real roster, not an empty/degraded fallback"
+    assert dynasty_pos not in (0, None) and dynasty_total not in (0, None), "dynasty rank must never silently degrade to #0/0"
+    assert r_pos not in (0, None), "season power score rank must never silently degrade to #0"
 
 
 def test_all_team_profiles_carry_tier_status_and_category_for_every_roster(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db):
