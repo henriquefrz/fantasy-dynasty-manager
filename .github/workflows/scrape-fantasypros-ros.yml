@@ -1,10 +1,20 @@
 name: Scrape FantasyPros ROS Rankings
 
-# Runs Tue/Thu/Sat at 13:00 America/Sao_Paulo (BRT, fixed UTC-3, no DST since
-# 2019) = 16:00 UTC. Cron day-of-week: 2=Tue, 4=Thu, 6=Sat.
+# Runs Tue/Thu/Sat at 13:07 America/Sao_Paulo (BRT, fixed UTC-3, no DST since
+# 2019) = 16:07 UTC. Cron day-of-week: 2=Tue, 4=Thu, 6=Sat. Offset 7 minutes
+# past the hour on purpose - GitHub's own scheduling guidance recommends
+# avoiding the top of the hour, since that's when the shared Actions
+# scheduler queue is busiest across every repo running a schedule, which is
+# exactly when a run is most likely to be delayed.
+#
+# Even off the hour, GitHub does not guarantee scheduled workflows fire at
+# the exact configured minute - a delay of minutes up to a few hours is
+# documented, expected platform behavior (most common right after a
+# schedule is first added, or under high scheduler load), not a bug in
+# this workflow. See: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
 on:
   schedule:
-    - cron: "0 16 * * 2,4,6"
+    - cron: "7 16 * * 2,4,6"
   workflow_dispatch: {}
 
 permissions:
