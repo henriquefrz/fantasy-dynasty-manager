@@ -5115,8 +5115,9 @@ else:
             st.caption(f"📊 {formula_caption}")
             st.html(render_power_simulation_table_html(table_data, user_roster["roster_id"]))
 
-            # Week-by-Week Evolution History View
-            with st.expander("📈 View Week-by-Week Evolution & Trends", expanded=False):
+            # Week-by-Week Evolution History View - always visible, no click needed.
+            st.markdown("#### 📈 Week-by-Week Evolution & Trends")
+            with st.container(border=True):
                 st.caption("Compare how projected wins, playoff odds, championship probabilities, and the composite Power Score have shifted week-by-week. \"Power Score Δ\" tracks the blended Power Score itself; \"Playoff Odds Δ\" tracks the simulated playoff probability alone - they can move independently since Power Score also weighs Starters PPG, Projected Wins, and Bench Depth.")
                 all_mgr_names = [user_map.get(r.get("owner_id"), f"Team {r['roster_id']}") for r in rosters]
                 user_mgr_name = user_map.get(user.get("user_id"), all_mgr_names[0] if all_mgr_names else "Team")
@@ -5265,7 +5266,8 @@ else:
 
             st.html(render_ros_power_table_html(ros_data, user_roster["roster_id"]))
 
-            with st.expander("View Complete ROS Lineup & Bench Breakdown", expanded=False):
+            st.markdown("#### Complete ROS Lineup & Bench Breakdown")
+            with st.container(border=True):
                 inspect_mgr = st.selectbox("Select Team to Inspect (ROS):", [t["manager_name"] for t in ranked_ros], key=f"inspect_ros_team_{selected_league_id}")
                 selected_prof = next(p for p in all_ros_team_profiles if p["manager_name"] == inspect_mgr)
                 tot_val = selected_prof.get("total_value", 0.0)
@@ -5355,7 +5357,8 @@ else:
 
             st.html(render_dynasty_power_table_html(dyn_data, user_roster["roster_id"]))
 
-            with st.expander("View Complete Team Roster & Pick Breakdown", expanded=False):
+            st.markdown("#### Complete Team Roster & Pick Breakdown")
+            with st.container(border=True):
                 inspect_mgr = st.selectbox("Select Team to Inspect:", [t["manager_name"] for t in ranked_dyn])
                 selected_prof = next(p for p in all_team_profiles if p["manager_name"] == inspect_mgr)
                 tot_val = selected_prof.get("total_value", 0.0)
@@ -5511,7 +5514,8 @@ else:
 
             st.html(render_positional_room_table_html(sorted_rooms, user_roster["roster_id"], sort_col=sort_key, show_picks=show_picks))
 
-            with st.expander("🔍 Inspect Franchise Positional Room Depth", expanded=False):
+            st.markdown("#### 🔍 Franchise Positional Room Depth")
+            with st.container(border=True):
                 inspect_room_mgr = st.selectbox(
                     "Select Team to Inspect:",
                     [t["manager_name"] for t in sorted_rooms],
