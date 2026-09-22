@@ -250,7 +250,7 @@ from src.draft_picks import (
 )
 try:
     from src.playoff_simulator import (
-        compute_team_lineup_expectation,
+        compute_team_weekly_expectations,
         run_monte_carlo_simulation,
         compute_ros_power_rankings,
         run_historical_simulation_snapshot,
@@ -260,7 +260,7 @@ try:
 except ImportError:
     import src.playoff_simulator as _ps
     importlib.reload(_ps)
-    compute_team_lineup_expectation = getattr(_ps, "compute_team_lineup_expectation")
+    compute_team_weekly_expectations = getattr(_ps, "compute_team_weekly_expectations")
     run_monte_carlo_simulation = getattr(_ps, "run_monte_carlo_simulation")
     compute_ros_power_rankings = getattr(_ps, "compute_ros_power_rankings")
     run_historical_simulation_snapshot = getattr(_ps, "run_historical_simulation_snapshot")
@@ -1870,7 +1870,8 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         <thead>
             <tr>
                 <th style='width: 60px; text-align: center;'>Rank</th>
-                <th style='width: 22%; text-align: left;'>Manager / Team</th>
+                <th style='width: 20%; text-align: left;'>Manager / Team</th>
+                <th style='width: 8%; text-align: center;'>Record</th>
                 <th style='width: 14%; text-align: center;'>Playoff Status</th>
                 <th style='width: 12%; text-align: center;'>Projected W-L</th>
                 <th style='width: 10%; text-align: center;'>Starters PPG</th>
@@ -1922,6 +1923,7 @@ def render_power_simulation_table_html(sim_rows, user_roster_id):
         <tr style='{row_style}'>
             <td style='text-align: center; color: #94a3b8; font-weight: 700;'>{r['Rank']}</td>
             <td style='text-align: left; {name_weight}'>{r['Manager / Team']}</td>
+            <td style='text-align: center; color: #e2e8f0; font-weight: 700;'>{r.get('Record', '—')}</td>
             <td style='text-align: center;'>{status_pill}</td>
             <td style='text-align: center; font-weight: 600;'>{r['Projected W-L']}</td>
             <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{starters_val}</td>
@@ -4982,16 +4984,16 @@ else:
 
         def render_simulation_view():
             playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
-            team_expectations = {}
-            for r in rosters:
-                rid = r["roster_id"]
-                team_expectations[rid] = compute_team_lineup_expectation(
+            team_week_expectations = {
+                r["roster_id"]: compute_team_weekly_expectations(
                     roster=r,
-                    roster_players=all_rosters_players.get(rid, []),
-                    weekly_projections=weekly_projections,
+                    roster_players=all_rosters_players.get(r["roster_id"], []),
+                    weekly_projections_by_week=weekly_projections_by_week,
                     scoring_settings=scoring,
                     roster_positions=roster_pos,
                 )
+                for r in rosters
+            }
 
             max_sim_week = max(1, active_week)
             if max_sim_week == 1:
@@ -5031,7 +5033,7 @@ else:
                         league=selected_league,
                         rosters=rosters,
                         schedule=schedule,
-                        team_expectations=team_expectations,
+                        team_week_expectations=team_week_expectations,
                         snapshot_week=selected_snap_week,
                         current_week=active_week,
                         playoff_week_start=playoff_start,
@@ -5046,11 +5048,18 @@ else:
             table_data = []
             for rank_idx, t in enumerate(ranked_sim, 1):
                 rid = t["roster_id"]
-                mgr = user_map.get(next((r["owner_id"] for r in rosters if r["roster_id"] == rid), ""), f"Team {rid}")
+                roster_for_record = next((r for r in rosters if r["roster_id"] == rid), {})
+                mgr = user_map.get(roster_for_record.get("owner_id", ""), f"Team {rid}")
+                r_settings = roster_for_record.get("settings", {})
+                r_wins = r_settings.get("wins", 0)
+                r_losses = r_settings.get("losses", 0)
+                r_ties = r_settings.get("ties", 0)
+                record_str = f"{r_wins}-{r_losses}" + (f"-{r_ties}" if r_ties else "")
                 table_data.append({
                     "roster_id": rid,
                     "Rank": f"#{rank_idx}",
                     "Manager / Team": mgr,
+                    "Record": record_str,
                     "Status": t.get("status_label", "In The Hunt"),
                     "status_code": t.get("status_code", "HUNT"),
                     "badge_icon": t.get("badge_icon", "🎯"),
@@ -5089,7 +5098,7 @@ else:
                             league=selected_league,
                             rosters=rosters,
                             schedule=schedule,
-                            team_expectations=team_expectations,
+                            team_week_expectations=team_week_expectations,
                             current_week=active_week,
                             playoff_week_start=playoff_start,
                             num_simulations=1000,

@@ -13,7 +13,7 @@ import concurrent.futures
 
 import pytest
 
-from src.playoff_simulator import run_monte_carlo_simulation
+from src.playoff_simulator import run_monte_carlo_simulation, run_historical_simulation_snapshot
 
 NUM_TEAMS = 8
 NUM_SIMULATIONS = 300
@@ -130,3 +130,65 @@ def test_concurrent_leagues_do_not_contaminate_each_others_random_sequence():
             mismatches += 1
 
     assert mismatches == 0, f"target league's result diverged from its sequential baseline in {mismatches}/{trials} concurrent trials"
+
+
+def test_historical_snapshot_uses_real_per_week_data_not_one_flattened_week(synthetic_league):
+    """
+    Pins the real bug behind the "Week-by-Week Evolution & Trends" chart
+    showing artificial jumps (e.g. @fbmartins in Liga do Inguinho: champ_pct
+    9.7% -> 54.6% between week 2 and week 3, with no real change in
+    underlying team strength). run_historical_simulation_snapshot used to
+    take one flat single-week team_expectations snapshot and broadcast it
+    across every simulated week - so a team with a genuine one-week
+    projection data gap (a newly-elevated starter Sleeper hadn't published
+    a projection for yet) had that gap's low score flattened onto its
+    ENTIRE remaining season, not just the one week it was genuinely true
+    for. It now takes team_week_expectations (the same real per-week curve
+    compute_team_weekly_expectations produces for the live path) instead.
+
+    Team A here is deliberately weak in exactly one week (mirroring a
+    single-week projection gap) but strong every other week, same as
+    control Team B which is strong every week. If the bug were still
+    present, Team A's whole reconstructed season would use its weak week's
+    score, crushing its win total far below Team B's; with the fix, only
+    the one real bad week should count against it.
+    """
+    league, rosters, _ = synthetic_league
+    league = dict(league)
+    league["settings"] = {**league["settings"], "playoff_week_start": 15}
+
+    STRONG = {"expected_pts": 150.0, "std_dev": 10.0, "bench_depth_pts": 20.0}
+    WEAK = {"expected_pts": 50.0, "std_dev": 10.0, "bench_depth_pts": 20.0}
+
+    team_a_rid, team_b_rid = 1, 2
+    weeks = range(1, 15)
+    team_week_expectations = {}
+    for rid in range(1, NUM_TEAMS + 1):
+        if rid == team_a_rid:
+            team_week_expectations[rid] = {w: (WEAK if w == 3 else STRONG) for w in weeks}
+        else:
+            team_week_expectations[rid] = {w: STRONG for w in weeks}
+
+    result = run_historical_simulation_snapshot(
+        league=league,
+        rosters=rosters,
+        schedule={},
+        team_week_expectations=team_week_expectations,
+        snapshot_week=1,
+        current_week=3,
+        playoff_week_start=15,
+        num_simulations=NUM_SIMULATIONS,
+    )
+
+    team_a_avg_wins = result[team_a_rid]["avg_wins"]
+    team_b_avg_wins = result[team_b_rid]["avg_wins"]
+
+    # Only 1 of ~13-14 simulated regular-season weeks is genuinely weak for
+    # Team A, so its win total should stay close to Team B's (both strong
+    # nearly every week) - not crushed toward zero the way flattening the
+    # single weak week across the whole season would have done.
+    assert team_a_avg_wins >= team_b_avg_wins - 2.0, (
+        f"Team A avg_wins ({team_a_avg_wins}) is far below Team B's ({team_b_avg_wins}) despite "
+        "being weak in only 1 of ~13 simulated weeks - the historical snapshot is still "
+        "flattening one week's projection across the whole season."
+    )

@@ -18,47 +18,6 @@ DEFAULT_WEEKLY_STD_DEV = 13.5  # Standard deviation in fantasy football weekly t
 DEFAULT_SIMULATIONS = 1000
 
 
-def compute_team_lineup_expectation(
-    roster: Dict[str, Any],
-    roster_players: List[Dict[str, Any]],
-    weekly_projections: Dict[str, Any],
-    scoring_settings: Dict[str, Any],
-    roster_positions: List[str],
-) -> Dict[str, Any]:
-    """
-    Computes a team's baseline weekly expected score (mu) and bench depth score
-    using the optimal lineup simulation.
-    """
-    proj_lookup = {}
-    for p in roster_players:
-        pid = p.get("player_id")
-        raw = weekly_projections.get(pid)
-        pts = calculate_weekly_projected_points(pid, raw, scoring_settings, p)
-        proj_lookup[pid] = pts
-
-    starters, bench = simulate_optimal_weekly_lineup(
-        roster_players=roster_players,
-        projections_lookup=proj_lookup,
-        roster_positions=roster_positions,
-    )
-
-    optimal_pts = sum(pts for _, pts, _ in starters)
-
-    # Fallback to reasonable average if projections are missing
-    if optimal_pts <= 10.0:
-        optimal_pts = 105.0
-
-    # Calculate bench depth score (top 4 bench players' projected points)
-    top_bench_pts = sum(pts for _, pts in bench[:4])
-
-    return {
-        "roster_id": roster["roster_id"],
-        "expected_pts": round(optimal_pts, 1),
-        "std_dev": DEFAULT_WEEKLY_STD_DEV,
-        "bench_depth_pts": round(top_bench_pts, 1),
-    }
-
-
 def compute_team_weekly_expectations(
     roster: Dict[str, Any],
     roster_players: List[Dict[str, Any]],
@@ -69,12 +28,12 @@ def compute_team_weekly_expectations(
     """
     Computes a team's expected score (mu) and bench depth score for EACH
     week in weekly_projections_by_week individually, instead of one
-    constant snapshot reused for the whole simulated season (see
-    compute_team_lineup_expectation, which this supersedes for
-    run_monte_carlo_simulation's live projection - kept separately since
+    constant snapshot reused for the whole simulated season. Used both for
+    the live projection (run_monte_carlo_simulation) and for
     run_historical_simulation_snapshot's retrospective "what did this look
-    like as of week X" feature genuinely wants one frozen snapshot, not a
-    forward per-week curve).
+    like as of week X" feature - both want each remaining week's own real
+    projection, not a frozen single-week snapshot flattened across the rest
+    of the season.
 
     A player with zero real projected points in a specific week (bye week,
     injury, or any other reason Sleeper's feed has no stat data for them
@@ -913,22 +872,33 @@ def run_historical_simulation_snapshot(
     league: Dict[str, Any],
     rosters: List[Dict[str, Any]],
     schedule: Dict[int, List[Tuple[int, int]]],
-    team_expectations: Dict[int, Dict[str, Any]],
+    team_week_expectations: Dict[int, Dict[int, Dict[str, Any]]],
     snapshot_week: int = 1,
     current_week: int = 1,
     playoff_week_start: int = 15,
     num_simulations: int = DEFAULT_SIMULATIONS,
 ) -> Dict[str, Any]:
     """
-    Simulates the season as it was projected at the start of `snapshot_week`.
+    Simulates the season as it was as of the start of `snapshot_week`.
     Reconstructs actual win/loss records through week `snapshot_week - 1`.
 
-    Deliberately still a single frozen snapshot broadcast across every
-    simulated week, unlike the live path's real per-week projections
-    (run_monte_carlo_simulation's team_week_expectations): this feature's
-    whole point is reconstructing what the model would have projected
-    using only the data available AT that historical snapshot week, not
-    what later weeks' (now-known) projections would have shown.
+    team_week_expectations is each roster's real per-week projection curve
+    (see compute_team_weekly_expectations) - the same per-week data the live
+    path uses, not one frozen single-week snapshot flattened across the rest
+    of the simulated season (that used to understate any team with a player
+    whose projection had a genuine one-week data gap - e.g. a newly-elevated
+    starter Sleeper hadn't published a projection for yet - since the gap's
+    zero got broadcast to every future week instead of affecting only the
+    week it was genuinely true for).
+
+    team_week_expectations only covers weeks from today's active week
+    onward - real per-week Sleeper projections for weeks already in the
+    past aren't retained. Any week before that range (relevant when
+    snapshot_week reaches further back than today) reuses the earliest
+    available week's projection, since no archived projection exists for
+    it; that gap only feeds the win/loss reconstruction going INTO
+    snapshot_week (handled separately below via custom_initial_records),
+    not the forward-looking simulation from snapshot_week onward.
     """
     if snapshot_week <= 1:
         custom_records = {r["roster_id"]: {"wins": 0, "losses": 0, "ties": 0, "pf": 0.0} for r in rosters}
@@ -938,21 +908,19 @@ def run_historical_simulation_snapshot(
         league_id = str(league.get("league_id", ""))
         custom_records = compute_historical_standings(league_id, rosters, through_week=snapshot_week - 1)
 
-    # Broadcast the one frozen snapshot across every week the season could
-    # possibly simulate (regular season + playoffs), so
-    # run_monte_carlo_simulation's per-week/playoff_week_start lookups
-    # always find an entry regardless of this league's actual
-    # playoff_week_start.
-    team_week_expectations = {
-        rid: {w: exp for w in range(1, 19)}
-        for rid, exp in team_expectations.items()
-    }
+    filled_team_week_expectations = {}
+    for rid, weeks in team_week_expectations.items():
+        if not weeks:
+            filled_team_week_expectations[rid] = weeks
+            continue
+        earliest_week_exp = weeks[min(weeks.keys())]
+        filled_team_week_expectations[rid] = {w: weeks.get(w, earliest_week_exp) for w in range(1, 19)}
 
     return run_monte_carlo_simulation(
         league=league,
         rosters=rosters,
         schedule=schedule,
-        team_week_expectations=team_week_expectations,
+        team_week_expectations=filled_team_week_expectations,
         current_week=snapshot_week,
         playoff_week_start=playoff_week_start,
         num_simulations=num_simulations,
@@ -964,7 +932,7 @@ def compute_weekly_evolution_history(
     league: Dict[str, Any],
     rosters: List[Dict[str, Any]],
     schedule: Dict[int, List[Tuple[int, int]]],
-    team_expectations: Dict[int, Dict[str, Any]],
+    team_week_expectations: Dict[int, Dict[int, Dict[str, Any]]],
     current_week: int = 1,
     playoff_week_start: int = 15,
     num_simulations: int = DEFAULT_SIMULATIONS,
@@ -985,7 +953,7 @@ def compute_weekly_evolution_history(
                 league=league,
                 rosters=rosters,
                 schedule=schedule,
-                team_expectations=team_expectations,
+                team_week_expectations=team_week_expectations,
                 snapshot_week=w,
                 current_week=current_week,
                 playoff_week_start=playoff_week_start,
