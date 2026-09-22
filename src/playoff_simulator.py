@@ -59,6 +59,64 @@ def compute_team_lineup_expectation(
     }
 
 
+def compute_team_weekly_expectations(
+    roster: Dict[str, Any],
+    roster_players: List[Dict[str, Any]],
+    weekly_projections_by_week: Dict[int, Dict[str, Any]],
+    scoring_settings: Dict[str, Any],
+    roster_positions: List[str],
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Computes a team's expected score (mu) and bench depth score for EACH
+    week in weekly_projections_by_week individually, instead of one
+    constant snapshot reused for the whole simulated season (see
+    compute_team_lineup_expectation, which this supersedes for
+    run_monte_carlo_simulation's live projection - kept separately since
+    run_historical_simulation_snapshot's retrospective "what did this look
+    like as of week X" feature genuinely wants one frozen snapshot, not a
+    forward per-week curve).
+
+    A player with zero real projected points in a specific week (bye week,
+    injury, or any other reason Sleeper's feed has no stat data for them
+    that week) contributes zero to that week's optimal lineup - a genuine
+    zero, not estimated or interpolated from market value. That zero only
+    affects the weeks it's genuinely true for, instead of - as the old
+    single-snapshot design did - flattening a one-week data gap into every
+    remaining week of the season.
+
+    Returns {week: {"roster_id", "expected_pts", "std_dev", "bench_depth_pts"}}.
+    """
+    result = {}
+    for week, weekly_projections in weekly_projections_by_week.items():
+        proj_lookup = {}
+        for p in roster_players:
+            pid = p.get("player_id")
+            raw = weekly_projections.get(pid)
+            proj_lookup[pid] = calculate_weekly_projected_points(pid, raw, scoring_settings, p)
+
+        starters, bench = simulate_optimal_weekly_lineup(
+            roster_players=roster_players,
+            projections_lookup=proj_lookup,
+            roster_positions=roster_positions,
+        )
+
+        optimal_pts = sum(pts for _, pts, _ in starters)
+        # Fallback to reasonable average if projections are missing entirely
+        # for this week (e.g. schedule not yet published that far out).
+        if optimal_pts <= 10.0:
+            optimal_pts = 105.0
+
+        top_bench_pts = sum(pts for _, pts in bench[:4])
+
+        result[week] = {
+            "roster_id": roster["roster_id"],
+            "expected_pts": round(optimal_pts, 1),
+            "std_dev": DEFAULT_WEEKLY_STD_DEV,
+            "bench_depth_pts": round(top_bench_pts, 1),
+        }
+    return result
+
+
 def simulate_single_matchup(mu1: float, sigma1: float, mu2: float, sigma2: float, rng: random.Random) -> Tuple[float, float]:
     """
     Simulates a head-to-head weekly fantasy matchup between two teams
@@ -231,7 +289,7 @@ def run_monte_carlo_simulation(
     league: Dict[str, Any],
     rosters: List[Dict[str, Any]],
     schedule: Dict[int, List[Tuple[int, int]]],
-    team_expectations: Dict[int, Dict[str, Any]],
+    team_week_expectations: Dict[int, Dict[int, Dict[str, Any]]],
     current_week: int = 1,
     playoff_week_start: int = 15,
     num_simulations: int = DEFAULT_SIMULATIONS,
@@ -241,6 +299,19 @@ def run_monte_carlo_simulation(
     Runs num_simulations iterations of the remaining regular season and playoff bracket.
     Tracks wins, losses, playoff appearances, first-round byes, and championships.
     Supports historical snapshots via custom_initial_records.
+
+    team_week_expectations is {roster_id: {week: {"expected_pts", "std_dev",
+    "bench_depth_pts"}}} (see compute_team_weekly_expectations) - each
+    simulated regular-season week looks up that SAME week's real
+    projection, instead of one constant number reused for the whole
+    season. This is what makes a single-week data gap (an injury, a bye)
+    only affect the week it's genuinely true for: previously, a player
+    with no projection in the current week's snapshot alone dragged down
+    every remaining simulated week, even ones where Sleeper's own
+    projections show that same player fully healthy and productive again.
+    Playoff knockout rounds (which don't have individual per-round weeks
+    tracked in the bracket logic below) all use each team's projection for
+    playoff_week_start specifically - see playoff_team_expectations below.
     """
     playoff_teams_count = league.get("settings", {}).get("playoff_teams", 6)
     roster_ids = [r["roster_id"] for r in rosters]
@@ -316,6 +387,20 @@ def run_monte_carlo_simulation(
     else:
         fallback_schedule = schedule
 
+    # Playoff knockout rounds have no per-round week tracked in the bracket
+    # logic below (quarterfinal/semifinal/final all resolve within one
+    # simulation pass) - each team's playoff_week_start projection stands
+    # in for all of them, falling back to that team's latest available
+    # week if playoff_week_start itself wasn't fetched. Built once, not
+    # per-simulation-iteration.
+    playoff_team_expectations = {}
+    for rid in roster_ids:
+        weeks_for_rid = team_week_expectations.get(rid, {})
+        exp = weeks_for_rid.get(playoff_week_start)
+        if exp is None and weeks_for_rid:
+            exp = weeks_for_rid[max(weeks_for_rid.keys())]
+        playoff_team_expectations[rid] = exp or {"expected_pts": 105.0, "std_dev": DEFAULT_WEEKLY_STD_DEV}
+
     for _ in range(num_simulations):
         # Current run standings copy
         cur_records = {
@@ -332,12 +417,14 @@ def run_monte_carlo_simulation(
         for w in regular_season_weeks:
             matchups = fallback_schedule.get(w, [])
             for r1, r2 in matchups:
-                if r1 not in team_expectations or r2 not in team_expectations:
+                exp1 = team_week_expectations.get(r1, {}).get(w)
+                exp2 = team_week_expectations.get(r2, {}).get(w)
+                if exp1 is None or exp2 is None:
                     continue
-                mu1 = team_expectations[r1]["expected_pts"]
-                sig1 = team_expectations[r1]["std_dev"]
-                mu2 = team_expectations[r2]["expected_pts"]
-                sig2 = team_expectations[r2]["std_dev"]
+                mu1 = exp1["expected_pts"]
+                sig1 = exp1["std_dev"]
+                mu2 = exp2["expected_pts"]
+                sig2 = exp2["std_dev"]
 
                 s1, s2 = simulate_single_matchup(mu1, sig1, mu2, sig2, rng)
                 cur_records[r1]["pf"] += s1
@@ -385,18 +472,18 @@ def run_monte_carlo_simulation(
         finalist_ids = ()
         if playoff_teams_count == 8 and len(playoff_seeds) >= 8:
             # Quarterfinals: 1 vs 8, 4 vs 5, 2 vs 7, 3 vs 6
-            q1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[7], team_expectations, rng)
-            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], team_expectations, rng)
-            q3_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[6], team_expectations, rng)
-            q4_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], team_expectations, rng)
+            q1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[7], playoff_team_expectations, rng)
+            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], playoff_team_expectations, rng)
+            q3_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[6], playoff_team_expectations, rng)
+            q4_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], playoff_team_expectations, rng)
 
             # Semifinals: Winner(1v8) vs Winner(4v5), Winner(2v7) vs Winner(3v6)
-            semi1_w = _simulate_knockout(q1_w, q2_w, team_expectations, rng)
-            semi2_w = _simulate_knockout(q3_w, q4_w, team_expectations, rng)
+            semi1_w = _simulate_knockout(q1_w, q2_w, playoff_team_expectations, rng)
+            semi2_w = _simulate_knockout(q3_w, q4_w, playoff_team_expectations, rng)
 
             # Championship
             finalist_ids = (semi1_w, semi2_w)
-            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations, rng)
+            champion_id = _simulate_knockout(semi1_w, semi2_w, playoff_team_expectations, rng)
 
         elif playoff_teams_count == 6 and len(playoff_seeds) >= 6:
             # Seeds 1 & 2 get first-round byes
@@ -404,31 +491,31 @@ def run_monte_carlo_simulation(
             sim_byes[playoff_seeds[1]] += 1
 
             # Quarterfinals: 3 vs 6, 4 vs 5
-            q1_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], team_expectations, rng)
-            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], team_expectations, rng)
+            q1_w = _simulate_knockout(playoff_seeds[2], playoff_seeds[5], playoff_team_expectations, rng)
+            q2_w = _simulate_knockout(playoff_seeds[3], playoff_seeds[4], playoff_team_expectations, rng)
 
             # Semifinals: Seed 1 vs lower seed, Seed 2 vs higher seed
             remaining_after_q = sorted([q1_w, q2_w], key=lambda rid: playoff_seeds.index(rid), reverse=True)
-            semi1_w = _simulate_knockout(playoff_seeds[0], remaining_after_q[0], team_expectations, rng)
-            semi2_w = _simulate_knockout(playoff_seeds[1], remaining_after_q[1], team_expectations, rng)
+            semi1_w = _simulate_knockout(playoff_seeds[0], remaining_after_q[0], playoff_team_expectations, rng)
+            semi2_w = _simulate_knockout(playoff_seeds[1], remaining_after_q[1], playoff_team_expectations, rng)
 
             # Championship
             finalist_ids = (semi1_w, semi2_w)
-            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations, rng)
+            champion_id = _simulate_knockout(semi1_w, semi2_w, playoff_team_expectations, rng)
 
         elif playoff_teams_count == 4 and len(playoff_seeds) >= 4:
             # Semifinals: 1 vs 4, 2 vs 3
-            semi1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[3], team_expectations, rng)
-            semi2_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[2], team_expectations, rng)
+            semi1_w = _simulate_knockout(playoff_seeds[0], playoff_seeds[3], playoff_team_expectations, rng)
+            semi2_w = _simulate_knockout(playoff_seeds[1], playoff_seeds[2], playoff_team_expectations, rng)
 
             # Championship
             finalist_ids = (semi1_w, semi2_w)
-            champion_id = _simulate_knockout(semi1_w, semi2_w, team_expectations, rng)
+            champion_id = _simulate_knockout(semi1_w, semi2_w, playoff_team_expectations, rng)
 
         elif playoff_teams_count == 2 and len(playoff_seeds) >= 2:
             # The only game IS the championship, so both seeds are finalists.
             finalist_ids = (playoff_seeds[0], playoff_seeds[1])
-            champion_id = _simulate_knockout(playoff_seeds[0], playoff_seeds[1], team_expectations, rng)
+            champion_id = _simulate_knockout(playoff_seeds[0], playoff_seeds[1], playoff_team_expectations, rng)
         else:
             # Default to top seed if bracket configuration is non-standard -
             # there's no real second finalist to name in this degenerate path.
@@ -468,6 +555,11 @@ def run_monte_carlo_simulation(
         finalist_pct = (sim_finalists[rid] / num_simulations) * 100.0
         champ_pct = (sim_champs[rid] / num_simulations) * 100.0
 
+        # Displayed "this week" figures - the current week's own entry,
+        # same semantics as before (the badge shows what THIS week's
+        # optimal lineup projects to, not a season-long figure).
+        current_week_exp = team_week_expectations.get(rid, {}).get(current_week, {})
+
         team_results[rid] = {
             "roster_id": rid,
             "avg_wins": round(avg_wins, 1),
@@ -477,8 +569,8 @@ def run_monte_carlo_simulation(
             "bye_pct": round(bye_pct, 1),
             "finalist_pct": round(finalist_pct, 1),
             "champ_pct": round(champ_pct, 1),
-            "expected_pts": team_expectations[rid].get("expected_pts", 105.0),
-            "bench_depth_pts": team_expectations[rid].get("bench_depth_pts", 0.0),
+            "expected_pts": current_week_exp.get("expected_pts", 105.0),
+            "bench_depth_pts": current_week_exp.get("bench_depth_pts", 0.0),
             "playoff_teams_count": playoff_teams_count,
             "initial_wins": initial_records[rid]["wins"],
             "initial_losses": initial_records[rid]["losses"],
@@ -830,6 +922,13 @@ def run_historical_simulation_snapshot(
     """
     Simulates the season as it was projected at the start of `snapshot_week`.
     Reconstructs actual win/loss records through week `snapshot_week - 1`.
+
+    Deliberately still a single frozen snapshot broadcast across every
+    simulated week, unlike the live path's real per-week projections
+    (run_monte_carlo_simulation's team_week_expectations): this feature's
+    whole point is reconstructing what the model would have projected
+    using only the data available AT that historical snapshot week, not
+    what later weeks' (now-known) projections would have shown.
     """
     if snapshot_week <= 1:
         custom_records = {r["roster_id"]: {"wins": 0, "losses": 0, "ties": 0, "pf": 0.0} for r in rosters}
@@ -839,11 +938,21 @@ def run_historical_simulation_snapshot(
         league_id = str(league.get("league_id", ""))
         custom_records = compute_historical_standings(league_id, rosters, through_week=snapshot_week - 1)
 
+    # Broadcast the one frozen snapshot across every week the season could
+    # possibly simulate (regular season + playoffs), so
+    # run_monte_carlo_simulation's per-week/playoff_week_start lookups
+    # always find an entry regardless of this league's actual
+    # playoff_week_start.
+    team_week_expectations = {
+        rid: {w: exp for w in range(1, 19)}
+        for rid, exp in team_expectations.items()
+    }
+
     return run_monte_carlo_simulation(
         league=league,
         rosters=rosters,
         schedule=schedule,
-        team_expectations=team_expectations,
+        team_week_expectations=team_week_expectations,
         current_week=snapshot_week,
         playoff_week_start=playoff_week_start,
         num_simulations=num_simulations,

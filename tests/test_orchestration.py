@@ -11,6 +11,14 @@ from unittest import mock
 from src.orchestration import build_league_context, build_team_profiles
 from src.team_strength import get_strength_tier
 
+# Empty per-player projections for every simulated week (not one empty
+# dict at the top level - that would leave every roster with zero weeks
+# of data and skip every matchup entirely). Each week still exercises
+# compute_team_weekly_expectations' own "no data -> 105.0 fallback" path,
+# uniformly for every roster/week, same effective behavior the old
+# single-week weekly_projections={} produced.
+EMPTY_WEEKLY_PROJECTIONS_BY_WEEK = {w: {} for w in range(1, 19)}
+
 
 # ---------------------------------------------------------------------------
 # build_league_context
@@ -102,7 +110,7 @@ def test_dynasty_score_pairs_rank_teams_by_engineered_roster_strength(orchestrat
     context = _build_context(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db)
     result = build_team_profiles(
         context, orchestration_dynasty_league, orchestration_rosters, active_week=1,
-        weekly_projections={}, schedule={}, num_simulations=100,
+        weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=100,
     )
 
     ranked_roster_ids = [rid for rid, _ in result["dynasty_score_pairs"]]
@@ -116,7 +124,7 @@ def test_redraft_ranked_also_reflects_engineered_roster_strength(orchestration_d
     context = _build_context(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db)
     result = build_team_profiles(
         context, orchestration_dynasty_league, orchestration_rosters, active_week=1,
-        weekly_projections={}, schedule={}, num_simulations=100,
+        weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=100,
     )
 
     ranked_roster_ids = [rid for rid, _, _ in result["redraft_ranked"]]
@@ -142,7 +150,7 @@ def test_portal_card_extraction_never_degrades_to_zeroed_fallback(orchestration_
     context = _build_context(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db)
     profiles = build_team_profiles(
         context, orchestration_dynasty_league, orchestration_rosters, active_week=1,
-        weekly_projections={}, schedule={}, num_simulations=100,
+        weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=100,
     )
 
     my_rid = 1
@@ -165,7 +173,7 @@ def test_all_team_profiles_carry_tier_status_and_category_for_every_roster(orche
     context = _build_context(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db)
     result = build_team_profiles(
         context, orchestration_dynasty_league, orchestration_rosters, active_week=1,
-        weekly_projections={}, schedule={}, num_simulations=100,
+        weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=100,
     )
 
     assert len(result["all_team_profiles"]) == 4
@@ -186,7 +194,7 @@ def test_redraft_league_skips_dynasty_scoring_and_picks(orchestration_redraft_le
     context = _build_context(orchestration_redraft_league, orchestration_rosters, orchestration_users, orchestration_market_db)
     result = build_team_profiles(
         context, orchestration_redraft_league, orchestration_rosters, active_week=1,
-        weekly_projections={}, schedule={}, num_simulations=100,
+        weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=100,
     )
 
     assert result["dynasty_score_pairs"] == []
@@ -199,7 +207,7 @@ def test_sim_results_and_rank_map_cover_every_roster(orchestration_dynasty_leagu
     context = _build_context(orchestration_dynasty_league, orchestration_rosters, orchestration_users, orchestration_market_db)
     result = build_team_profiles(
         context, orchestration_dynasty_league, orchestration_rosters, active_week=1,
-        weekly_projections={}, schedule={}, num_simulations=100,
+        weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=100,
     )
 
     assert set(result["sim_results"].keys()) == {1, 2, 3, 4}
@@ -309,7 +317,7 @@ def test_concurrent_build_team_profiles_no_cross_contamination(
         context = contexts_by_label[label]
         result = build_team_profiles(
             context, league, orchestration_rosters, active_week=1,
-            weekly_projections={}, schedule={}, num_simulations=50,
+            weekly_projections_by_week=EMPTY_WEEKLY_PROJECTIONS_BY_WEEK, schedule={}, num_simulations=50,
         )
         return {
             "dynasty_score_pairs": result["dynasty_score_pairs"],

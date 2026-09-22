@@ -52,7 +52,7 @@ from src.market_data import (
 )
 from src.playoff_simulator import (
     compute_dynasty_power_rankings,
-    compute_team_lineup_expectation,
+    compute_team_weekly_expectations,
     run_monte_carlo_simulation,
 )
 from src.sleeper_api import get_roster_players
@@ -155,13 +155,21 @@ def build_league_context(league, rosters, users, market_db, active_week, mode="e
     }
 
 
-def build_team_profiles(context, league, rosters, active_week, weekly_projections, schedule, num_simulations=1000):
+def build_team_profiles(context, league, rosters, active_week, weekly_projections_by_week, schedule, num_simulations=1000):
     """
     Builds the dynasty_tier / current_tier / per-team profile layer on top of
     a build_league_context() result: dynasty_score_pairs, redraft_ranked,
     sim_results/sim_rank_map, and all_team_profiles (each entry carrying
     current_tier, dynasty_tier, status, and category alongside the usual
     analyze_team_profile asset breakdown).
+
+    weekly_projections_by_week is {week: {player_id: projection}} - see
+    src.sleeper_api.get_weekly_projections_by_week - covering active_week
+    through at least the league's playoff_week_start, so the Monte Carlo
+    simulation can project each remaining week (and the playoffs) from
+    that week's own real Sleeper data instead of reusing active_week's
+    snapshot for the whole season (see run_monte_carlo_simulation's
+    team_week_expectations docstring for why that flattening was wrong).
 
     Pick-asset valuation is driven entirely by sim_rank_map (each roster's
     Monte Carlo Season Power Score standing), which is available before any
@@ -191,11 +199,11 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
     draft_type = context.get("draft_type", "linear")
 
     playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
-    team_expectations = {
-        r["roster_id"]: compute_team_lineup_expectation(
+    team_week_expectations = {
+        r["roster_id"]: compute_team_weekly_expectations(
             roster=r,
             roster_players=all_rosters_players[r["roster_id"]],
-            weekly_projections=weekly_projections,
+            weekly_projections_by_week=weekly_projections_by_week,
             scoring_settings=league.get("scoring_settings", {}),
             roster_positions=roster_pos,
         )
@@ -206,7 +214,7 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
         league=league,
         rosters=rosters,
         schedule=schedule,
-        team_expectations=team_expectations,
+        team_week_expectations=team_week_expectations,
         current_week=active_week,
         playoff_week_start=playoff_start,
         num_simulations=num_simulations,

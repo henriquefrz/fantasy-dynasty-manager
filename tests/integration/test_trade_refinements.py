@@ -28,7 +28,7 @@ from src.market_data import (
     get_values_picks_raw,
     get_values_players_raw,
 )
-from src.playoff_simulator import compute_team_lineup_expectation, run_monte_carlo_simulation
+from src.playoff_simulator import compute_team_weekly_expectations, run_monte_carlo_simulation
 from src.sleeper_api import (
     get_league_rosters,
     get_league_schedule,
@@ -37,7 +37,7 @@ from src.sleeper_api import (
     get_roster_players,
     get_traded_picks,
     get_user_roster,
-    get_weekly_projections,
+    get_weekly_projections_by_week,
 )
 from src.team_strength import (
     classify_dynasty_team,
@@ -54,12 +54,12 @@ def _sim_rank_map_for_league(league, rosters, all_rosters_players, season, week)
     """Mirrors main.py's per-league Season Power Score rank computation."""
     scoring = league.get("scoring_settings", {})
     roster_pos = league.get("roster_positions", [])
-    weekly_projections = get_weekly_projections(season, week)
-    team_expectations = {
-        r["roster_id"]: compute_team_lineup_expectation(
+    weekly_projections_by_week = get_weekly_projections_by_week(season, range(week, 18))
+    team_week_expectations = {
+        r["roster_id"]: compute_team_weekly_expectations(
             roster=r,
             roster_players=all_rosters_players.get(r["roster_id"], []),
-            weekly_projections=weekly_projections,
+            weekly_projections_by_week=weekly_projections_by_week,
             scoring_settings=scoring,
             roster_positions=roster_pos,
         )
@@ -72,7 +72,7 @@ def _sim_rank_map_for_league(league, rosters, all_rosters_players, season, week)
         league=league,
         rosters=rosters,
         schedule=schedule,
-        team_expectations=team_expectations,
+        team_week_expectations=team_week_expectations,
         current_week=week,
         playoff_week_start=playoff_start,
         num_simulations=500,

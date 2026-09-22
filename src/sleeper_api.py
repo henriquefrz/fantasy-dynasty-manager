@@ -327,6 +327,35 @@ def get_weekly_stats(season: str, week: int):
         return {}
 
 
+def get_weekly_projections_by_week(season: str, weeks):
+    """
+    Returns raw per-week Sleeper projections for each week in `weeks`,
+    fetched concurrently - {week: {player_id: projection_dict}}. This is
+    the same per-week fetch get_ros_projections already did internally
+    before collapsing it into a single average; exposed separately so
+    callers that need week-specific data (e.g. run_monte_carlo_simulation
+    projecting each future week on its own instead of one constant
+    ROS-average number) can reuse it without recomputing.
+
+    Each individual week is cached via get_weekly_projections
+    (PROJECTIONS_CACHE_TTL_SECONDS, keyed by (season, week) - shared
+    process-wide across every league, not refetched per caller), so
+    repeated calls across leagues in the same run are effectively free
+    after the first.
+    """
+    import concurrent.futures
+
+    weeks = sorted({int(w) for w in weeks})
+    if not weeks:
+        return {}
+
+    def _fetch(w):
+        return w, get_weekly_projections(season, w)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(weeks))) as executor:
+        return dict(executor.map(_fetch, weeks))
+
+
 def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
     """
     Returns aggregated Rest-of-Season (ROS) quantitative projections from Sleeper,
@@ -340,10 +369,10 @@ def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
     - Expected return-to-play timelines modeled by Sleeper
 
     Cached in-memory by (season, start_week, end_week) for
-    PROJECTIONS_CACHE_TTL_SECONDS - see get_weekly_projections.
+    PROJECTIONS_CACHE_TTL_SECONDS - see get_weekly_projections. For
+    per-week (not averaged) data, see get_weekly_projections_by_week.
     """
     from collections import defaultdict
-    import concurrent.futures
 
     s_wk = max(1, int(start_week))
     e_wk = max(s_wk, int(end_week))
@@ -357,11 +386,7 @@ def get_ros_projections(season: str, start_week: int = 1, end_week: int = 17):
     weeks = list(range(s_wk, e_wk + 1))
     num_weeks = len(weeks)
 
-    def _fetch(w):
-        return w, get_weekly_projections(season, w)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, num_weeks)) as executor:
-        weekly_results = dict(executor.map(_fetch, weeks))
+    weekly_results = get_weekly_projections_by_week(season, weeks)
 
     player_sums = defaultdict(lambda: defaultdict(float))
     player_meta = {}

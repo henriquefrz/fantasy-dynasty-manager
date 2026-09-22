@@ -12,6 +12,7 @@ from src.sleeper_api import (
     get_league_users,
     get_nfl_state,
     get_weekly_projections,
+    get_weekly_projections_by_week,
     get_weekly_stats,
     get_league_schedule,
     get_ros_projections,
@@ -260,9 +261,14 @@ for league in leagues:
     playoff_start = league.get("settings", {}).get("playoff_week_start", 15)
     schedule = get_league_schedule(league["league_id"], start_week=active_nfl_week, end_week=playoff_start - 1, current_week=active_nfl_week)
 
+    # Real per-week projections (not one snapshot reused for the whole
+    # simulated season) - each week is individually cached, so this is
+    # effectively free for every league after the first one fetches it.
+    weekly_projections_by_week = get_weekly_projections_by_week(active_nfl_season, range(active_nfl_week, 18))
+
     profiles = build_team_profiles(
         context, league, league_rosters, active_nfl_week,
-        weekly_projections=weekly_projections, schedule=schedule, num_simulations=1000,
+        weekly_projections_by_week=weekly_projections_by_week, schedule=schedule, num_simulations=1000,
     )
     all_team_profiles = profiles["all_team_profiles"]
     sim_results = profiles["sim_results"]

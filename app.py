@@ -64,6 +64,7 @@ try:
         get_league_users,
         get_nfl_state,
         get_weekly_projections,
+        get_weekly_projections_by_week,
         get_weekly_stats,
         get_ros_projections,
         get_league_schedule,
@@ -89,6 +90,7 @@ except ImportError:
     get_league_users = getattr(_s_api, "get_league_users")
     get_nfl_state = getattr(_s_api, "get_nfl_state")
     get_weekly_projections = getattr(_s_api, "get_weekly_projections")
+    get_weekly_projections_by_week = getattr(_s_api, "get_weekly_projections_by_week")
     get_weekly_stats = getattr(_s_api, "get_weekly_stats")
     get_ros_projections = getattr(_s_api, "get_ros_projections")
     get_league_schedule = getattr(_s_api, "get_league_schedule")
@@ -3092,7 +3094,7 @@ def render_hub_lineup_row_html(alert):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def evaluate_league_quick_status(lid, user_id, _market_db, selected_mode, _weekly_proj, league_obj, current_week: int = 1, _cache_version: str = "v5_montecarlo_pick_tiers"):
+def evaluate_league_quick_status(lid, user_id, _market_db, selected_mode, _weekly_proj_by_week, league_obj, current_week: int = 1, _cache_version: str = "v6_per_week_montecarlo"):
     """
     Accurately calculates franchise status, category, record, and
     synchronized rank across leagues - via the same shared
@@ -3118,7 +3120,7 @@ def evaluate_league_quick_status(lid, user_id, _market_db, selected_mode, _weekl
         schedule = get_league_schedule(lid, 1, max(1, playoff_start - 1), current_week=current_week)
         profiles = build_team_profiles(
             context, league_obj, rosters, current_week,
-            weekly_projections=_weekly_proj, schedule=schedule, num_simulations=1000,
+            weekly_projections_by_week=_weekly_proj_by_week, schedule=schedule, num_simulations=1000,
         )
 
         my_rid = my_r["roster_id"]
@@ -3465,13 +3467,17 @@ if st.session_state.get("selected_league_id") is None:
     st.markdown("### League Workspaces")
     st.caption("Select any franchise to enter its dedicated analytical suite (Franchise Hub, Matchups & Start/Sit, Waivers, Power Rankings, Trade Center).")
 
-    weekly_proj_all = get_weekly_projections(active_season, active_week)
+    # Real per-week projections (not one snapshot reused for the whole
+    # simulated season) - each week is individually cached in
+    # src.sleeper_api, so this is effectively free after the first league's
+    # card computes it.
+    weekly_proj_by_week_all = get_weekly_projections_by_week(active_season, range(active_week, 18))
 
     def _build_league_card_html(lg):
         """
         Computes and returns one league's card HTML for the League Workspaces
         grid below. Only reads from the closed-over market_db/players/
-        weekly_proj_all/selected_mode/active_week/user - never mutates them
+        weekly_proj_by_week_all/selected_mode/active_week/user - never mutates them
         (apply_valuation_mode/apply_ktc_te_premium already return new dicts
         instead of mutating their input, so concurrent calls for different
         leagues can't cross-contaminate each other's valuations the way a
@@ -3511,7 +3517,7 @@ if st.session_state.get("selected_league_id") is None:
             # here anymore (previously duplicated against
             # evaluate_league_quick_status's own copy of the same logic).
             t_status, t_cat, w, l, fpts, p_count, rank_str, d_pos, r_pos = evaluate_league_quick_status(
-                lid, user["user_id"], market_db, selected_mode, weekly_proj_all, lg, current_week=active_week
+                lid, user["user_id"], market_db, selected_mode, weekly_proj_by_week_all, lg, current_week=active_week
             )
 
             # Trajectory badge - shows the real Franchise Trajectory tier name
@@ -3755,9 +3761,14 @@ else:
     user_map = context["user_map"]
     picks_ownership = context["picks_ownership"]
 
+    # Real per-week projections (not one snapshot reused for the whole
+    # simulated season) - see get_weekly_projections_by_week; each week is
+    # individually cached, shared process-wide across every league/tab.
+    weekly_projections_by_week = get_weekly_projections_by_week(active_season, range(active_week, 18))
+
     profiles = build_team_profiles(
         context, selected_league, rosters, active_week,
-        weekly_projections=weekly_projections, schedule=schedule, num_simulations=1000,
+        weekly_projections_by_week=weekly_projections_by_week, schedule=schedule, num_simulations=1000,
     )
     live_sim_results = profiles["sim_results"]
     sim_rank_map = profiles["sim_rank_map"]

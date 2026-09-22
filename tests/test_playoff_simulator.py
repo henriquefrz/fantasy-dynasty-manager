@@ -27,6 +27,12 @@ def _make_roster(roster_id):
     }
 
 
+def _broadcast_weekly_expectations(flat_expectations, weeks=range(1, 19)):
+    """Same constant expectation for every simulated week - synthetic tests here care about
+    bracket/simulation mechanics, not week-to-week projection variance."""
+    return {rid: {w: exp for w in weeks} for rid, exp in flat_expectations.items()}
+
+
 @pytest.fixture
 def synthetic_league():
     rosters = [_make_roster(rid) for rid in range(1, NUM_TEAMS + 1)]
@@ -49,7 +55,7 @@ def test_champion_finalist_and_playoff_percentages_respect_subset_relationship(s
         league=league,
         rosters=rosters,
         schedule={},
-        team_expectations=team_expectations,
+        team_week_expectations=_broadcast_weekly_expectations(team_expectations),
         current_week=1,
         playoff_week_start=15,
         num_simulations=NUM_SIMULATIONS,
@@ -79,7 +85,7 @@ def _run_league(league_id, num_teams=NUM_TEAMS, num_simulations=200):
         for rid in range(1, num_teams + 1)
     }
     result = run_monte_carlo_simulation(
-        league=league, rosters=rosters, schedule={}, team_expectations=team_expectations,
+        league=league, rosters=rosters, schedule={}, team_week_expectations=_broadcast_weekly_expectations(team_expectations),
         current_week=1, playoff_week_start=15, num_simulations=num_simulations,
     )
     return {rid: result[rid]["playoff_pct"] for rid in range(1, num_teams + 1)}
