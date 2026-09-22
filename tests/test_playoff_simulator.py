@@ -192,3 +192,76 @@ def test_historical_snapshot_uses_real_per_week_data_not_one_flattened_week(synt
         "being weak in only 1 of ~13 simulated weeks - the historical snapshot is still "
         "flattening one week's projection across the whole season."
     )
+
+
+def test_displayed_expected_pts_and_bench_depth_are_a_season_average_not_one_week(synthetic_league):
+    """
+    Pins the "Starters PPG"/"Bench PPG" fix: run_monte_carlo_simulation used
+    to report team_results[rid]["expected_pts"]/["bench_depth_pts"] as
+    whatever the CURRENT week's own team_week_expectations entry said,
+    discarding every other week's real per-week projection even though the
+    Monte Carlo simulation itself (avg_wins/playoff_pct/champ_pct) already
+    correctly draws from the full current_week..17 curve. Since
+    power_score is derived from these same two fields, that also meant a
+    single unusually strong or weak week could swing power_score - and by
+    extension a team's win/neutral/rebuild category - despite the season-
+    long simulation being unaffected. The displayed figures must now be the
+    mean of expected_pts/bench_depth_pts across every week from current_week
+    through week 17, matching what "PPG" (points per game) actually claims.
+    """
+    league, rosters, _ = synthetic_league
+    current_week = 3
+    last_week = 17
+
+    # Team 1's per-week curve varies a lot (a real week-3 data gap, like the
+    # Sam Darnold/Puka Nacua case, followed by strong steady weeks) - its
+    # current week alone (60.0) must NOT be what gets reported.
+    per_week_pts = {w: (60.0 if w == current_week else 130.0) for w in range(current_week, last_week + 1)}
+    per_week_bench = {w: (10.0 if w == current_week else 40.0) for w in range(current_week, last_week + 1)}
+    expected_avg_pts = sum(per_week_pts.values()) / len(per_week_pts)
+    expected_avg_bench = sum(per_week_bench.values()) / len(per_week_bench)
+
+    team_week_expectations = {
+        rid: {
+            w: {"expected_pts": per_week_pts[w] if rid == 1 else 90.0, "std_dev": 15.0,
+                "bench_depth_pts": per_week_bench[w] if rid == 1 else 20.0}
+            for w in range(current_week, last_week + 1)
+        }
+        for rid in range(1, NUM_TEAMS + 1)
+    }
+
+    result = run_monte_carlo_simulation(
+        league=league,
+        rosters=rosters,
+        schedule={},
+        team_week_expectations=team_week_expectations,
+        current_week=current_week,
+        playoff_week_start=15,
+        num_simulations=NUM_SIMULATIONS,
+    )
+
+    team1 = result[1]
+    assert team1["expected_pts"] == round(expected_avg_pts, 1), (
+        f"expected_pts ({team1['expected_pts']}) must be the {current_week}-17 average "
+        f"({round(expected_avg_pts, 1)}), not the single current-week snapshot (60.0)"
+    )
+    assert team1["bench_depth_pts"] == round(expected_avg_bench, 1), (
+        f"bench_depth_pts ({team1['bench_depth_pts']}) must be the {current_week}-17 average "
+        f"({round(expected_avg_bench, 1)}), not the single current-week snapshot (10.0)"
+    )
+
+    # power_score must still be derived from these exact same displayed
+    # fields - the table and the Power Score formula must never diverge.
+    max_pts = max(t["expected_pts"] for t in result.values())
+    max_wins = max(t["avg_wins"] for t in result.values())
+    max_bench = max(t["bench_depth_pts"] for t in result.values())
+    pts_norm = (team1["expected_pts"] / max_pts) * 100.0
+    win_norm = (team1["avg_wins"] / max_wins) * 100.0 if max_wins > 0 else 50.0
+    bench_norm = (team1["bench_depth_pts"] / max_bench) * 100.0
+    playoff_norm = team1["playoff_pct"]
+    recomputed_power_score = round(0.45 * pts_norm + 0.25 * win_norm + 0.15 * playoff_norm + 0.15 * bench_norm, 1)
+
+    assert recomputed_power_score == team1["power_score"], (
+        "power_score must be derived from the exact same expected_pts/bench_depth_pts "
+        "shown in the table - recomputing it independently must match exactly."
+    )

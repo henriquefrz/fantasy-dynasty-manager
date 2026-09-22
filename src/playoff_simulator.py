@@ -514,10 +514,27 @@ def run_monte_carlo_simulation(
         finalist_pct = (sim_finalists[rid] / num_simulations) * 100.0
         champ_pct = (sim_champs[rid] / num_simulations) * 100.0
 
-        # Displayed "this week" figures - the current week's own entry,
-        # same semantics as before (the badge shows what THIS week's
-        # optimal lineup projects to, not a season-long figure).
-        current_week_exp = team_week_expectations.get(rid, {}).get(current_week, {})
+        # Displayed "Starters/Bench PPG" figures - averaged across each real
+        # per-week projection from current_week through week 17 (the same
+        # weeks the regular-season simulation above draws from), not one
+        # single week's snapshot. A single week can swing several points on
+        # its own (a bye, a tough single-week matchup, the same kind of
+        # one-week data gap the team_week_expectations fix already protects
+        # avg_wins/playoff_pct/champ_pct from) - averaging over the rest of
+        # the season is what makes "PPG" (points PER GAME) an actual mean
+        # instead of a single-week figure wearing that label. power_score
+        # below is derived from these exact fields, so the table and the
+        # Power Score formula can never diverge from each other.
+        weeks_from_now = {
+            w: exp for w, exp in team_week_expectations.get(rid, {}).items()
+            if current_week <= w <= 17
+        }
+        if weeks_from_now:
+            avg_expected_pts = sum(exp["expected_pts"] for exp in weeks_from_now.values()) / len(weeks_from_now)
+            avg_bench_depth_pts = sum(exp["bench_depth_pts"] for exp in weeks_from_now.values()) / len(weeks_from_now)
+        else:
+            avg_expected_pts = 105.0
+            avg_bench_depth_pts = 0.0
 
         team_results[rid] = {
             "roster_id": rid,
@@ -528,8 +545,8 @@ def run_monte_carlo_simulation(
             "bye_pct": round(bye_pct, 1),
             "finalist_pct": round(finalist_pct, 1),
             "champ_pct": round(champ_pct, 1),
-            "expected_pts": current_week_exp.get("expected_pts", 105.0),
-            "bench_depth_pts": current_week_exp.get("bench_depth_pts", 0.0),
+            "expected_pts": round(avg_expected_pts, 1),
+            "bench_depth_pts": round(avg_bench_depth_pts, 1),
             "playoff_teams_count": playoff_teams_count,
             "initial_wins": initial_records[rid]["wins"],
             "initial_losses": initial_records[rid]["losses"],
