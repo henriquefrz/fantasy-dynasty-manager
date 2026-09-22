@@ -5,6 +5,7 @@ import math
 import os
 import re
 import time
+import unicodedata
 import requests
 
 from src.start_sit import calculate_weekly_projected_points
@@ -508,21 +509,82 @@ def parse_fp_pick_id(sid):
     return None
 
 
+def _normalize_ktc_player_name(name):
+    """
+    Normalizes a player name for tolerant cross-source matching (lowercase,
+    accents stripped, Jr./Sr./II-IV suffixes and punctuation removed), so a
+    live KTC playerName can be compared against a db_playerids.csv crosswalk
+    row's own name regardless of minor formatting differences between the
+    two sources.
+    """
+    if not name:
+        return ""
+    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    n = n.lower()
+    n = re.sub(r"[.'’]", "", n)
+    n = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", n)
+    n = re.sub(r"[^a-z0-9 ]", " ", n)
+    n = re.sub(r"\s+", " ", n).strip()
+    return n
+
+
+def _build_ktc_id_crosswalks(player_ids_raw):
+    """
+    Indexes db_playerids.csv rows by ktc_id and mfl_id for
+    _resolve_ktc_sleeper_id - keyed by the full row (not just sleeper_id) so
+    the caller can validate the row's own name before trusting either ID.
+    """
+    ktc_id_to_row = {str(r["ktc_id"]): r for r in player_ids_raw if r.get("ktc_id")}
+    mfl_id_to_row = {str(r["mfl_id"]): r for r in player_ids_raw if r.get("mfl_id")}
+    return ktc_id_to_row, mfl_id_to_row
+
+
+def _resolve_ktc_sleeper_id(p, ktc_id_to_row, mfl_id_to_row):
+    """
+    Resolves a live KTC player record to its Sleeper ID via the
+    ktc_id/mfl_id crosswalk (db_playerids.csv), validating the crosswalk
+    row's own name against the live KTC name before trusting either ID.
+
+    KTC's internal playerID numbering for its redraft "fantasy-rankings"
+    page has been observed to drift out of sync with the crosswalk for a
+    whole block of recent draft-class players (dynasty-rankings uses a
+    separate ID sequence that stayed accurate) - the crosswalk's ktc_id
+    column pointed at a completely different real player for roughly a
+    dozen 2024-2025 draft-class players. A wrong-but-real sleeper_id is
+    just as truthy as a correct one, so the previous
+    `ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)` silently
+    misattributed those players' KTC values to the wrong person instead of
+    falling through to the (reliable) mfl_id match - and "NA", db_playerids'
+    own placeholder for "no ID available", is a non-empty string and thus
+    truthy too, so it was being accepted as a real sleeper_id in the same
+    way. Requiring the crosswalk row's own name to actually match the live
+    KTC player before accepting either ID closes both holes: a stale ktc_id
+    now correctly falls through to mfl_id, and if neither validates (or
+    resolves to "NA"), the player is left out of this pillar entirely
+    rather than corrupting someone else's value.
+    """
+    live_name = _normalize_ktc_player_name(p.get("playerName", ""))
+    if not live_name:
+        return None
+
+    for row in (ktc_id_to_row.get(str(p.get("playerID", ""))), mfl_id_to_row.get(str(p.get("mflid", "")))):
+        if not row:
+            continue
+        sid = str(row.get("sleeper_id") or "").strip()
+        if not sid or sid == "NA":
+            continue
+        if _normalize_ktc_player_name(row.get("name", "")) == live_name:
+            return sid
+    return None
+
+
 def _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex=True):
     """
     Extracts Sleeper ID -> KeepTradeCut market value.
-    Maps using ktc_id and mfl_id from db_playerids.csv.
+    Maps using ktc_id and mfl_id from db_playerids.csv (see
+    _resolve_ktc_sleeper_id for the name-validated matching).
     """
-    ktc_id_to_sleeper = {
-        str(r["ktc_id"]): str(r["sleeper_id"])
-        for r in player_ids_raw
-        if r.get("ktc_id") and r.get("sleeper_id")
-    }
-    mfl_id_to_sleeper = {
-        str(r["mfl_id"]): str(r["sleeper_id"])
-        for r in player_ids_raw
-        if r.get("mfl_id") and r.get("sleeper_id")
-    }
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
 
     ktc_values = {}
     val_key = "superflexValues" if is_superflex else "oneQBValues"
@@ -531,10 +593,7 @@ def _extract_ktc_player_values(ktc_raw, player_ids_raw, is_superflex=True):
         if p.get("position") == "RDP":
             continue
 
-        p_id = str(p.get("playerID", ""))
-        mfl_id = str(p.get("mflid", ""))
-
-        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
+        s_id = _resolve_ktc_sleeper_id(p, ktc_id_to_row, mfl_id_to_row)
         if not s_id:
             continue
 
@@ -554,16 +613,7 @@ def _extract_ktc_player_ranks(ktc_raw, player_ids_raw, is_superflex=True):
     derive it by sorting .value ourselves). Powers the rank-based Market
     Differential signal (see compute_market_rank_divergence).
     """
-    ktc_id_to_sleeper = {
-        str(r["ktc_id"]): str(r["sleeper_id"])
-        for r in player_ids_raw
-        if r.get("ktc_id") and r.get("sleeper_id")
-    }
-    mfl_id_to_sleeper = {
-        str(r["mfl_id"]): str(r["sleeper_id"])
-        for r in player_ids_raw
-        if r.get("mfl_id") and r.get("sleeper_id")
-    }
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
 
     ktc_ranks = {}
     val_key = "superflexValues" if is_superflex else "oneQBValues"
@@ -572,10 +622,7 @@ def _extract_ktc_player_ranks(ktc_raw, player_ids_raw, is_superflex=True):
         if p.get("position") == "RDP":
             continue
 
-        p_id = str(p.get("playerID", ""))
-        mfl_id = str(p.get("mflid", ""))
-
-        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
+        s_id = _resolve_ktc_sleeper_id(p, ktc_id_to_row, mfl_id_to_row)
         if not s_id:
             continue
 
@@ -595,16 +642,7 @@ def _extract_ktc_te_tiers(ktc_raw, player_ids_raw, is_superflex=True):
     Powers apply_ktc_te_premium's dynasty TE adjustment and the redraft
     KTC pillar's TE value selection - both need the same three tiers.
     """
-    ktc_id_to_sleeper = {
-        str(r["ktc_id"]): str(r["sleeper_id"])
-        for r in player_ids_raw
-        if r.get("ktc_id") and r.get("sleeper_id")
-    }
-    mfl_id_to_sleeper = {
-        str(r["mfl_id"]): str(r["sleeper_id"])
-        for r in player_ids_raw
-        if r.get("mfl_id") and r.get("sleeper_id")
-    }
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
 
     val_key = "superflexValues" if is_superflex else "oneQBValues"
     te_tiers = {}
@@ -613,9 +651,7 @@ def _extract_ktc_te_tiers(ktc_raw, player_ids_raw, is_superflex=True):
         if p.get("position") != "TE":
             continue
 
-        p_id = str(p.get("playerID", ""))
-        mfl_id = str(p.get("mflid", ""))
-        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
+        s_id = _resolve_ktc_sleeper_id(p, ktc_id_to_row, mfl_id_to_row)
         if not s_id:
             continue
 
@@ -1224,16 +1260,7 @@ def _extract_ktc_redraft_pillar(ktc_fantasy_raw, player_ids_raw=None, is_superfl
     if not ktc_fantasy_raw:
         return {}
 
-    ktc_id_to_sleeper = {
-        str(r["ktc_id"]): str(r["sleeper_id"])
-        for r in (player_ids_raw or [])
-        if r.get("ktc_id") and r.get("sleeper_id")
-    }
-    mfl_id_to_sleeper = {
-        str(r["mfl_id"]): str(r["sleeper_id"])
-        for r in (player_ids_raw or [])
-        if r.get("mfl_id") and r.get("sleeper_id")
-    }
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw or [])
 
     val_key = "superflexValues" if is_superflex else "oneQBValues"
     tier = _ktc_tep_tier_key(bonus_rec_te)
@@ -1244,9 +1271,7 @@ def _extract_ktc_redraft_pillar(ktc_fantasy_raw, player_ids_raw=None, is_superfl
         if pos not in ("QB", "RB", "WR", "TE"):
             continue
 
-        p_id = str(p.get("playerID", ""))
-        mfl_id = str(p.get("mflid", ""))
-        s_id = ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)
+        s_id = _resolve_ktc_sleeper_id(p, ktc_id_to_row, mfl_id_to_row)
         if not s_id:
             continue
 

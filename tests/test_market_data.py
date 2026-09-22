@@ -10,7 +10,14 @@ from unittest import mock
 import pytest
 
 import src.market_data as market_data
-from src.market_data import apply_ktc_te_premium, apply_valuation_mode, compute_market_rank_divergence
+from src.market_data import (
+    apply_ktc_te_premium,
+    apply_valuation_mode,
+    compute_market_rank_divergence,
+    _build_ktc_id_crosswalks,
+    _extract_ktc_redraft_pillar,
+    _resolve_ktc_sleeper_id,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +66,128 @@ def test_apply_ktc_te_premium_returns_an_independent_copy(te_premium_lookup, te_
     result = apply_ktc_te_premium(te_premium_lookup, 1.0, te_ktc_raw, te_player_ids_raw, is_superflex=True)
     assert result is not te_premium_lookup
     assert result["te1"] is not te_premium_lookup["te1"]
+
+
+# ---------------------------------------------------------------------------
+# KTC ktc_id/mfl_id crosswalk matching (real bug: Jeremiyah Love, Drake Maye,
+# Jayden Daniels, Caleb Williams, TreVeyon Henderson, Brian Thomas Jr. and
+# ~10 other 2024-2025 draft-class players). KTC's "fantasy-rankings" (redraft)
+# page uses a different internal playerID sequence than its dynasty-rankings
+# page, and that redraft sequence had drifted out of sync with
+# db_playerids.csv for this draft-class block - the crosswalk's ktc_id column
+# pointed at a completely different real player for each of them. The old
+# `ktc_id_to_sleeper.get(p_id) or mfl_id_to_sleeper.get(mfl_id)` trusted
+# whichever side returned first as long as it was non-empty, so a
+# wrong-but-real sleeper_id (or the literal string "NA", itself a non-empty
+# and therefore truthy string) silently won over the otherwise-reliable
+# mfl_id fallback - misattributing that rookie's KTC value to an unrelated
+# player instead of leaving the rookie unmatched.
+# ---------------------------------------------------------------------------
+
+def test_resolve_ktc_sleeper_id_falls_through_to_mfl_id_when_ktc_id_points_at_a_different_player():
+    """
+    Reproduces the exact real-world shape: a rookie's live KTC playerID
+    collides with a crosswalk row that actually belongs to someone else (a
+    stale ktc_id), while the rookie's OWN crosswalk row - reachable via
+    mfl_id, which stayed in sync - correctly identifies them.
+    """
+    live_player = {"playerID": "700", "mflid": "9700", "playerName": "Rookie QB"}
+    player_ids_raw = [
+        # A real crosswalk row for a DIFFERENT player that happens to still
+        # carry ktc_id "700" (KTC has since reassigned that id to Rookie QB
+        # on the redraft page; dynastyprocess hasn't caught up).
+        {"ktc_id": "700", "mfl_id": "8888", "sleeper_id": "wrong_sid", "name": "Unrelated Veteran"},
+        # Rookie QB's OWN real crosswalk row - stale ktc_id, correct mfl_id.
+        {"ktc_id": "650", "mfl_id": "9700", "sleeper_id": "rookie_sid", "name": "Rookie QB"},
+    ]
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
+
+    resolved = _resolve_ktc_sleeper_id(live_player, ktc_id_to_row, mfl_id_to_row)
+
+    assert resolved == "rookie_sid", "must resolve to Rookie QB's own sleeper_id via the mfl_id fallback"
+    assert resolved != "wrong_sid", "must never accept the unrelated veteran's sleeper_id just because ktc_id collided"
+
+
+def test_resolve_ktc_sleeper_id_treats_the_string_NA_as_no_match():
+    """
+    "NA" is db_playerids.csv's own placeholder for "no ID available" - a
+    non-empty string, and therefore truthy, so the old `or`-chain accepted
+    it as if it were a real sleeper_id. It must now be treated as absent,
+    with no fallback available in this case.
+    """
+    live_player = {"playerID": "700", "mflid": "9700", "playerName": "No Sleeper Player"}
+    player_ids_raw = [
+        {"ktc_id": "700", "mfl_id": "", "sleeper_id": "NA", "name": "No Sleeper Player"},
+    ]
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
+
+    resolved = _resolve_ktc_sleeper_id(live_player, ktc_id_to_row, mfl_id_to_row)
+
+    assert resolved is None, "the literal string 'NA' must never be returned as a sleeper_id"
+
+
+def test_resolve_ktc_sleeper_id_excludes_a_player_missing_from_the_crosswalk_entirely():
+    """A player with neither a matching ktc_id nor mfl_id row must be excluded gracefully, not raise."""
+    live_player = {"playerID": "999", "mflid": "9999", "playerName": "Brand New Player"}
+    player_ids_raw = [
+        {"ktc_id": "700", "mfl_id": "9700", "sleeper_id": "rookie_sid", "name": "Rookie QB"},
+    ]
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
+
+    resolved = _resolve_ktc_sleeper_id(live_player, ktc_id_to_row, mfl_id_to_row)
+
+    assert resolved is None
+
+
+def test_resolve_ktc_sleeper_id_still_matches_the_common_case_via_ktc_id():
+    """No regression for the ordinary case: a correct, non-colliding ktc_id match still works."""
+    live_player = {"playerID": "42", "mflid": "4242", "playerName": "Steady Veteran"}
+    player_ids_raw = [
+        {"ktc_id": "42", "mfl_id": "4242", "sleeper_id": "steady_sid", "name": "Steady Veteran"},
+    ]
+    ktc_id_to_row, mfl_id_to_row = _build_ktc_id_crosswalks(player_ids_raw)
+
+    resolved = _resolve_ktc_sleeper_id(live_player, ktc_id_to_row, mfl_id_to_row)
+
+    assert resolved == "steady_sid"
+
+
+def test_extract_ktc_redraft_pillar_no_longer_cross_contaminates_misattributed_players():
+    """
+    End-to-end reproduction through the real redraft pillar (the function
+    named in the original bug report) with a synthetic pool shaped like the
+    15 real cases: a rookie QB whose stale ktc_id collides with an unrelated
+    veteran WR's crosswalk row. Before the fix, the rookie's value ended up
+    filed under the WR's sleeper_id (or was lost to a dict-key collision)
+    and the rookie's own sleeper_id had no entry at all.
+    """
+    ktc_fantasy_raw = [
+        {
+            "playerID": "700", "mflid": "9700", "position": "QB", "playerName": "Rookie QB",
+            "oneQBValues": {"value": 5000.0},
+        },
+        {
+            "playerID": "600", "mflid": "9600", "position": "WR", "playerName": "Unrelated Veteran",
+            "oneQBValues": {"value": 3000.0},
+        },
+    ]
+    player_ids_raw = [
+        # Rookie QB's live playerID (700) collides with this stale crosswalk
+        # row, which is actually the Veteran's row reachable another way.
+        {"ktc_id": "700", "mfl_id": "8888", "sleeper_id": "veteran_sid", "name": "Unrelated Veteran"},
+        # Rookie QB's OWN row - stale ktc_id, correct mfl_id.
+        {"ktc_id": "650", "mfl_id": "9700", "sleeper_id": "rookie_sid", "name": "Rookie QB"},
+        # The Veteran's OWN live-pool entry (playerID 600) needs its own
+        # crosswalk row too, matched directly by ktc_id this time.
+        {"ktc_id": "600", "mfl_id": "9600", "sleeper_id": "veteran_sid", "name": "Unrelated Veteran"},
+    ]
+
+    result = _extract_ktc_redraft_pillar(ktc_fantasy_raw, player_ids_raw=player_ids_raw, is_superflex=False)
+
+    assert "rookie_sid" in result, "Rookie QB must get their own entry"
+    assert result["rookie_sid"]["val"] == 5000.0, "Rookie QB's entry must carry Rookie QB's own value"
+    assert "veteran_sid" in result, "Unrelated Veteran must keep their own entry"
+    assert result["veteran_sid"]["val"] == 3000.0, "Unrelated Veteran's value must be their own, not the rookie's"
 
 
 # ---------------------------------------------------------------------------

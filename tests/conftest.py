@@ -108,7 +108,7 @@ def te_ktc_raw():
     """
     return [
         {
-            "playerID": "9001", "mflid": "", "position": "TE",
+            "playerID": "9001", "mflid": "", "position": "TE", "playerName": "Elite TE",
             "superflexValues": {
                 "value": 5200.0,
                 "tep": {"value": 6400.0},
@@ -121,7 +121,7 @@ def te_ktc_raw():
 @pytest.fixture
 def te_player_ids_raw():
     """Maps the synthetic KTC TE row's playerID to the lookup's Sleeper id."""
-    return [{"ktc_id": "9001", "sleeper_id": "te1"}]
+    return [{"ktc_id": "9001", "sleeper_id": "te1", "name": "Elite TE"}]
 
 
 # ---------------------------------------------------------------------------
@@ -258,13 +258,14 @@ def orchestration_ktc_te_raw_and_player_ids():
     for team_id in ORCH_TEAM_IDS:
         pid = f"t{team_id}_te5"
         ktc_player_id = f"ktc_{pid}"
+        te_name = f"Team{team_id} TE Starter5"
         base = _orch_skill_value(team_id, BASE_VALUE_BY_POS["TE"])
         rows.append({
-            "playerID": ktc_player_id, "mflid": "", "position": "TE",
+            "playerID": ktc_player_id, "mflid": "", "position": "TE", "playerName": te_name,
             "oneQBValues": {"value": base, "tep": {"value": base * 1.15}, "tepp": {"value": base * 1.30}},
             "superflexValues": {"value": base, "tep": {"value": base * 1.15}, "tepp": {"value": base * 1.30}},
         })
-        player_ids_raw.append({"ktc_id": ktc_player_id, "sleeper_id": pid})
+        player_ids_raw.append({"ktc_id": ktc_player_id, "sleeper_id": pid, "name": te_name})
     return rows, player_ids_raw
 
 
