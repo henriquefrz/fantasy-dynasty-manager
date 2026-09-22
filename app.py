@@ -619,7 +619,10 @@ st.markdown(
     .roster-table-portfolio { min-width: 860px !important; }
     .roster-table-power { min-width: 780px !important; }
     .roster-table-roster { min-width: 700px !important; }
-    .roster-table-opponent { min-width: 480px !important; }
+    .roster-table-opponent { min-width: 360px !important; }
+    .roster-table-opponent th, .roster-table-opponent td {
+        padding: 10px 10px !important;
+    }
 
     .roster-table th {
         background: #1a2234;
@@ -713,6 +716,15 @@ st.markdown(
     .player-avatar-44 {
         width: 44px;
         height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #1f2937;
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        flex-shrink: 0;
+    }
+    .player-avatar-36 {
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         object-fit: cover;
         background: #1f2937;
@@ -1112,6 +1124,22 @@ st.markdown(
         .arena-proj-score {
             font-size: 1.6rem !important;
             font-weight: 900 !important;
+        }
+
+        /* Mobile Side-by-Side Lineup Columns: two full lineup tables side by
+           side would squeeze each into ~half the screen width, well under
+           roster-table-opponent's own min-width, forcing constant horizontal
+           scrolling to read either one. Stacking them (my lineup, then the
+           opponent's, both still fully visible with no expander click)
+           keeps every row legible - same pattern as the topbar's own mobile
+           stacking above. */
+        .st-key-lineup_vs_columns [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+        .st-key-lineup_vs_columns [data-testid="column"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: unset !important;
         }
 
         /* Mobile Start/Sit Card */
@@ -2212,9 +2240,12 @@ def render_live_status_badge_html(status_label):
 
 def render_opponent_lineup_html(opp_rows):
     """
-    Renders a starting lineup table (opponent or the user's own) with 44px
+    Renders a starting lineup table (opponent or the user's own) with 36px
     avatars, clean row spacing, and a live-status column when rows carry a
     "Status" key (see render_live_status_badge_html) - omitted otherwise.
+    NFL team is folded into a subtitle line under the player name rather
+    than its own column - keeps every field visible in a table narrow
+    enough to sit two-up (side-by-side lineups) without horizontal scroll.
     """
     if not opp_rows:
         return "<p style='color: #94a3b8; padding: 8px;'>No lineup available.</p>"
@@ -2226,10 +2257,9 @@ def render_opponent_lineup_html(opp_rows):
     <table class='roster-table roster-table-opponent'>
         <thead>
             <tr>
-                <th style='width: 70px;'>Slot</th>
+                <th style='width: 56px;'>Slot</th>
                 <th>Player</th>
-                <th>Projected</th>
-                <th>NFL Team</th>
+                <th>Proj.</th>
                 {status_th}
             </tr>
         </thead>
@@ -2242,7 +2272,7 @@ def render_opponent_lineup_html(opp_rows):
         team = r.get("NFL Team", "—")
         proj = r.get("Projected", "0.0 pts")
         status_td = f"<td>{render_live_status_badge_html(r['Status'])}</td>" if show_status and "Status" in r else ("<td>—</td>" if show_status else "")
-        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
+        avatar_img = f"<img src='{avatar}' class='player-avatar-36' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-36' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
         html += f"""
             <tr>
                 <td><span class='badge-pos badge-rb'>{slot}</span></td>
@@ -2251,11 +2281,11 @@ def render_opponent_lineup_html(opp_rows):
                         {avatar_img}
                         <div class='player-info'>
                             <span class='player-name'>{pname}</span>
+                            <span class='player-meta'>{team}</span>
                         </div>
                     </div>
                 </td>
                 <td class='val-pill' style='color: #38bdf8;'>{proj}</td>
-                <td style='color: #94a3b8;'>{team}</td>
                 {status_td}
             </tr>
         """
@@ -4513,13 +4543,21 @@ else:
                     unsafe_allow_html=True,
                 )
 
-        if my_lineup_rows:
-            with st.expander(f"View My Starting Lineup ({user_name})", expanded=False):
-                st.html(render_opponent_lineup_html(my_lineup_rows))
-
-        if opp_roster and opp_lineup_rows:
-            with st.expander(f"View Opponent Starting Lineup ({opp_name})", expanded=False):
-                st.html(render_opponent_lineup_html(opp_lineup_rows))
+        # Always-visible side-by-side lineups (no expander click needed).
+        # Wrapped in a keyed container so the mobile media query above can
+        # target this specific stHorizontalBlock and stack the two columns
+        # instead of squeezing two full lineup tables into half-width each.
+        if my_lineup_rows or (opp_roster and opp_lineup_rows):
+            with st.container(key="lineup_vs_columns"):
+                col_my_lineup, col_opp_lineup = st.columns(2, gap="medium")
+                with col_my_lineup:
+                    if my_lineup_rows:
+                        st.markdown(f"#### {user_name}")
+                        st.html(render_opponent_lineup_html(my_lineup_rows))
+                with col_opp_lineup:
+                    if opp_roster and opp_lineup_rows:
+                        st.markdown(f"#### {opp_name}")
+                        st.html(render_opponent_lineup_html(opp_lineup_rows))
 
 
     # =========================================================================
