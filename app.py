@@ -615,7 +615,7 @@ st.markdown(
         font-size: 0.88rem;
         margin: 0;
     }
-    .roster-table-market { min-width: 860px !important; }
+    .roster-table-market { min-width: 980px !important; }
     .roster-table-portfolio { min-width: 860px !important; }
     .roster-table-power { min-width: 780px !important; }
     .roster-table-roster { min-width: 700px !important; }
@@ -1328,49 +1328,64 @@ def render_player_table_html(player_rows, show_equity=True):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
-def render_market_table_html(market_rows, is_redraft: bool = False):
+def render_market_table_html(market_rows, is_redraft: bool = False, show_trajectory: bool = False):
     """
     Renders an executive table for Free Agents or Market Database with 44px avatars,
     spacious rows (~56px), and consensus metrics (dynasty or single-season).
+
+    Team/Trajectory (who owns this player in the current league, and that
+    team's Franchise Trajectory) are appended at the end, mirroring Market
+    Signal's own placement - a secondary, at-a-glance column rather than a
+    core valuation metric. show_trajectory reflects the LEAGUE's own format
+    (is_dynasty), not which valuation scope the table is currently browsing
+    (is_redraft): a redraft league has no Franchise Trajectory axis to show
+    regardless of which value column the user picked.
     """
     if not market_rows:
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
 
+    team_th = "<th style='width: 9%; text-align: center;'>Team</th>"
+    trajectory_th = "<th style='width: 10%; text-align: center;' title=\"This team's Franchise Trajectory (current-season strength blended with dynasty asset value)\">Trajectory</th>" if show_trajectory else ""
+
     if is_redraft:
-        html = """
+        html = f"""
         <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
         <div class='table-responsive-wrapper'>
         <table class='roster-table roster-table-market'>
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 27%; text-align: left;'>Player</th>
-                    <th style='width: 15%; text-align: center;'>Single-Season Value</th>
-                    <th style='width: 11%; text-align: center;'>Overall Rank</th>
-                    <th style='width: 11%; text-align: center;'>Pos Rank</th>
-                    <th style='width: 12%; text-align: center;'>Sleeper Proj PPG</th>
-                    <th style='width: 12%; text-align: center;'>FantasyPros ECR</th>
-                    <th style='width: 12%; text-align: center;'>KTC Redraft Value</th>
+                    <th style='width: 24%; text-align: left;'>Player</th>
+                    <th style='width: 13%; text-align: center;'>Single-Season Value</th>
+                    <th style='width: 10%; text-align: center;'>Overall Rank</th>
+                    <th style='width: 10%; text-align: center;'>Pos Rank</th>
+                    <th style='width: 11%; text-align: center;'>Sleeper Proj PPG</th>
+                    <th style='width: 11%; text-align: center;'>FantasyPros ECR</th>
+                    <th style='width: 11%; text-align: center;'>KTC Redraft Value</th>
+                    {team_th}
+                    {trajectory_th}
                 </tr>
             </thead>
             <tbody>
         """
     else:
-        html = """
+        html = f"""
         <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
         <div class='table-responsive-wrapper'>
         <table class='roster-table roster-table-market'>
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 26%; text-align: left;'>Player</th>
-                    <th style='width: 15%; text-align: center;'>Consensus Value</th>
-                    <th style='width: 11%; text-align: center;'>Overall Rank</th>
-                    <th style='width: 11%; text-align: center;'>Pos Rank</th>
-                    <th style='width: 10%; text-align: center;'>KeepTradeCut</th>
-                    <th style='width: 10%; text-align: center;'>FantasyCalc</th>
-                    <th style='width: 9%; text-align: center;'>DynastyProcess</th>
+                    <th style='width: 23%; text-align: left;'>Player</th>
+                    <th style='width: 13%; text-align: center;'>Consensus Value</th>
+                    <th style='width: 10%; text-align: center;'>Overall Rank</th>
+                    <th style='width: 10%; text-align: center;'>Pos Rank</th>
+                    <th style='width: 9%; text-align: center;'>KeepTradeCut</th>
+                    <th style='width: 9%; text-align: center;'>FantasyCalc</th>
+                    <th style='width: 8%; text-align: center;'>DynastyProcess</th>
                     <th style='width: 8%; text-align: center;' title='Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence'>Market Signal</th>
+                    {team_th}
+                    {trajectory_th}
                 </tr>
             </thead>
             <tbody>
@@ -1396,6 +1411,19 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
             "sell_high": "market-signal-sell",
             "buy_low": "market-signal-buy",
         }.get(r.get("market_signal"), "market-signal-neutral")
+
+        owner_team = r.get("Owner Team", "Free Agent")
+        owner_team_cell = f"<td style='text-align: center; color: #94a3b8;'>{owner_team}</td>"
+        trajectory_cell = ""
+        if show_trajectory:
+            trajectory = r.get("Trajectory", "—")
+            trajectory_cls = {
+                "win": "status-contender",
+                "neutral": "status-bubble",
+                "rebuild": "status-rebuild",
+            }.get(r.get("_owner_category"), "")
+            trajectory_badge = f"<span class='status-capsule {trajectory_cls}'>{trajectory}</span>" if trajectory_cls else f"<span style='color: #64748b;'>{trajectory}</span>"
+            trajectory_cell = f"<td style='text-align: center;'>{trajectory_badge}</td>"
 
         is_pick = False if is_redraft else is_draft_pick_asset(pid, pname, pos)
 
@@ -1434,6 +1462,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <td style='text-align: center; color: #38bdf8; font-weight: 700;'>{proj}</td>
                     <td style='text-align: center; color: #fbbf24;'>{fp}</td>
                     <td style='text-align: center; color: #f87171; font-weight: 700;'>{ktc_redraft}</td>
+                    {owner_team_cell}
+                    {trajectory_cell}
                 </tr>
             """
         else:
@@ -1459,6 +1489,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False):
                     <td style='text-align: center; color: #94a3b8;'>{fc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{dp}</td>
                     <td style='text-align: center;'><span class='{market_signal_cls}'>{market_signal}</span></td>
+                    {owner_team_cell}
+                    {trajectory_cell}
                 </tr>
             """
     html += """
@@ -2610,6 +2642,33 @@ def build_market_assets_list(active_lookup, players_db, is_redraft=False):
         })
     assets.sort(key=lambda x: x["_val"], reverse=True)
     return assets
+
+
+def build_player_owner_lookup(all_team_profiles):
+    """
+    Maps player_id -> the roster that owns them in this league (manager
+    name, and Franchise Trajectory status text/category) for the Market
+    Rankings table's Team/Trajectory columns. bench_assets already includes
+    taxi-squad players (analyze_team_profile only excludes reserve_ids
+    there, not taxi_ids), so starter_assets + bench_assets alone already
+    covers a team's full active + taxi roster - no separate taxi_assets
+    pass needed. A player absent from this map is a free agent.
+    """
+    owner_by_pid = {}
+    for prof in all_team_profiles:
+        team_name = prof.get("manager_name", "Unknown Team")
+        status = prof.get("status", "")
+        trajectory = status.split("(")[0].strip() if status else "—"
+        category = prof.get("category", "neutral")
+        for asset in prof.get("starter_assets", []) + prof.get("bench_assets", []):
+            pid = asset.get("player_id")
+            if pid:
+                owner_by_pid[str(pid)] = {
+                    "team_name": team_name,
+                    "trajectory": trajectory,
+                    "category": category,
+                }
+    return owner_by_pid
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -6438,12 +6497,45 @@ else:
         # Build unified market assets collection
         all_market_assets = build_market_assets_list(active_lookup, players, is_redraft=is_redraft)
 
+        # Team/Trajectory: who owns this player in THIS league, and (dynasty
+        # leagues only) that team's Franchise Trajectory - gated on the
+        # league's own format (is_dynasty), not which valuation scope this
+        # table happens to be browsing (is_redraft), since ownership and
+        # trajectory are roster facts, not a pricing lens. A redraft league
+        # has no Franchise Trajectory axis (see build_team_profiles /
+        # classify_redraft_team - a different, single-axis "Contender
+        # Status" concept), so that column/filter is left out there rather
+        # than showing a misleading substitute.
+        show_trajectory = is_dynasty
+        owner_lookup = build_player_owner_lookup(all_team_profiles)
+        for r in all_market_assets:
+            owner = owner_lookup.get(r["pid"])
+            if owner:
+                r["Owner Team"] = owner["team_name"]
+                r["Trajectory"] = owner["trajectory"]
+                r["_owner_category"] = owner["category"]
+            else:
+                r["Owner Team"] = "Free Agent"
+                r["Trajectory"] = "—"
+                r["_owner_category"] = None
+
         if "Database" in market_subview:
             signal_mkt = "ALL"
+            trajectory_mkt = "ALL"
             if is_redraft:
-                c_mkt1, c_mkt2 = st.columns([1, 2])
+                if show_trajectory:
+                    c_mkt1, c_mkt2, c_mkt4 = st.columns([1, 1.6, 1])
+                    c_mkt3 = None
+                else:
+                    c_mkt1, c_mkt2 = st.columns([1, 2])
+                    c_mkt3 = None
+                    c_mkt4 = None
             else:
-                c_mkt1, c_mkt2, c_mkt3 = st.columns([1, 1.6, 1])
+                if show_trajectory:
+                    c_mkt1, c_mkt2, c_mkt3, c_mkt4 = st.columns([1, 1.3, 1, 1])
+                else:
+                    c_mkt1, c_mkt2, c_mkt3 = st.columns([1, 1.6, 1])
+                    c_mkt4 = None
             with c_mkt1:
                 pos_options = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"] if is_redraft else ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"]
                 pos_mkt = st.selectbox("Position Filter:", pos_options, key=f"mkt_pos_filter_{'redraft' if is_redraft else 'dynasty'}")
@@ -6458,6 +6550,18 @@ else:
                         key="mkt_signal_filter_dynasty",
                         help="Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence.",
                     )
+            if show_trajectory:
+                trajectory_options = ["ALL"] + sorted({
+                    r["Trajectory"] for r in all_market_assets
+                    if r.get("Trajectory") and r["Trajectory"] != "—"
+                })
+                with c_mkt4:
+                    trajectory_mkt = st.selectbox(
+                        "Trajectory:",
+                        trajectory_options,
+                        key=f"mkt_trajectory_filter_{'redraft' if is_redraft else 'dynasty'}",
+                        help="Filters by the owning team's Franchise Trajectory - free agents are excluded by any non-ALL selection.",
+                    )
 
             signal_filter_map = {"🔥 Sell High": "sell_high", "💎 Buy Low": "buy_low"}
 
@@ -6468,6 +6572,8 @@ else:
                 if search_mkt and (search_mkt.lower() not in r["name"].lower() and search_mkt.lower() not in r["team"].lower()):
                     continue
                 if signal_mkt != "ALL" and r.get("market_signal") != signal_filter_map.get(signal_mkt):
+                    continue
+                if trajectory_mkt != "ALL" and r.get("Trajectory") != trajectory_mkt:
                     continue
                 filtered_rows.append(r)
 
@@ -6563,7 +6669,7 @@ else:
                         st.session_state["mkt_page"] = min(total_pages, cur_page + 1)
                         st.rerun()
 
-                st.html(render_market_table_html(page_rows, is_redraft=is_redraft))
+                st.html(render_market_table_html(page_rows, is_redraft=is_redraft, show_trajectory=show_trajectory))
             else:
                 st.info("No players matched the filter criteria.")
 
