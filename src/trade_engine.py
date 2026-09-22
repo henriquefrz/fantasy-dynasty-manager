@@ -22,6 +22,14 @@ FAIRNESS_MIN_RATIO = 0.88
 FAIRNESS_MAX_RATIO = 1.12
 MAX_DIFF_TOLERANCE = 800.0
 
+# Dynasty+ROS blend weight applied to fairness evaluation, keyed by the
+# evaluating team's category (win/neutral/rebuild). A "win" (contender) team
+# cares more about immediate production, so its trade fairness math leans
+# toward ROS value; a "rebuild" team stays 100% dynasty. ROS weight must
+# never reach/exceed 50% (dynasty always the majority signal) - see
+# calculate_effective_trade_value's blending in _blended_asset_value.
+CATEGORY_ROS_WEIGHT = {"win": 0.30, "neutral": 0.15, "rebuild": 0.0}
+
 # Same injury_status set audit_weekly_lineup already flags for active starters -
 # reused here purely as an informational trade warning, never a value discount.
 TRADE_INJURY_WARNING_STATUSES = {"Questionable", "Doubtful", "Out", "IR", "PUP", "Sus"}
@@ -43,15 +51,32 @@ def get_trade_injury_warnings(assets: List[Dict[str, Any]]) -> List[str]:
     return warnings
 
 
+def _blended_asset_value(asset: Dict[str, Any], ros_weight: float) -> float:
+    """
+    Effective value used for fairness math only - never mutates asset["market_value"],
+    which stays pure dynasty for every other consumer (power rankings, portfolio, etc).
+    Picks have no single-season ROS value (their production is a full draft class away),
+    so they always use pure dynasty market_value regardless of ros_weight. Player assets
+    blend dynasty market_value with ROS redraft_val per the evaluating team's category
+    (see CATEGORY_ROS_WEIGHT).
+    """
+    dynasty_val = asset.get("market_value", 0.0)
+    if ros_weight <= 0.0 or asset.get("type") == "pick":
+        return dynasty_val
+    ros_val = asset.get("redraft_val", dynasty_val)
+    return dynasty_val * (1 - ros_weight) + ros_val * ros_weight
+
+
 def calculate_effective_trade_value(
     assets: List[Dict[str, Any]],
     has_stud: bool,
     stud_multiplier: float = STUD_MULTIPLIER,
     package_weights: Tuple[float, ...] = PACKAGE_WEIGHTS,
+    ros_weight: float = 0.0,
 ) -> float:
     """
     Calculates the Model 3 effective trade value of an asset package.
-    - Assets are sorted descending by market_value.
+    - Assets are sorted descending by (blended) value - see _blended_asset_value.
     - If this side holds the single highest-value asset in the trade (the Stud),
       that top asset receives the stud multiplier (+15%).
     - Multi-asset packages receive diminishing returns (1.0, 0.85, 0.70, 0.50).
@@ -59,11 +84,11 @@ def calculate_effective_trade_value(
     if not assets:
         return 0.0
 
-    sorted_assets = sorted(assets, key=lambda a: -a.get("market_value", 0.0))
+    sorted_assets = sorted(assets, key=lambda a: -_blended_asset_value(a, ros_weight))
     total_effective = 0.0
 
     for idx, asset in enumerate(sorted_assets):
-        val = asset.get("market_value", 0.0)
+        val = _blended_asset_value(asset, ros_weight)
         weight = package_weights[min(idx, len(package_weights) - 1)]
 
         if idx == 0 and has_stud:
@@ -78,10 +103,17 @@ def evaluate_trade_fairness(
     give_assets: List[Dict[str, Any]],
     receive_assets: List[Dict[str, Any]],
     stud_multiplier: float = STUD_MULTIPLIER,
+    ros_weight: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Evaluates a proposed trade using Model 3.
     Identifies the Stud, computes effective values for both sides, and checks fairness.
+
+    ros_weight blends each non-pick asset's dynasty market_value with its ROS
+    redraft_val for this evaluation only (see _blended_asset_value) - it comes
+    from the evaluating team's category via CATEGORY_ROS_WEIGHT, and is 0.0
+    (pure dynasty, current behavior) by default. It is echoed back on the
+    result so callers can show the user which blend was applied.
     """
     if not give_assets or not receive_assets:
         return {
@@ -95,27 +127,28 @@ def evaluate_trade_fairness(
             "stud_asset": None,
             "stud_side": None,
             "injury_warnings": [],
+            "ros_weight": ros_weight,
         }
 
-    raw_give = sum(a.get("market_value", 0.0) for a in give_assets)
-    raw_receive = sum(a.get("market_value", 0.0) for a in receive_assets)
+    raw_give = sum(_blended_asset_value(a, ros_weight) for a in give_assets)
+    raw_receive = sum(_blended_asset_value(a, ros_weight) for a in receive_assets)
 
     # Find the trade stud (highest value asset across both sides)
-    max_give = max(a.get("market_value", 0.0) for a in give_assets)
-    max_receive = max(a.get("market_value", 0.0) for a in receive_assets)
+    max_give = max(_blended_asset_value(a, ros_weight) for a in give_assets)
+    max_receive = max(_blended_asset_value(a, ros_weight) for a in receive_assets)
 
     if max_give >= max_receive:
         stud_side = "give"
-        stud_asset = max(give_assets, key=lambda a: a.get("market_value", 0.0))
+        stud_asset = max(give_assets, key=lambda a: _blended_asset_value(a, ros_weight))
     else:
         stud_side = "receive"
-        stud_asset = max(receive_assets, key=lambda a: a.get("market_value", 0.0))
+        stud_asset = max(receive_assets, key=lambda a: _blended_asset_value(a, ros_weight))
 
     eff_give = calculate_effective_trade_value(
-        give_assets, has_stud=(stud_side == "give"), stud_multiplier=stud_multiplier
+        give_assets, has_stud=(stud_side == "give"), stud_multiplier=stud_multiplier, ros_weight=ros_weight
     )
     eff_receive = calculate_effective_trade_value(
-        receive_assets, has_stud=(stud_side == "receive"), stud_multiplier=stud_multiplier
+        receive_assets, has_stud=(stud_side == "receive"), stud_multiplier=stud_multiplier, ros_weight=ros_weight
     )
 
     fairness_ratio = (eff_receive / eff_give) if eff_give > 0 else 0.0
@@ -138,6 +171,7 @@ def evaluate_trade_fairness(
         "stud_asset": stud_asset,
         "stud_side": stud_side,
         "injury_warnings": get_trade_injury_warnings(give_assets + receive_assets),
+        "ros_weight": ros_weight,
     }
 
 
@@ -515,6 +549,11 @@ def generate_trade_suggestions(
     """
     proposals = []
     user_cat = user_profile["category"]
+    # Applied symmetrically to both sides of every trade below, from the
+    # user's own perspective ("is this trade good for me, given where I
+    # am") - never the partner's category. Redraft leagues have no dynasty
+    # axis, so they never blend.
+    ros_weight = CATEGORY_ROS_WEIGHT.get(user_cat, 0.0) if is_dynasty else 0.0
 
     for partner in other_profiles:
         if partner["roster_id"] == user_roster_id:
@@ -569,7 +608,7 @@ def generate_trade_suggestions(
                                 give = [pk, p]
                                 recv = [stud]
 
-                                eval_result = evaluate_trade_fairness(give, recv)
+                                eval_result = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                                 if not eval_result["is_balanced"]:
                                     continue
 
@@ -607,7 +646,7 @@ def generate_trade_suggestions(
                             give = [p1, p2]
                             recv = [stud]
 
-                            eval_result = evaluate_trade_fairness(give, recv)
+                            eval_result = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                             if not eval_result["is_balanced"]:
                                 continue
 
@@ -656,7 +695,7 @@ def generate_trade_suggestions(
                 for pk in partner_picks:
                     give = [p]
                     recv = [pk]
-                    eval_result = evaluate_trade_fairness(give, recv)
+                    eval_result = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                     if not eval_result["is_balanced"]:
                         continue
 
@@ -720,7 +759,7 @@ def generate_trade_suggestions(
                         for their_p in their_pos_assets[:3]:
                             give = [my_p]
                             recv = [their_p]
-                            eval_result = evaluate_trade_fairness(give, recv)
+                            eval_result = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                             if not eval_result["is_balanced"]:
                                 continue
 
@@ -773,7 +812,7 @@ def generate_trade_suggestions(
                     for ya in partner_young_assets:
                         give = [vet]
                         recv = [pk, ya]
-                        eval_result = evaluate_trade_fairness(give, recv)
+                        eval_result = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                         if not eval_result["is_balanced"]:
                             continue
 
@@ -838,6 +877,12 @@ def generate_trade_suggestions(
                 diverse_proposals.append(p)
             if len(diverse_proposals) >= max_suggestions:
                 break
+
+    # Surfaced so the UI can show a transparency notice when a Dynasty+ROS
+    # blend (ros_weight > 0) shaped this proposal's fairness evaluation.
+    for p in diverse_proposals:
+        p["ros_weight"] = ros_weight
+        p["user_category"] = user_cat
 
     return diverse_proposals
 

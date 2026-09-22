@@ -19,6 +19,7 @@ from src.trade_engine import (
     check_lineup_and_deficit_viability,
     get_pick_proximity_bonus,
     format_asset_str,
+    CATEGORY_ROS_WEIGHT,
 )
 
 
@@ -127,6 +128,8 @@ def find_targeted_buy_trades(
     user_cat = user_profile.get("category", "neutral")
     partner_cat = owner_profile.get("category", "neutral")
     partner_name = owner_profile.get("manager_name", f"Team {owner_profile['roster_id']}")
+    # Symmetric blend from the user's own perspective (see trade_engine.generate_trade_suggestions).
+    ros_weight = CATEGORY_ROS_WEIGHT.get(user_cat, 0.0) if is_dynasty else 0.0
 
     user_players = user_profile.get("bench_assets", []) + user_profile.get("starter_assets", [])
     user_picks = sorted(
@@ -140,7 +143,7 @@ def find_targeted_buy_trades(
     for p in user_players:
         give = [p]
         recv = [target_asset]
-        eval_res = evaluate_trade_fairness(give, recv)
+        eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
         if not eval_res["is_balanced"]:
             continue
 
@@ -184,7 +187,7 @@ def find_targeted_buy_trades(
                     continue
                 give = [pk, p]
                 recv = [target_asset]
-                eval_res = evaluate_trade_fairness(give, recv)
+                eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                 if not eval_res["is_balanced"]:
                     continue
 
@@ -221,7 +224,7 @@ def find_targeted_buy_trades(
                 p1, p2 = bench_candidates[i], bench_candidates[j]
                 give = [p1, p2]
                 recv = [target_asset]
-                eval_res = evaluate_trade_fairness(give, recv)
+                eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                 if not eval_res["is_balanced"]:
                     continue
 
@@ -257,7 +260,7 @@ def find_targeted_buy_trades(
         for pk in user_picks:
             give = [pk]
             recv = [target_asset]
-            eval_res = evaluate_trade_fairness(give, recv)
+            eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
             if eval_res["is_balanced"]:
                 prox_bonus = get_pick_proximity_bonus(give)
                 proposals.append({
@@ -283,7 +286,7 @@ def find_targeted_buy_trades(
                     pk1, pk2 = user_picks[i], user_picks[j]
                     give = [pk1, pk2]
                     recv = [target_asset]
-                    eval_res = evaluate_trade_fairness(give, recv)
+                    eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                     if not eval_res["is_balanced"]:
                         continue
 
@@ -307,7 +310,13 @@ def find_targeted_buy_trades(
                     break
 
     proposals.sort(key=lambda p: p["score"], reverse=True)
-    return proposals[:max_proposals]
+    top_proposals = proposals[:max_proposals]
+    # Surfaced so the UI can show a transparency notice when a Dynasty+ROS
+    # blend (ros_weight > 0) shaped this proposal's fairness evaluation.
+    for p in top_proposals:
+        p["ros_weight"] = ros_weight
+        p["user_category"] = user_cat
+    return top_proposals
 
 
 def find_targeted_sell_trades(
@@ -327,6 +336,9 @@ def find_targeted_sell_trades(
     target_pos = target_asset.get("position", "")
     target_val = target_asset.get("market_value", 0.0)
     target_age = target_asset.get("age", 25)
+    user_cat = user_profile.get("category", "neutral")
+    # Symmetric blend from the user's own perspective (see trade_engine.generate_trade_suggestions).
+    ros_weight = CATEGORY_ROS_WEIGHT.get(user_cat, 0.0) if is_dynasty else 0.0
 
     # Score partner suitability
     partner_scores = []
@@ -376,7 +388,7 @@ def find_targeted_sell_trades(
             for pk in partner_picks:
                 give = [target_asset]
                 recv = [pk]
-                eval_res = evaluate_trade_fairness(give, recv)
+                eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                 if eval_res["is_balanced"]:
                     is_viable, _ = check_lineup_and_deficit_viability(
                         user_profile, give, recv, primary_lookup, roster_positions, is_dynasty
@@ -404,7 +416,7 @@ def find_targeted_sell_trades(
             for p in partner_players:
                 give = [target_asset]
                 recv = [p]
-                eval_res = evaluate_trade_fairness(give, recv)
+                eval_res = evaluate_trade_fairness(give, recv, ros_weight=ros_weight)
                 if eval_res["is_balanced"]:
                     is_viable, _ = check_lineup_and_deficit_viability(
                         user_profile, give, recv, primary_lookup, roster_positions, is_dynasty
@@ -430,7 +442,13 @@ def find_targeted_sell_trades(
             break
 
     proposals.sort(key=lambda p: p["score"], reverse=True)
-    return proposals[:max_partners]
+    top_proposals = proposals[:max_partners]
+    # Surfaced so the UI can show a transparency notice when a Dynasty+ROS
+    # blend (ros_weight > 0) shaped this proposal's fairness evaluation.
+    for p in top_proposals:
+        p["ros_weight"] = ros_weight
+        p["user_category"] = user_cat
+    return top_proposals
 
 
 def print_targeted_trades_summary(

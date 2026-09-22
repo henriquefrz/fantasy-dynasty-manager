@@ -206,6 +206,7 @@ try:
         generate_trade_suggestions,
         build_positional_room_leaderboard,
         evaluate_trade_fairness,
+        CATEGORY_ROS_WEIGHT,
     )
 except ImportError:
     import src.trade_engine as _te
@@ -214,6 +215,7 @@ except ImportError:
     generate_trade_suggestions = getattr(_te, "generate_trade_suggestions")
     build_positional_room_leaderboard = getattr(_te, "build_positional_room_leaderboard")
     evaluate_trade_fairness = getattr(_te, "evaluate_trade_fairness")
+    CATEGORY_ROS_WEIGHT = getattr(_te, "CATEGORY_ROS_WEIGHT")
 
 try:
     from src.team_strength import (
@@ -5549,6 +5551,28 @@ else:
             else:
                 return "Depth & Capital"
 
+        TRADE_CATEGORY_LABELS = {"win": "Contender", "neutral": "Neutral", "rebuild": "Rebuilder"}
+
+        def render_ros_blend_notice(ros_weight, user_category):
+            """
+            Transparency banner shown whenever a Dynasty+ROS blend (ros_weight > 0)
+            shaped a trade's fairness evaluation - see CATEGORY_ROS_WEIGHT in
+            trade_engine.py. Returns "" (no banner) when ros_weight is 0, since that
+            means the evaluation is identical to the pure-dynasty baseline.
+            """
+            if not ros_weight or ros_weight <= 0:
+                return ""
+            cat_label = TRADE_CATEGORY_LABELS.get(user_category, "your team")
+            dyn_pct = (1 - ros_weight) * 100.0
+            ros_pct = ros_weight * 100.0
+            return (
+                "<div style='background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.35); "
+                "border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.8rem; color: #7dd3fc;'>"
+                f"📊 <strong>Adjusted evaluation:</strong> {ros_pct:.0f}% ROS / {dyn_pct:.0f}% Dynasty — "
+                f"based on your {cat_label} situation."
+                "</div>"
+            )
+
         def render_asset_chips(assets):
             if not assets:
                 return "<div style='color: #64748b; font-size: 0.8rem; font-style: italic;'>No assets selected</div>"
@@ -5631,6 +5655,10 @@ else:
                 </div>
                 """
 
+            ros_blend_html = render_ros_blend_notice(
+                prop.get("ros_weight", eval_res.get("ros_weight", 0.0)), prop.get("user_category")
+            )
+
             tier = get_trade_prop_tier(prop)
             if tier == "Blockbuster":
                 tier_badge = "<span class='status-capsule' style='background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);'>⭐ BLOCKBUSTER</span>"
@@ -5683,6 +5711,7 @@ else:
                 </div>
 
                 {injury_warning_html}
+                {ros_blend_html}
 
                 <p style='margin: 0; font-size: 0.82rem; color: #94a3b8; line-height: 1.4;'>
                     <strong style='color: #cbd5e1;'>Strategic Rationale:</strong> {why}
@@ -5971,6 +6000,25 @@ else:
                                 "player_obj": players.get(str(m_asset["pid"])),
                             })
 
+            # Attach ROS (redraft) value to every player asset so the Dynasty+ROS
+            # blend below has both sides to work with, regardless of which scope
+            # (Dynasty vs Single-Season) supplied market_value for this calculator.
+            for asset in selected_assets_a + selected_assets_b:
+                if asset.get("type") == "player" and "redraft_val" not in asset:
+                    r_data = redraft_lookup.get(str(asset.get("player_id"))) or redraft_lookup.get(asset.get("player_id")) or {}
+                    asset["redraft_val"] = r_data.get("market_value", asset.get("market_value", 0.0))
+
+            # Blend only applies when Dynasty scope is active (Single-Season is
+            # already 100% ROS) and the user's own roster is one of the two sides -
+            # a comparison between two other teams keeps the pure-dynasty baseline,
+            # since there's no single clear "is this good for me" perspective there.
+            calc_user_is_side = team_a_choice.startswith("⭐") or team_b_choice.startswith("⭐")
+            calc_ros_weight = (
+                CATEGORY_ROS_WEIGHT.get(user_profile.get("category", "neutral"), 0.0)
+                if (is_dynasty and not is_calc_redraft and calc_user_is_side)
+                else 0.0
+            )
+
             st.markdown("---")
 
             # Evaluation and Display
@@ -5980,7 +6028,7 @@ else:
                 has_side = "Side A" if selected_assets_a else "Side B"
                 st.warning(f"👆 You have selected assets for **{has_side}**. Please add at least one asset to the other side to compute the trade comparison.")
             else:
-                eval_res = evaluate_trade_fairness(selected_assets_a, selected_assets_b)
+                eval_res = evaluate_trade_fairness(selected_assets_a, selected_assets_b, ros_weight=calc_ros_weight)
                 raw_give = eval_res["raw_give"]
                 raw_receive = eval_res["raw_receive"]
                 eff_give = eval_res["eff_give"]
@@ -6050,6 +6098,10 @@ else:
                 </div>
                 """
                 st.html(meter_html)
+
+                ros_blend_notice = render_ros_blend_notice(calc_ros_weight, user_profile.get("category"))
+                if ros_blend_notice:
+                    st.html(ros_blend_notice)
 
                 injury_warnings = eval_res.get("injury_warnings") or []
                 if injury_warnings:

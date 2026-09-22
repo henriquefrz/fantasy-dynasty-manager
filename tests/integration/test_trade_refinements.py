@@ -45,7 +45,13 @@ from src.team_strength import (
     get_strength_tier,
     rank_teams_in_league,
 )
-from src.trade_engine import analyze_team_profile, format_asset_str, generate_trade_suggestions
+from src.trade_engine import (
+    CATEGORY_ROS_WEIGHT,
+    analyze_team_profile,
+    evaluate_trade_fairness,
+    format_asset_str,
+    generate_trade_suggestions,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -254,3 +260,78 @@ def test_diferenciados_deficit_protection_and_win_now_alignment(real_user, real_
         recv_names = [a["name"] for a in p["receive_assets"]]
         assert "Josh Jacobs" not in give_names, "Josh Jacobs must NOT be traded away"
         assert "Makai Lemon" not in recv_names, "Makai Lemon must NOT be received for a Championship Push"
+
+
+def test_taylor_for_jeanty_is_unfavorable_for_a_contender(real_user, real_nfl_state, real_user_leagues):
+    """
+    Pins the real bug that motivated the Dynasty+ROS fairness blend: Jonathan
+    Taylor (dynasty value roughly in line with Ashton Jeanty, but far ahead of
+    him in ROS production) + a 2027 1st was being suggested as a "balanced"
+    trade to acquire Jeanty for a contending ("win") team, even though Taylor
+    is clearly the better asset for a team trying to win now. At ros_weight=0
+    (pure dynasty, the pre-fix behavior) this trade's fairness_ratio sits
+    around 0.92 - inside the balanced tolerance. The CATEGORY_ROS_WEIGHT
+    blend for "win" teams (30% ROS / 70% Dynasty) must push it decisively
+    into "unfavorable" so it's never suggested to a contender again.
+    """
+    season = real_nfl_state["season"]
+    week = real_nfl_state.get("week", 1)
+    players = get_players()
+
+    fp_rankings = get_fp_rankings_raw()
+    player_ids = get_player_ids_raw()
+    values_players = get_values_players_raw()
+    values_picks = get_values_picks_raw()
+    ktc_sf = get_ktc_data_raw(is_superflex=True)
+    fc_sf = get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True)
+    fc_redraft = get_fantasycalc_data_raw(is_dynasty=False, is_superflex=False)
+
+    dyn_lookup = build_positional_lookup(fp_rankings, player_ids, "dynasty", is_superflex=True)
+    enrich_lookup_with_consensus_values(dyn_lookup, values_players, player_ids, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
+    redraft_lookup = build_positional_lookup(fp_rankings, player_ids, "redraft", is_superflex=False)
+    enrich_lookup_with_redraft_values(redraft_lookup, fc_redraft_raw=fc_redraft)
+    picks_lookup = build_consensus_picks_lookup(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
+
+    league = next(l for l in real_user_leagues if "Matt Ryan" in l["name"])
+    rosters = get_league_rosters(league["league_id"])
+
+    profiles, user_profile, user_roster = _build_profiles(
+        league, rosters, players, dyn_lookup, redraft_lookup, picks_lookup, real_user["user_id"], season, week
+    )
+
+    def _find_player(profile, name):
+        for a in profile["starter_assets"] + profile["bench_assets"]:
+            if a["name"] == name:
+                return a
+        return None
+
+    def _find_first_round_2027(profile):
+        for pk in profile["pick_assets"]:
+            if str(pk["season"]) == "2027" and pk["round"] == 1:
+                return pk
+        return None
+
+    taylor = _find_player(user_profile, "Jonathan Taylor")
+    pick_2027_1st = _find_first_round_2027(user_profile)
+    jeanty = None
+    for prof in profiles:
+        if prof["roster_id"] == user_roster["roster_id"]:
+            continue
+        jeanty = _find_player(prof, "Ashton Jeanty")
+        if jeanty:
+            break
+
+    if not taylor or not jeanty or not pick_2027_1st:
+        pytest.skip("Rosters have moved on since the reported bug - Taylor, Jeanty or the 2027 1st are no longer where this scenario expects them.")
+
+    give = [taylor, pick_2027_1st]
+    recv = [jeanty]
+
+    win_ros_weight = CATEGORY_ROS_WEIGHT["win"]
+    eval_res = evaluate_trade_fairness(give, recv, ros_weight=win_ros_weight)
+
+    assert not eval_res["is_balanced"], (
+        f"Taylor + {pick_2027_1st['name']} for Jeanty must be UNFAVORABLE for a contender "
+        f"(win_ros_weight={win_ros_weight}), got fairness_ratio={eval_res['fairness_ratio']} "
+        f"net_diff={eval_res['net_diff']}"
+    )
