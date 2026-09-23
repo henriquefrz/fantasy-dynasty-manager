@@ -1267,21 +1267,19 @@ def render_player_table_html(player_rows, show_equity=True):
     if show_equity:
         header_cols = """
             <th style='width: 95px; text-align: center;'>Slot</th>
-            <th style='width: 32%; text-align: left;'>Player</th>
+            <th style='width: 34%; text-align: left;'>Player</th>
             <th style='width: 18%; text-align: center;'>Consensus Value</th>
-            <th style='width: 60px; text-align: center;'>Age</th>
-            <th style='width: 14%; text-align: center;'>Overall ECR</th>
-            <th style='width: 14%; text-align: center;'>Pos ECR</th>
+            <th style='width: 16%; text-align: center;'>Overall ECR</th>
+            <th style='width: 16%; text-align: center;'>Pos ECR</th>
             <th style='width: 12%; text-align: center;'>Equity</th>
         """
     else:
         header_cols = """
             <th style='width: 95px; text-align: center;'>Slot</th>
-            <th style='width: 38%; text-align: left;'>Player</th>
+            <th style='width: 40%; text-align: left;'>Player</th>
             <th style='width: 20%; text-align: center;'>Consensus Value</th>
-            <th style='width: 65px; text-align: center;'>Age</th>
-            <th style='width: 15%; text-align: center;'>Overall ECR</th>
-            <th style='width: 15%; text-align: center;'>Pos ECR</th>
+            <th style='width: 17%; text-align: center;'>Overall ECR</th>
+            <th style='width: 17%; text-align: center;'>Pos ECR</th>
         """
 
     html = f"""
@@ -1303,6 +1301,7 @@ def render_player_table_html(player_rows, show_equity=True):
         pname = r.get("Player", "Unknown")
         team = r.get("NFL Team", "FA")
         age = safe_age_display(r.get("Age"))
+        age_meta = f"<span>•</span><span>{age}y</span>" if age != "—" else ""
         overall_ecr = r.get("Overall ECR", "—")
         pos_ecr = r.get("Pos ECR", "—")
         val = r.get("Consensus Value", "0 pts")
@@ -1324,12 +1323,12 @@ def render_player_table_html(player_rows, show_equity=True):
                                 <span style='font-weight: 600; color: #cbd5e1;'>{pos}</span>
                                 <span>•</span>
                                 <span>{team}</span>
+                                {age_meta}
                             </div>
                         </div>
                     </div>
                 </td>
                 <td class='val-pill' style='text-align: center;'>{val}</td>
-                <td style='color: #94a3b8; text-align: center;'>{age}</td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                 {equity_td}
@@ -1361,7 +1360,6 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
 
     owner_th = "<th style='width: 9%; text-align: center;'>Owner</th>"
     trajectory_th = "<th style='width: 10%; text-align: center;' title=\"This team's Franchise Trajectory (current-season strength blended with dynasty asset value)\">Trajectory</th>" if show_trajectory else ""
-    age_th = "<th style='width: 60px; text-align: center;'>Age</th>"
 
     if is_redraft:
         html = f"""
@@ -1371,8 +1369,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 21%; text-align: left;'>Player</th>
-                    {age_th}
+                    <th style='width: 24%; text-align: left;'>Player</th>
                     <th style='width: 13%; text-align: center;'>Single-Season Value</th>
                     <th style='width: 10%; text-align: center;'>Overall Rank</th>
                     <th style='width: 10%; text-align: center;'>Pos Rank</th>
@@ -1393,8 +1390,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 20%; text-align: left;'>Player</th>
-                    {age_th}
+                    <th style='width: 23%; text-align: left;'>Player</th>
                     <th style='width: 13%; text-align: center;'>Consensus Value</th>
                     <th style='width: 10%; text-align: center;'>Overall Rank</th>
                     <th style='width: 10%; text-align: center;'>Pos Rank</th>
@@ -1424,7 +1420,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
         ktc_redraft = r.get("KTC Redraft Value", "—")
         dp = r.get("DynastyProcess", "—")
         age = safe_age_display(r.get("age"))
-        age_cell = f"<td style='text-align: center; color: #94a3b8;'>{age}</td>"
+        age_meta = f"<span>•</span><span>{age}y</span>" if age != "—" else ""
 
         owner = r.get("Owner", "Free Agent")
         owner_cell = f"<td style='text-align: center; color: #94a3b8;'>{owner}</td>"
@@ -1466,11 +1462,11 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
                                 <div class='player-meta'>
                                     <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
                                     <span>{team}</span>
+                                    {age_meta}
                                 </div>
                             </div>
                         </div>
                     </td>
-                    {age_cell}
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
@@ -1493,11 +1489,11 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
                                 <div class='player-meta'>
                                     <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
                                     <span>{team}</span>
+                                    {age_meta}
                                 </div>
                             </div>
                         </div>
                     </td>
-                    {age_cell}
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
@@ -4695,7 +4691,7 @@ else:
             pos = p_obj.get("position", "UTIL")
             team = p_obj.get("team", "FA")
             age = safe_age_display(p_obj.get("age"))
-            age_suffix = f" • Age {age}" if age != "—" else ""
+            age_suffix = f" • {age}y" if age != "—" else ""
             avatar = get_player_avatar_url(pid, pos, team)
             pos_lower = pos.lower() if pos else "util"
             pos_cls = f"badge-{pos_lower}" if f"badge-{pos_lower}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
