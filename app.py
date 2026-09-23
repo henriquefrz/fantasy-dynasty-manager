@@ -1240,6 +1240,21 @@ def format_starter_slots_summary(roster_positions):
     return " • ".join(f"{counts[k]}{k}" for k in ordered_keys)
 
 
+def safe_age_display(age_raw):
+    """
+    Coerces a raw age value (int, float, numeric string, None, or the "—"
+    sentinel) into a clean display string, or "—" when unavailable - some
+    players (team defenses, incomplete Sleeper profiles) report no age at
+    all, and this keeps a stray `None` from ever leaking into rendered HTML.
+    """
+    if age_raw is None or age_raw == "—":
+        return "—"
+    try:
+        return str(int(float(age_raw)))
+    except (TypeError, ValueError):
+        return "—"
+
+
 def render_player_table_html(player_rows, show_equity=True):
     """
     Renders an executive dark table with 44px round avatars,
@@ -1287,7 +1302,7 @@ def render_player_table_html(player_rows, show_equity=True):
         avatar = r.get("Avatar", "")
         pname = r.get("Player", "Unknown")
         team = r.get("NFL Team", "FA")
-        age = r.get("Age", "—")
+        age = safe_age_display(r.get("Age"))
         overall_ecr = r.get("Overall ECR", "—")
         pos_ecr = r.get("Pos ECR", "—")
         val = r.get("Consensus Value", "0 pts")
@@ -1346,6 +1361,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
 
     owner_th = "<th style='width: 9%; text-align: center;'>Owner</th>"
     trajectory_th = "<th style='width: 10%; text-align: center;' title=\"This team's Franchise Trajectory (current-season strength blended with dynasty asset value)\">Trajectory</th>" if show_trajectory else ""
+    age_th = "<th style='width: 60px; text-align: center;'>Age</th>"
 
     if is_redraft:
         html = f"""
@@ -1355,7 +1371,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 24%; text-align: left;'>Player</th>
+                    <th style='width: 21%; text-align: left;'>Player</th>
+                    {age_th}
                     <th style='width: 13%; text-align: center;'>Single-Season Value</th>
                     <th style='width: 10%; text-align: center;'>Overall Rank</th>
                     <th style='width: 10%; text-align: center;'>Pos Rank</th>
@@ -1376,7 +1393,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
             <thead>
                 <tr>
                     <th style='width: 75px; text-align: center;'>Rank</th>
-                    <th style='width: 23%; text-align: left;'>Player</th>
+                    <th style='width: 20%; text-align: left;'>Player</th>
+                    {age_th}
                     <th style='width: 13%; text-align: center;'>Consensus Value</th>
                     <th style='width: 10%; text-align: center;'>Overall Rank</th>
                     <th style='width: 10%; text-align: center;'>Pos Rank</th>
@@ -1405,6 +1423,8 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
         proj = r.get("Sleeper Proj PPG", "—")
         ktc_redraft = r.get("KTC Redraft Value", "—")
         dp = r.get("DynastyProcess", "—")
+        age = safe_age_display(r.get("age"))
+        age_cell = f"<td style='text-align: center; color: #94a3b8;'>{age}</td>"
 
         owner = r.get("Owner", "Free Agent")
         owner_cell = f"<td style='text-align: center; color: #94a3b8;'>{owner}</td>"
@@ -1450,6 +1470,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
                             </div>
                         </div>
                     </td>
+                    {age_cell}
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
@@ -1476,6 +1497,7 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
                             </div>
                         </div>
                     </td>
+                    {age_cell}
                     <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
                     <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                     <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
@@ -1802,7 +1824,7 @@ def render_portfolio_table_html(portfolio_rows):
         avatar = r.get("Avatar", "")
         pname = r.get("Player", "Unknown")
         team = r.get("NFL Team", "FA")
-        age = r.get("Age", "—")
+        age = safe_age_display(r.get("Age"))
         shares = r.get("Shares", "—")
         redraft_shares = r.get("Redraft Shares", "—")
         exp = r.get("Exposure", "0%")
@@ -4672,7 +4694,8 @@ else:
             name = p_obj.get("full_name") or pid
             pos = p_obj.get("position", "UTIL")
             team = p_obj.get("team", "FA")
-            age = p_obj.get("age", "—")
+            age = safe_age_display(p_obj.get("age"))
+            age_suffix = f" • Age {age}" if age != "—" else ""
             avatar = get_player_avatar_url(pid, pos, team)
             pos_lower = pos.lower() if pos else "util"
             pos_cls = f"badge-{pos_lower}" if f"badge-{pos_lower}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
@@ -4711,7 +4734,7 @@ else:
                     <div style='display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>
                         <span style='font-size: 1.02rem; font-weight: 700; color: #ffffff;'>{name}</span>
                         <span class='badge-pos {pos_cls}'>{pos}</span>
-                        <span style='color: #94a3b8; font-size: 0.82rem;'>{team} • Age {age}</span>
+                        <span style='color: #94a3b8; font-size: 0.82rem;'>{team}{age_suffix}</span>
                         {tag_html}
                     </div>
                     <div style='display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 0.76rem;'>
@@ -4994,6 +5017,7 @@ else:
                 "Player": pname,
                 "Pos": pos,
                 "NFL Team": fa.get("team") or "FA",
+                "age": fa.get("age"),
                 "Consensus Value": f"{val:,.0f} pts",
                 "Overall ECR": overall_ecr_str,
                 "Pos ECR": pos_ecr_str,
@@ -5691,6 +5715,7 @@ else:
                 team = a.get("team") or ""
                 pid = a.get("player_id")
 
+                age_html = ""
                 if a.get("type") == "pick" or not pid or str(pid).startswith("pick_"):
                     icon_html = "<div style='width: 38px; height: 38px; border-radius: 50%; background: #1e1b4b; border: 1.5px solid #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;'>🎯</div>"
                     pos_badge = "<span class='badge-pos badge-pick' style='font-size: 0.65rem; padding: 1px 5px;'>PICK</span>"
@@ -5700,6 +5725,16 @@ else:
                     icon_html = f"<img src='{avatar_url}' style='width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #475569; flex-shrink: 0;' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />"
                     badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def") else "badge-rb"
                     pos_badge = f"<span class='badge-pos {badge_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{pos}</span>"
+
+                    # "age" lives directly on asset dicts sourced from team
+                    # profiles (analyze_team_profile), but the Trade
+                    # Calculator's manually-built selections only carry the
+                    # raw Sleeper player_obj - falling back to it covers both.
+                    age_raw = a.get("age")
+                    if age_raw is None:
+                        age_raw = (a.get("player_obj") or {}).get("age")
+                    age_disp = safe_age_display(age_raw)
+                    age_html = f"<span>• {age_disp}y</span>" if age_disp != "—" else ""
 
                     p_data = primary_lookup.get(pid, {}) or primary_lookup.get(str(pid), {})
                     r_data = redraft_lookup.get(pid, {}) or redraft_lookup.get(str(pid), {})
@@ -5721,6 +5756,7 @@ else:
                             <div style='font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; align-items: center;'>
                                 {pos_badge}
                                 <span>{team}</span>
+                                {age_html}
                             </div>
                             <div style='font-size: 0.68rem; margin-top: 2px;'>
                                 {dyn_ros_html}
