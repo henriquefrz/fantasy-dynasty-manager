@@ -1801,11 +1801,10 @@ def render_portfolio_table_html(portfolio_rows):
     <table class='roster-table roster-table-portfolio'>
         <thead>
             <tr>
-                <th style='width: 24%; text-align: left;'>Player</th>
+                <th style='width: 26%; text-align: left;'>Player</th>
                 <th style='width: 10%; text-align: center;'>Exposure</th>
                 <th style='width: 9%; text-align: center;'>Dynasty Shares</th>
                 <th style='width: 9%; text-align: center;'>Redraft Shares</th>
-                <th style='width: 60px; text-align: center;'>Age</th>
                 <th style='width: 10%; text-align: center;'>Overall Rank</th>
                 <th style='width: 10%; text-align: center;'>Pos Rank</th>
                 <th style='width: 13%; text-align: center;'>Consensus Value</th>
@@ -1821,6 +1820,7 @@ def render_portfolio_table_html(portfolio_rows):
         pname = r.get("Player", "Unknown")
         team = r.get("NFL Team", "FA")
         age = safe_age_display(r.get("Age"))
+        age_meta = f"<span>•</span><span>{age}y</span>" if age != "—" else ""
         shares = r.get("Shares", "—")
         redraft_shares = r.get("Redraft Shares", "—")
         exp = r.get("Exposure", "0%")
@@ -1843,6 +1843,7 @@ def render_portfolio_table_html(portfolio_rows):
                             <div class='player-meta'>
                                 <span class='badge-pos {badge_cls}' style='font-size: 0.68rem; padding: 1px 5px;'>{pos}</span>
                                 <span>{team}</span>
+                                {age_meta}
                             </div>
                         </div>
                     </div>
@@ -1850,7 +1851,6 @@ def render_portfolio_table_html(portfolio_rows):
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{exp}</span></td>
                 <td style='text-align: center; font-weight: 700; color: #f8fafc;'><span class='rank-pill'>{shares}</span></td>
                 <td style='text-align: center; color: #94a3b8;'><span class='rank-pill'>{redraft_shares}</span></td>
-                <td style='color: #94a3b8; text-align: center;'>{age}</td>
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                 <td class='val-pill' style='text-align: center; color: #38bdf8;'>{val}</td>
@@ -6867,6 +6867,8 @@ else:
                         ktc_s = f"{float(asset['ktc_val']):,.0f} pts" if asset.get("ktc_val") is not None else "—"
                         fc_s = f"{float(asset['fc_val']):,.0f} pts" if asset.get("fc_val") is not None else "—"
                         dp_s = f"{float(asset['dp_val']):,.0f} pts" if asset.get("dp_val") is not None else "—"
+                        age_disp = safe_age_display(asset.get("age"))
+                        age_meta = f"<span>•</span><span>{age_disp}y</span>" if age_disp != "—" else ""
 
                         val_card_title = "Single-Season Market Value" if is_redraft else "Consensus Market Value"
 
@@ -6932,7 +6934,7 @@ else:
                                     <div style='display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.78rem; color: #94a3b8;'>
                                         <span class='badge-pos {pos_cls}' style='font-size: 0.65rem; padding: 1px 5px;'>{asset['pos']}</span>
                                         <span>{asset['team']}</span>
-                                        <span>• Age {asset['age']}</span>
+                                        {age_meta}
                                     </div>
                                 </div>
                             </div>
