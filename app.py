@@ -1255,31 +1255,44 @@ def safe_age_display(age_raw):
         return "—"
 
 
-def render_player_table_html(player_rows, show_equity=True):
+def render_player_table_html(player_rows, show_equity=True, show_ros_value=False):
     """
     Renders an executive dark table with 44px round avatars,
     spacious rows (~56-60px), non-wrapping slot tags, dual ECR badges,
     symmetrical column balance, and consensus market value.
+
+    show_ros_value adds a second "ROS Value" column (from the league's
+    redraft_lookup) alongside "Dynasty Value" - only meaningful for
+    dynasty leagues, where the two numbers genuinely differ. Callers on a
+    redraft league, or on a table that already has a single-lens value
+    (e.g. the Power Rankings tab's dedicated ROS/Dynasty breakdowns),
+    leave this off so the existing single "Consensus Value" column is
+    unchanged.
     """
     if not player_rows:
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
 
+    val_label = "Dynasty Value" if show_ros_value else "Consensus Value"
+    ros_th = "<th style='width: 15%; text-align: center;'>ROS Value</th>" if show_ros_value else ""
+
     if show_equity:
-        header_cols = """
+        header_cols = f"""
             <th style='width: 95px; text-align: center;'>Slot</th>
-            <th style='width: 34%; text-align: left;'>Player</th>
-            <th style='width: 18%; text-align: center;'>Consensus Value</th>
-            <th style='width: 16%; text-align: center;'>Overall ECR</th>
-            <th style='width: 16%; text-align: center;'>Pos ECR</th>
-            <th style='width: 12%; text-align: center;'>Equity</th>
+            <th style='width: {28 if show_ros_value else 34}%; text-align: left;'>Player</th>
+            <th style='width: 15%; text-align: center;'>{val_label}</th>
+            {ros_th}
+            <th style='width: 14%; text-align: center;'>Overall ECR</th>
+            <th style='width: 14%; text-align: center;'>Pos ECR</th>
+            <th style='width: 11%; text-align: center;'>Equity</th>
         """
     else:
-        header_cols = """
+        header_cols = f"""
             <th style='width: 95px; text-align: center;'>Slot</th>
-            <th style='width: 40%; text-align: left;'>Player</th>
-            <th style='width: 20%; text-align: center;'>Consensus Value</th>
-            <th style='width: 17%; text-align: center;'>Overall ECR</th>
-            <th style='width: 17%; text-align: center;'>Pos ECR</th>
+            <th style='width: {34 if show_ros_value else 40}%; text-align: left;'>Player</th>
+            <th style='width: 16%; text-align: center;'>{val_label}</th>
+            {ros_th}
+            <th style='width: 15%; text-align: center;'>Overall ECR</th>
+            <th style='width: 15%; text-align: center;'>Pos ECR</th>
         """
 
     html = f"""
@@ -1310,6 +1323,7 @@ def render_player_table_html(player_rows, show_equity=True):
         avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
 
         equity_td = f"<td style='color: #38bdf8; font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
+        ros_td = f"<td style='text-align: center; color: #94a3b8;'>{r.get('ROS Value', '0 pts')}</td>" if show_ros_value else ""
 
         html += f"""
             <tr>
@@ -1329,6 +1343,7 @@ def render_player_table_html(player_rows, show_equity=True):
                     </div>
                 </td>
                 <td class='val-pill' style='text-align: center;'>{val}</td>
+                {ros_td}
                 <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
                 <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
                 {equity_td}
@@ -4262,6 +4277,12 @@ else:
             pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
             overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
             equity_pct = (m_val / total_team_val * 100.0)
+            # ROS value only differs from the Dynasty value in dynasty
+            # leagues - in a redraft league primary_lookup already IS
+            # redraft_lookup (see build_league_context), so computing it
+            # here is harmless but only surfaced (show_ros_value) for
+            # dynasty leagues to avoid showing the same number twice.
+            ros_val = redraft_lookup.get(pid, {}).get("market_value", 0.0)
 
             return {
                 "Avatar": get_player_avatar_url(pid, pos, team),
@@ -4273,6 +4294,7 @@ else:
                 "Overall ECR": overall_ecr_str,
                 "Pos ECR": pos_ecr_str,
                 "Consensus Value": f"{m_val:,.0f} pts",
+                "ROS Value": f"{ros_val:,.0f} pts",
                 "Equity Share": f"{equity_pct:.1f}%",
                 "_val": m_val,
             }
@@ -4328,7 +4350,7 @@ else:
                 if universal_roster_view == "Card Grid (Dashboard)":
                     st.html(render_starter_card_grid_html(starters_data))
                 else:
-                    st.html(render_player_table_html(starters_data, show_equity=True))
+                    st.html(render_player_table_html(starters_data, show_equity=True, show_ros_value=is_dynasty))
             else:
                 st.info("No active starters designated.")
 
@@ -4337,7 +4359,7 @@ else:
                 if universal_roster_view == "Card Grid (Dashboard)":
                     st.html(render_starter_card_grid_html(bench_data))
                 else:
-                    st.html(render_player_table_html(bench_data, show_equity=True))
+                    st.html(render_player_table_html(bench_data, show_equity=True, show_ros_value=is_dynasty))
             else:
                 st.info("No bench players detected.")
 
@@ -4347,13 +4369,13 @@ else:
                 if universal_roster_view == "Card Grid (Dashboard)":
                     st.html(render_starter_card_grid_html(taxi_data))
                 else:
-                    st.html(render_player_table_html(taxi_data, show_equity=True))
+                    st.html(render_player_table_html(taxi_data, show_equity=True, show_ros_value=is_dynasty))
             if ir_data:
                 st.markdown("#### Injured Reserve (IR)")
                 if universal_roster_view == "Card Grid (Dashboard)":
                     st.html(render_starter_card_grid_html(ir_data))
                 else:
-                    st.html(render_player_table_html(ir_data, show_equity=True))
+                    st.html(render_player_table_html(ir_data, show_equity=True, show_ros_value=is_dynasty))
             if not taxi_data and not ir_data:
                 st.info("No taxi squad or IR reserve players.")
 
@@ -4364,7 +4386,7 @@ else:
                 if universal_roster_view == "Card Grid (Dashboard)":
                     st.html(render_starter_card_grid_html(all_roster_rows))
                 else:
-                    st.html(render_player_table_html(all_roster_rows, show_equity=True))
+                    st.html(render_player_table_html(all_roster_rows, show_equity=True, show_ros_value=is_dynasty))
 
         # Draft Capital Table for Dynasty
         if is_dynasty and user_profile and user_profile.get("picks"):
