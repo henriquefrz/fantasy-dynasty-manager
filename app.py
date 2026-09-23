@@ -5847,15 +5847,22 @@ else:
                 unsafe_allow_html=True
             )
 
-            c_calc_s1, c_calc_s2 = st.columns([1.8, 1.2], vertical_alignment="center")
-            with c_calc_s1:
-                calc_scope = st.radio(
-                    "Calculator Valuation Scope:",
-                    ["🏆 Dynasty Consensus Values", "⚡ Single-Season (ROS) Projections"],
-                    horizontal=True,
-                    key=f"trade_calc_scope_{selected_league_id}",
-                )
-            is_calc_redraft = ("Single-Season" in calc_scope)
+            # Redraft leagues have no dynasty valuation axis at all, so the
+            # toggle is only meaningful - and only shown - for dynasty
+            # leagues; a redraft league goes straight to Single-Season.
+            if is_dynasty:
+                c_calc_s1, c_calc_s2 = st.columns([1.8, 1.2], vertical_alignment="center")
+                with c_calc_s1:
+                    calc_scope = st.radio(
+                        "Calculator Valuation Scope:",
+                        ["🏆 Dynasty Consensus Values", "⚡ Single-Season (ROS) Projections"],
+                        horizontal=True,
+                        key=f"trade_calc_scope_{selected_league_id}",
+                    )
+                is_calc_redraft = ("Single-Season" in calc_scope)
+            else:
+                c_calc_s2 = st.container()
+                is_calc_redraft = True
             active_calc_lookup = redraft_lookup if is_calc_redraft else primary_lookup
             calc_market_assets = build_market_assets_list(active_calc_lookup, players, is_redraft=is_calc_redraft)
             calc_asset_by_label = {a["label"]: a for a in calc_market_assets}
@@ -6467,13 +6474,21 @@ else:
     with tab_market:
         st.subheader("Market Rankings & Player Database")
 
-        ranking_scope = st.radio(
-            "Valuation Scope:",
-            ["🏆 Dynasty Market Values", "📅 Single-Season (Redraft / ROS)"],
-            horizontal=True,
-            key="mkt_ranking_scope",
-        )
-        is_redraft = ("Single-Season" in ranking_scope)
+        # Redraft leagues have no dynasty valuation axis at all (see
+        # build_league_context: primary_lookup falls back to redraft_lookup
+        # there), so the toggle itself is only meaningful - and only shown -
+        # for dynasty leagues. A redraft league goes straight to Single-
+        # Season with no extra step.
+        if is_dynasty:
+            ranking_scope = st.radio(
+                "Valuation Scope:",
+                ["🏆 Dynasty Market Values", "📅 Single-Season (Redraft / ROS)"],
+                horizontal=True,
+                key="mkt_ranking_scope",
+            )
+            is_redraft = ("Single-Season" in ranking_scope)
+        else:
+            is_redraft = True
         if is_redraft:
             st.caption("Explore comprehensive single-season valuations and rankings comparing Sleeper Multi-Week Projections, FantasyPros ECR, and KTC Redraft Value.")
         else:
