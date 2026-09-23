@@ -1334,9 +1334,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
     spacious rows (~56px), and consensus metrics (dynasty or single-season).
 
     Team/Trajectory (who owns this player in the current league, and that
-    team's Franchise Trajectory) are appended at the end, mirroring Market
-    Signal's own placement - a secondary, at-a-glance column rather than a
-    core valuation metric. show_trajectory reflects the LEAGUE's own format
+    team's Franchise Trajectory) and Market Signal are all secondary,
+    at-a-glance columns appended after the core valuation metrics, with
+    Market Signal last. show_trajectory reflects the LEAGUE's own format
     (is_dynasty), not which valuation scope the table is currently browsing
     (is_redraft): a redraft league has no Franchise Trajectory axis to show
     regardless of which value column the user picked.
@@ -1383,9 +1383,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
                     <th style='width: 9%; text-align: center;'>KeepTradeCut</th>
                     <th style='width: 9%; text-align: center;'>FantasyCalc</th>
                     <th style='width: 8%; text-align: center;'>DynastyProcess</th>
-                    <th style='width: 8%; text-align: center;' title='Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence'>Market Signal</th>
                     {team_th}
                     {trajectory_th}
+                    <th style='width: 8%; text-align: center;' title='Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence'>Market Signal</th>
                 </tr>
             </thead>
             <tbody>
@@ -1488,9 +1488,9 @@ def render_market_table_html(market_rows, is_redraft: bool = False, show_traject
                     <td style='text-align: center; color: #94a3b8;'>{ktc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{fc}</td>
                     <td style='text-align: center; color: #94a3b8;'>{dp}</td>
-                    <td style='text-align: center;'><span class='{market_signal_cls}'>{market_signal}</span></td>
                     {owner_team_cell}
                     {trajectory_cell}
+                    <td style='text-align: center;'><span class='{market_signal_cls}'>{market_signal}</span></td>
                 </tr>
             """
     html += """
@@ -6522,46 +6522,57 @@ else:
         if "Database" in market_subview:
             signal_mkt = "ALL"
             trajectory_mkt = "ALL"
-            if is_redraft:
-                if show_trajectory:
-                    c_mkt1, c_mkt2, c_mkt4 = st.columns([1, 1.6, 1])
-                    c_mkt3 = None
-                else:
-                    c_mkt1, c_mkt2 = st.columns([1, 2])
-                    c_mkt3 = None
-                    c_mkt4 = None
-            else:
-                if show_trajectory:
-                    c_mkt1, c_mkt2, c_mkt3, c_mkt4 = st.columns([1, 1.3, 1, 1])
-                else:
-                    c_mkt1, c_mkt2, c_mkt3 = st.columns([1, 1.6, 1])
-                    c_mkt4 = None
-            with c_mkt1:
-                pos_options = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"] if is_redraft else ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"]
-                pos_mkt = st.selectbox("Position Filter:", pos_options, key=f"mkt_pos_filter_{'redraft' if is_redraft else 'dynasty'}")
-            with c_mkt2:
-                search_label = "Search Player / Team:" if is_redraft else "Search Player / Team / Pick:"
-                search_mkt = st.text_input(search_label, "", key=f"mkt_search_filter_{'redraft' if is_redraft else 'dynasty'}")
+
+            # Filter columns are built dynamically (not hardcoded per
+            # is_redraft/show_trajectory combination) since a 3rd optional
+            # filter (Team) on top of the existing 2 (Market Signal,
+            # Trajectory) would otherwise mean hand-coding every
+            # combination - this scales to any subset being present.
+            filter_key_scope = "redraft" if is_redraft else "dynasty"
+            filter_specs = [("pos", 1), ("search", 1.3 if (show_trajectory or not is_redraft) else 2)]
             if not is_redraft:
-                with c_mkt3:
+                filter_specs.append(("signal", 1))
+            if show_trajectory:
+                filter_specs.append(("trajectory", 1))
+            filter_specs.append(("team", 1))
+
+            filter_cols = st.columns([w for _, w in filter_specs])
+            col_by_key = {key: col for (key, _), col in zip(filter_specs, filter_cols)}
+
+            with col_by_key["pos"]:
+                pos_options = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"] if is_redraft else ["ALL", "QB", "RB", "WR", "TE", "PICK", "K", "DEF"]
+                pos_mkt = st.selectbox("Position Filter:", pos_options, key=f"mkt_pos_filter_{filter_key_scope}")
+            with col_by_key["search"]:
+                search_label = "Search Player / Team:" if is_redraft else "Search Player / Team / Pick:"
+                search_mkt = st.text_input(search_label, "", key=f"mkt_search_filter_{filter_key_scope}")
+            if "signal" in col_by_key:
+                with col_by_key["signal"]:
                     signal_mkt = st.selectbox(
                         "Market Signal:",
                         ["ALL", "🔥 Sell High", "💎 Buy Low"],
                         key="mkt_signal_filter_dynasty",
                         help="Crowd (KTC/FantasyCalc) vs. expert consensus (DynastyProcess) rank divergence.",
                     )
-            if show_trajectory:
+            if "trajectory" in col_by_key:
                 trajectory_options = ["ALL"] + sorted({
                     r["Trajectory"] for r in all_market_assets
                     if r.get("Trajectory") and r["Trajectory"] != "—"
                 })
-                with c_mkt4:
+                with col_by_key["trajectory"]:
                     trajectory_mkt = st.selectbox(
                         "Trajectory:",
                         trajectory_options,
-                        key=f"mkt_trajectory_filter_{'redraft' if is_redraft else 'dynasty'}",
+                        key=f"mkt_trajectory_filter_{filter_key_scope}",
                         help="Filters by the owning team's Franchise Trajectory - free agents are excluded by any non-ALL selection.",
                     )
+            team_options = ["ALL"] + sorted({r["Owner Team"] for r in all_market_assets if r.get("Owner Team")})
+            with col_by_key["team"]:
+                team_mkt = st.selectbox(
+                    "Team:",
+                    team_options,
+                    key=f"mkt_team_filter_{filter_key_scope}",
+                    help="Filters by which team in this league owns the player - includes Free Agent as its own option.",
+                )
 
             signal_filter_map = {"🔥 Sell High": "sell_high", "💎 Buy Low": "buy_low"}
 
@@ -6574,6 +6585,8 @@ else:
                 if signal_mkt != "ALL" and r.get("market_signal") != signal_filter_map.get(signal_mkt):
                     continue
                 if trajectory_mkt != "ALL" and r.get("Trajectory") != trajectory_mkt:
+                    continue
+                if team_mkt != "ALL" and r.get("Owner Team") != team_mkt:
                     continue
                 filtered_rows.append(r)
 
