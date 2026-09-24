@@ -284,6 +284,16 @@ def analyze_team_profile(
         for p, r in bench_tuples
         if p.get("player_id") in taxi_ids
     ]
+    # Reserve/IR players are excluded from bench_assets above but still need
+    # a home somewhere - without this list they silently vanish from every
+    # profile-derived asset roundup (e.g. build_player_owner_lookup), which
+    # made real IR'd players on other rosters show up as "Free Agent" in
+    # Market Rankings.
+    reserve_assets = [
+        make_player_asset(p, r, redraft_lookup)
+        for p, r in bench_tuples
+        if p.get("player_id") in reserve_ids
+    ]
     pick_assets = [
         make_pick_asset(pk, picks_lookup, sim_rank_map, target_season=target_season, total_rosters=total_rosters, draft_type=draft_type)
         for pk in owned_picks
@@ -363,6 +373,7 @@ def analyze_team_profile(
         "starter_assets": starter_assets,
         "bench_assets": bench_assets,
         "taxi_assets": taxi_assets,
+        "reserve_assets": reserve_assets,
         "pick_assets": pick_assets,
         "pos_starters": pos_starters,
         "pos_bench": pos_bench,

@@ -2700,8 +2700,9 @@ def build_player_owner_lookup(all_team_profiles, users):
     the plain Sleeper display_name (not manager_name, which appends the
     fantasy team name in parens). bench_assets already includes taxi-squad
     players (analyze_team_profile only excludes reserve_ids there, not
-    taxi_ids), so starter_assets + bench_assets alone already covers a
-    team's full active + taxi roster - no separate taxi_assets pass needed.
+    taxi_ids), but reserve_ids (IR) players are excluded from bench_assets
+    entirely and only surface via their own reserve_assets list - without
+    it, real IR'd players on other rosters were misreported as free agents.
     A player absent from this map is a free agent.
     """
     username_by_owner_id = {u.get("user_id"): f"@{u.get('display_name', 'Unknown')}" for u in users}
@@ -2712,7 +2713,7 @@ def build_player_owner_lookup(all_team_profiles, users):
         status = prof.get("status", "")
         trajectory = status.split("(")[0].strip() if status else "—"
         category = prof.get("category", "neutral")
-        for asset in prof.get("starter_assets", []) + prof.get("bench_assets", []):
+        for asset in prof.get("starter_assets", []) + prof.get("bench_assets", []) + prof.get("reserve_assets", []):
             pid = asset.get("player_id")
             if pid:
                 owner_by_pid[str(pid)] = {
