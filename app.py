@@ -6002,8 +6002,7 @@ else:
             selected_assets_a = []
             with c_ta:
                 if prof_a:
-                    owned_labels_a = []
-                    owned_map_a = {}
+                    owned_assets_a = []
                     for p in prof_a["starters"] + prof_a["bench"]:
                         pid = str(p.get("player_id"))
                         p_data = active_calc_lookup.get(pid, {})
@@ -6011,8 +6010,7 @@ else:
                         pos = p.get("position", "UTIL")
                         team = p.get("team", "FA")
                         lbl = f"{p['name']} ({pos} - {team}) • {val:,.0f} pts"
-                        owned_labels_a.append(lbl)
-                        owned_map_a[lbl] = {
+                        owned_assets_a.append((lbl, val, {
                             "player_id": pid,
                             "name": p["name"],
                             "position": pos,
@@ -6024,13 +6022,12 @@ else:
                             "fc_val": p_data.get("fc_val"),
                             "dp_val": p_data.get("dp_val"),
                             "proj_ppg": p_data.get("proj_ppg"),
-                        }
+                        }))
                     if not is_calc_redraft and is_dynasty:
                         for pk in prof_a.get("picks", []):
                             pk_val = pk.get("market_value", 1000.0)
                             lbl = f"{pk['name']} • {pk_val:,.0f} pts"
-                            owned_labels_a.append(lbl)
-                            owned_map_a[lbl] = {
+                            owned_assets_a.append((lbl, pk_val, {
                                 "player_id": pk.get("pick_id") or pk.get("name"),
                                 "name": pk["name"],
                                 "position": "PICK",
@@ -6040,7 +6037,16 @@ else:
                                 "season": pk.get("season", "2027"),
                                 "round": pk.get("round", 1),
                                 "original_owner": pk.get("original_owner", 1),
-                            }
+                            }))
+
+                    # Most valuable asset first - players and picks
+                    # interleaved by value rather than bucketed, so a
+                    # premium pick sits near the star players it's
+                    # actually comparable to instead of always trailing
+                    # every player regardless of worth.
+                    owned_assets_a.sort(key=lambda x: x[1], reverse=True)
+                    owned_labels_a = [lbl for lbl, _val, _asset in owned_assets_a]
+                    owned_map_a = {lbl: asset for lbl, _val, asset in owned_assets_a}
 
                     chosen_roster_a = st.multiselect(
                         f"Select Assets from {prof_a['manager_name']}'s Roster:",
@@ -6103,8 +6109,7 @@ else:
             selected_assets_b = []
             with c_tb:
                 if prof_b:
-                    owned_labels_b = []
-                    owned_map_b = {}
+                    owned_assets_b = []
                     for p in prof_b["starters"] + prof_b["bench"]:
                         pid = str(p.get("player_id"))
                         p_data = active_calc_lookup.get(pid, {})
@@ -6112,8 +6117,7 @@ else:
                         pos = p.get("position", "UTIL")
                         team = p.get("team", "FA")
                         lbl = f"{p['name']} ({pos} - {team}) • {val:,.0f} pts"
-                        owned_labels_b.append(lbl)
-                        owned_map_b[lbl] = {
+                        owned_assets_b.append((lbl, val, {
                             "player_id": pid,
                             "name": p["name"],
                             "position": pos,
@@ -6125,13 +6129,12 @@ else:
                             "fc_val": p_data.get("fc_val"),
                             "dp_val": p_data.get("dp_val"),
                             "proj_ppg": p_data.get("proj_ppg"),
-                        }
+                        }))
                     if not is_calc_redraft and is_dynasty:
                         for pk in prof_b.get("picks", []):
                             pk_val = pk.get("market_value", 1000.0)
                             lbl = f"{pk['name']} • {pk_val:,.0f} pts"
-                            owned_labels_b.append(lbl)
-                            owned_map_b[lbl] = {
+                            owned_assets_b.append((lbl, pk_val, {
                                 "player_id": pk.get("pick_id") or pk.get("name"),
                                 "name": pk["name"],
                                 "position": "PICK",
@@ -6141,7 +6144,12 @@ else:
                                 "season": pk.get("season", "2027"),
                                 "round": pk.get("round", 1),
                                 "original_owner": pk.get("original_owner", 1),
-                            }
+                            }))
+
+                    # Most valuable asset first - see owned_assets_a above.
+                    owned_assets_b.sort(key=lambda x: x[1], reverse=True)
+                    owned_labels_b = [lbl for lbl, _val, _asset in owned_assets_b]
+                    owned_map_b = {lbl: asset for lbl, _val, asset in owned_assets_b}
 
                     chosen_roster_b = st.multiselect(
                         f"Select Assets from {prof_b['manager_name']}'s Roster:",
@@ -6434,12 +6442,16 @@ else:
                     if prof["roster_id"] == user_roster["roster_id"]:
                         continue
                     for p in prof["starters"] + prof["bench"]:
-                        if p.get("market_value", 0) > 1000:
-                            other_assets.append((f"{p['name']} ({p.get('position', '')} - {prof['manager_name']})", p['name']))
+                        val = p.get("market_value", 0)
+                        if val > 1000:
+                            other_assets.append((f"{p['name']} ({p.get('position', '')} - {prof['manager_name']}) • {val:,.0f} pts", p['name'], val))
                     for pick in prof.get("picks", []):
-                        other_assets.append((f"{pick['name']} ({prof['manager_name']})", pick["name"]))
+                        pick_val = pick.get("market_value", 0)
+                        other_assets.append((f"{pick['name']} ({prof['manager_name']}) • {pick_val:,.0f} pts", pick["name"], pick_val))
 
-                other_assets.sort(key=lambda x: x[0])
+                # Most valuable asset first (players and picks interleaved,
+                # same rationale as the Trade Calculator's roster pickers).
+                other_assets.sort(key=lambda x: x[2], reverse=True)
                 if other_assets:
                     selected_asset_label = st.selectbox("Select Asset to Acquire:", [a[0] for a in other_assets])
                     target_query = next(a[1] for a in other_assets if a[0] == selected_asset_label)
@@ -6475,12 +6487,15 @@ else:
             else:
                 user_assets = []
                 for p in user_profile["starters"] + user_profile["bench"]:
-                    if p.get("market_value", 0) > 1000:
-                        user_assets.append((f"{p['name']} ({p.get('position', '')}) — {p.get('market_value', 0):,.0f} pts", p["name"]))
+                    val = p.get("market_value", 0)
+                    if val > 1000:
+                        user_assets.append((f"{p['name']} ({p.get('position', '')}) — {val:,.0f} pts", p["name"], val))
                 for pick in user_profile.get("picks", []):
-                    user_assets.append((f"{pick['name']} — {pick.get('market_value', 0):,.0f} pts", pick["name"]))
+                    pick_val = pick.get("market_value", 0)
+                    user_assets.append((f"{pick['name']} — {pick_val:,.0f} pts", pick["name"], pick_val))
 
-                user_assets.sort(key=lambda x: x[0])
+                # Most valuable asset first - see other_assets above.
+                user_assets.sort(key=lambda x: x[2], reverse=True)
                 if user_assets:
                     selected_sell_label = st.selectbox("Select Roster Asset to Trade Away:", [a[0] for a in user_assets])
                     sell_query = next(a[1] for a in user_assets if a[0] == selected_sell_label)
