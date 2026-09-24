@@ -2043,21 +2043,27 @@ def build_picks_sources_bundle(
 
 
 # Deepest draft round any league in this app currently runs (confirmed via
-# each league's live settings.draft_rounds); source market data (KTC /
-# FantasyCalc / DynastyProcess) only natively prices rounds 1-5, so rounds
-# beyond that are synthesized - see _extrapolate_deep_rounds.
+# each league's live settings.draft_rounds); source market data only
+# natively prices rounds 1-4 (KTC, FantasyCalc) with DynastyProcess alone
+# still pricing round 5, so rounds beyond that are synthesized - see
+# _extrapolate_deep_rounds.
 MAX_PROJECTED_DRAFT_ROUND = 10
 
 
 def _extrapolate_deep_rounds(consensus_picks, max_round=MAX_PROJECTED_DRAFT_ROUND):
     """
     Synthesizes a generic ('mid'-equivalent) value for rounds beyond the
-    deepest round the source data natively prices (currently round 5), so a
-    league with more draft rounds (e.g. an 8-round league) doesn't silently
-    price those late picks at 0.0. Continues each season's own
-    round-over-round point increments outward using the average decay ratio
-    already observed between its known rounds (the increments shrink as
-    rounds get later/more replaceable), instead of guessing a flat value.
+    deepest round the source data natively prices, so a league with more
+    draft rounds (e.g. an 8-round league) doesn't silently price those
+    late picks at 0.0. Continues each season's own value decay outward
+    using the average round-over-round decay ratio already observed
+    between its known rounds (clamped to [0.5, 0.95]), applied
+    MULTIPLICATIVELY to the value itself (last_val *= decay_ratio) rather
+    than additively to a shrinking point delta. A geometric decay of a
+    positive number can never cross zero, so - unlike the old
+    delta-accumulation approach - this can never synthesize a negative
+    pick value (see
+    tests/test_market_data.py::test_extrapolate_deep_rounds_never_goes_negative).
     Mutates and returns consensus_picks; only touches (season, round_num)
     generic keys - 'early'/'mid'/'late' tiers for the new rounds are then
     derived by the existing tier-population step below, same as any other
@@ -2073,16 +2079,20 @@ def _extrapolate_deep_rounds(consensus_picks, max_round=MAX_PROJECTED_DRAFT_ROUN
             continue
 
         deltas = [rounds[known_rounds[i + 1]] - rounds[known_rounds[i]] for i in range(len(known_rounds) - 1)]
-        ratios = [deltas[i + 1] / deltas[i] for i in range(len(deltas) - 1) if deltas[i] > 0]
+        # deltas are round-over-round CHANGES and are consistently negative
+        # (value decreases each round), so dividing two of them already
+        # yields a proper positive ratio - this previously filtered on
+        # `deltas[i] > 0`, which is never true for a negative delta and
+        # silently made this whole adaptive branch dead code, always
+        # falling through to the flat 0.75 default below.
+        ratios = [abs(deltas[i + 1] / deltas[i]) for i in range(len(deltas) - 1) if deltas[i] != 0]
         decay_ratio = min(0.95, max(0.5, sum(ratios) / len(ratios))) if ratios else 0.75
 
         last_round = known_rounds[-1]
         last_val = rounds[last_round]
-        last_delta = deltas[-1] if deltas else last_val * 0.15
 
         for r in range(last_round + 1, max_round + 1):
-            last_delta *= decay_ratio
-            last_val += last_delta
+            last_val *= decay_ratio
             consensus_picks[(season, r)] = round(last_val, 1)
 
     return consensus_picks

@@ -17,6 +17,7 @@ from src.market_data import (
     compute_market_rank_divergence,
     _build_ktc_id_crosswalks,
     _extract_ktc_redraft_pillar,
+    _extrapolate_deep_rounds,
     _resolve_ktc_sleeper_id,
 )
 
@@ -414,3 +415,104 @@ def test_compute_ktc_official_adjustment_matches_live_ktc_site(side_a, side_b, e
 def test_compute_ktc_official_adjustment_returns_none_for_a_one_sided_trade():
     assert compute_ktc_official_adjustment([], [_KTC_CHASE], _KTC_TOP_OVERALL) is None
     assert compute_ktc_official_adjustment([_KTC_CHASE], [], _KTC_TOP_OVERALL) is None
+
+
+# ---------------------------------------------------------------------------
+# _extrapolate_deep_rounds: used to accumulate a shrinking-but-still-negative
+# per-round DELTA onto the last known pick value with no floor, so a season
+# whose last known round was already small (e.g. real 2027 data - KTC/
+# FantasyCalc stop pricing at round 4, leaving only DynastyProcess's own
+# near-zero round 5 quote) went negative by round 6 and stayed negative
+# through round 10. Fixed to decay the VALUE itself multiplicatively
+# (last_val *= decay_ratio), which - for any decay_ratio in (0, 1) - can
+# only asymptotically approach zero, never cross it.
+# ---------------------------------------------------------------------------
+
+def test_extrapolate_deep_rounds_never_goes_negative():
+    """
+    Regression guard for the real Dinastia do Pão de Queijo bug: a season
+    whose last known round is already tiny relative to the point drop from
+    the round before it. Round 4 -> Round 5 here mirrors the real 2027
+    data almost exactly (990.0 -> 4.7).
+    """
+    consensus_picks = {
+        ("2027", 1): 3607.9,
+        ("2027", 2): 1924.1,
+        ("2027", 3): 1312.4,
+        ("2027", 4): 990.0,
+        ("2027", 5): 4.7,
+    }
+
+    _extrapolate_deep_rounds(consensus_picks, max_round=10)
+
+    for r in range(6, 11):
+        val = consensus_picks[("2027", r)]
+        assert val > 0, f"round {r} synthesized a non-positive value: {val}"
+
+    # Rounds 1-5 (native, not extrapolated) must be untouched.
+    assert consensus_picks[("2027", 1)] == 3607.9
+    assert consensus_picks[("2027", 5)] == 4.7
+
+    # Smooth, monotonically decreasing curve - no jump back up.
+    values = [consensus_picks[("2027", r)] for r in range(5, 11)]
+    assert all(values[i] >= values[i + 1] for i in range(len(values) - 1)), (
+        f"extrapolated values must decrease monotonically: {values}"
+    )
+
+
+def test_extrapolate_deep_rounds_never_goes_negative_with_a_steep_synthetic_decay():
+    """
+    Extreme synthetic case: a season that crashes to a fraction of a point
+    by its last known round. Even the steepest clamped decay_ratio (0.5)
+    applied multiplicatively can only ever shrink an already-positive
+    value asymptotically toward zero - unlike the old additive-delta
+    approach, it can never push it below zero. At this input's scale the
+    result legitimately rounds to a displayed 0.0 pts (not negative) once
+    it decays below the 1-decimal rounding threshold - that is a display
+    footnote, not a regression, since 0.0 still satisfies "never below
+    zero"; the assertion below is `>= 0` rather than `> 0` for exactly
+    that reason.
+    """
+    consensus_picks = {
+        ("2029", 1): 5000.0,
+        ("2029", 2): 500.0,
+        ("2029", 3): 5.0,
+        ("2029", 4): 0.05,
+    }
+
+    _extrapolate_deep_rounds(consensus_picks, max_round=10)
+
+    values = [consensus_picks[("2029", r)] for r in range(4, 11)]
+    for r, val in zip(range(4, 11), values):
+        assert val >= 0, f"round {r} synthesized a negative value: {val}"
+    assert all(values[i] >= values[i + 1] for i in range(len(values) - 1)), (
+        f"extrapolated values must never increase: {values}"
+    )
+
+
+def test_extrapolate_deep_rounds_uses_the_observed_decay_ratio_not_always_the_fallback():
+    """
+    Regression guard for the sign-filter bug: `ratios` was computed with
+    `if deltas[i] > 0`, which is never true for a monotonically decreasing
+    pick curve (deltas are always negative), so the adaptive decay_ratio
+    branch was permanently dead code and every season silently used the
+    flat 0.75 fallback regardless of its own actual shape. This pins a
+    season whose observed ratio clamps to the 0.5 floor (a much steeper
+    decay than 0.75) and confirms that steeper ratio is what actually gets
+    applied.
+    """
+    # value ratio round2/round1 = 0.1, round3/round2 = 0.1 -> delta ratio
+    # between consecutive deltas is also 0.1, i.e. computed decay_ratio
+    # should clamp to the 0.5 floor, not fall back to 0.75.
+    consensus_picks = {
+        ("2030", 1): 1000.0,
+        ("2030", 2): 100.0,
+        ("2030", 3): 10.0,
+    }
+
+    _extrapolate_deep_rounds(consensus_picks, max_round=4)
+
+    round4 = consensus_picks[("2030", 4)]
+    # round3 * 0.75 (old fallback) would be 7.5 - assert the steeper,
+    # clamped-to-0.5 ratio was actually used instead.
+    assert round4 == pytest.approx(10.0 * 0.5, abs=0.01)
