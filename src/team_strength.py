@@ -65,8 +65,20 @@ def simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty
     # Separate starting slots from bench/reserve slots
     starting_slots = [p for p in roster_positions if p not in {"BN", "IR", "TAXI"}]
 
-    # Match roster players to lookup
-    matched, _ = match_players_by_sleeper_id(roster_players, lookup)
+    # Match roster players to lookup. A player with no entry in `lookup`
+    # (e.g. an IDP position FantasyPros' dynasty board doesn't cover at
+    # all, or a player FantasyPros' ROS board excludes for injury status)
+    # must still count as a real bench asset instead of silently vanishing
+    # from every consumer of starters/bench - Franchise Hub, Trade Center,
+    # Power Rankings, Room Value, etc. all build on top of this. `{}` as
+    # its ranking_data relies on the same `.get(key, default)` fallback
+    # every reader already uses (market_value -> 0.0, rank_ecr -> 999.0),
+    # so it never needs a hand-maintained sentinel shape. A 0.0 market_value
+    # can never outrank a real player in the market_value-descending sort
+    # below, so this never displaces a real starter - it only ever fills a
+    # required slot when no better-valued candidate exists for it.
+    matched, unmatched = match_players_by_sleeper_id(roster_players, lookup)
+    matched = matched + [(p_obj, {}) for p_obj in unmatched]
     if not matched:
         return [], []
 

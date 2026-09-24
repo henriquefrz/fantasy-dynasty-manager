@@ -269,3 +269,100 @@ def test_analyze_team_profile_starter_assets_carry_the_real_slot():
     slot_by_name = {a["name"]: a["slot"] for a in profile["starter_assets"]}
     assert slot_by_name["Test Kicker"] == "K"
     assert slot_by_name["Flex WR3"] == "FLEX" and slot_by_name["Flex WR4"] == "FLEX"
+
+
+# ---------------------------------------------------------------------------
+# Unmatched players (no entry in the lookup passed to simulate_optimal_lineup)
+# used to be silently dropped by match_players_by_sleeper_id and discarded
+# (`matched, _ = ...`), so a player FantasyPros' dynasty board doesn't cover
+# at all (every real IDP position) or that its ROS board excludes (an
+# injured player) vanished from starters AND bench - and therefore from
+# every consumer built on top of them (Franchise Hub, Trade Center, Power
+# Rankings, Room Value). Confirmed live: an entire IDP league's LB/DB/DL
+# starters were unfillable, since dynasty_lookup has zero IDP entries.
+# Fixed to fold unmatched players in as 0.0-value bench candidates instead.
+# ---------------------------------------------------------------------------
+
+def test_unmatched_player_appears_on_bench_with_zero_value_instead_of_vanishing():
+    roster_positions = ["QB", "BN", "BN"]
+    roster_players = []
+    lookup = {}
+    for pid, name, pos, value in [
+        ("p_qb", "Test QB", "QB", 9000.0),
+        ("p_bench", "Test Bench WR", "WR", 3000.0),
+    ]:
+        player, entry = _make_player(pid, name, pos, value)
+        roster_players.append(player)
+        lookup.update(entry)
+
+    # No lookup entry at all for this one - e.g. an IDP position FantasyPros'
+    # dynasty board doesn't rank, or a player its ROS board excludes.
+    unmatched_player = {"player_id": "p_unranked", "full_name": "Test Unranked IDP", "position": "LB"}
+    roster_players.append(unmatched_player)
+
+    starters, bench = simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty=True)
+
+    bench_ids = {p.get("player_id") for p, _r in bench}
+    starter_ids = {p.get("player_id") for p, _r, _slot in starters}
+
+    assert "p_unranked" in bench_ids, "an unmatched player must land on the bench, not be dropped entirely"
+    assert "p_unranked" not in starter_ids, "an unmatched (0.0-value) player must never be a starter over real-value alternatives"
+
+    unranked_ranking_data = next(r for p, r in bench if p.get("player_id") == "p_unranked")
+    assert unranked_ranking_data.get("market_value", 0.0) == 0.0
+
+
+def test_unmatched_player_never_displaces_a_real_value_player_at_the_same_position():
+    """
+    The actual bug this whole fix chain started from, in miniature: two real
+    IDP starting slots (LB, DB) that a real-value candidate exists for, plus
+    an unmatched (unranked) LB. The unmatched LB must land on the bench, not
+    take the LB starting slot away from the real-value LB.
+    """
+    roster_positions = ["LB", "DB", "BN", "BN"]
+    roster_players = []
+    lookup = {}
+    for pid, name, pos, value in [
+        ("p_lb_real", "Real Value LB", "LB", 500.0),
+        ("p_db_real", "Real Value DB", "DB", 400.0),
+    ]:
+        player, entry = _make_player(pid, name, pos, value)
+        roster_players.append(player)
+        lookup.update(entry)
+
+    unmatched_lb = {"player_id": "p_lb_unranked", "full_name": "Unranked LB", "position": "LB"}
+    roster_players.append(unmatched_lb)
+
+    starters, bench = simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty=True)
+
+    starter_names = {p.get("full_name") for p, _r, _slot in starters}
+    bench_names = {p.get("full_name") for p, _r in bench}
+
+    assert "Real Value LB" in starter_names
+    assert "Unranked LB" in bench_names
+    assert "Unranked LB" not in starter_names
+
+
+def test_unmatched_player_fills_a_required_slot_when_no_real_value_candidate_exists():
+    """
+    The IDP-league case for real: if EVERY candidate for a required slot is
+    unmatched (no dynasty_lookup coverage for any real IDP position), the
+    slot must still be filled by one of them rather than left empty - an
+    unmatched player only ever loses to a real-value one, it does not lose
+    to an empty slot.
+    """
+    roster_positions = ["QB", "LB", "BN"]
+    roster_players = []
+    lookup = {}
+    player, entry = _make_player("p_qb", "Test QB", "QB", 9000.0)
+    roster_players.append(player)
+    lookup.update(entry)
+
+    # Both LB candidates are unmatched - neither has a lookup entry.
+    roster_players.append({"player_id": "p_lb_a", "full_name": "Unranked LB A", "position": "LB"})
+    roster_players.append({"player_id": "p_lb_b", "full_name": "Unranked LB B", "position": "LB"})
+
+    starters, _bench = simulate_optimal_lineup(roster_players, lookup, roster_positions, is_dynasty=True)
+
+    lb_starters = [p.get("full_name") for p, _r, slot in starters if slot == "LB"]
+    assert len(lb_starters) == 1, f"the required LB slot must be filled by one of the unmatched candidates, not left empty - got {lb_starters}"
