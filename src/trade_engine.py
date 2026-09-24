@@ -274,10 +274,16 @@ def analyze_team_profile(
     taxi_ids = set(roster.get("taxi") or [])
 
     starter_assets = [make_player_asset(p, r, redraft_lookup, slot=slot) for p, r, slot in starters_tuples]
+    # bench_assets is the PURE bench: excludes both reserve/IR and taxi
+    # squad, so it only ever holds active-roster, lineup-eligible non-
+    # starters. (It used to only exclude reserve_ids, silently leaving
+    # taxi players in both bench_assets AND taxi_assets - a real double-
+    # count bug in anything that summed the two together, e.g. the old
+    # build_positional_room_leaderboard and young_assets below.)
     bench_assets = [
         make_player_asset(p, r, redraft_lookup)
         for p, r in bench_tuples
-        if p.get("player_id") not in reserve_ids
+        if p.get("player_id") not in reserve_ids and p.get("player_id") not in taxi_ids
     ]
     taxi_assets = [
         make_player_asset(p, r, redraft_lookup)
@@ -294,6 +300,15 @@ def analyze_team_profile(
         for p, r in bench_tuples
         if p.get("player_id") in reserve_ids
     ]
+    # Canonical "everything on this roster" list, with starter_assets,
+    # bench_assets, taxi_assets and reserve_assets now mutually exclusive
+    # (see bench_assets above) - ANY "total roster value" or "everything I
+    # own" calculation must sum THIS, never manually reassemble a subset of
+    # the four lists. That ad-hoc reassembly is exactly the pattern that let
+    # taxi squad and reserve/IR players silently vanish from Room Value and
+    # both Dynasty/ROS Power Rankings (see build_positional_room_leaderboard,
+    # compute_dynasty_power_rankings, compute_ros_power_rankings).
+    all_assets = starter_assets + bench_assets + taxi_assets + reserve_assets
     pick_assets = [
         make_pick_asset(pk, picks_lookup, sim_rank_map, target_season=target_season, total_rosters=total_rosters, draft_type=draft_type)
         for pk in owned_picks
@@ -354,13 +369,20 @@ def analyze_team_profile(
             elif len(viable_bench) >= 1 and pos not in critical_deficits and bn_val >= 2500.0:
                 surpluses.append(pos)
 
-    # Distinguish veterans (age >= 27 with high redraft scoring) vs young assets (age <= 24)
+    # Distinguish veterans (age >= 27 with high redraft scoring) vs young
+    # assets (age <= 24). Both are trade-suggestion candidate pools (sell an
+    # aging veteran, target a young stash), so both draw from the full
+    # roster including taxi/reserve - an IR'd or taxi'd player is exactly as
+    # tradeable as one active on the bench. veteran_assets includes starters
+    # (a rostered stud can still be a sell-high veteran); young_assets stays
+    # non-starter-only (it's specifically the "depth stash" pool, not core
+    # starters) but now also covers reserve, not just bench+taxi.
     veteran_assets = [
-        a for a in starter_assets + bench_assets
+        a for a in all_assets
         if (a.get("age") or 25) >= 27 and a.get("market_value", 0) >= 1200.0
     ]
     young_assets = [
-        a for a in bench_assets + taxi_assets
+        a for a in bench_assets + taxi_assets + reserve_assets
         if (a.get("age") or 25) <= 24 and a.get("market_value", 0) >= 1000.0
     ]
 
@@ -374,6 +396,7 @@ def analyze_team_profile(
         "bench_assets": bench_assets,
         "taxi_assets": taxi_assets,
         "reserve_assets": reserve_assets,
+        "all_assets": all_assets,
         "pick_assets": pick_assets,
         "pos_starters": pos_starters,
         "pos_bench": pos_bench,
@@ -486,6 +509,12 @@ def check_lineup_and_deficit_viability(
                     return False, f"Position {r_pos} is already saturated with startable depth; trade does not upgrade starters."
 
     # 3. Starting Lineup Impact Check
+    # Deliberately NOT widened to all_assets/taxi_assets/reserve_assets:
+    # this feeds simulate_optimal_lineup to check whether a hypothetical
+    # trade still leaves a viable STARTING lineup, and taxi/IR players are
+    # never eligible to start regardless of how much roster value they
+    # represent - unlike the "how much do I own" calculations elsewhere in
+    # this file, exclusion here is correct, not a gap.
     if primary_lookup and roster_positions:
         current_players = [
             a["player_obj"] for a in user_profile["starter_assets"] + user_profile["bench_assets"]
@@ -592,7 +621,7 @@ def generate_trade_suggestions(
                 user_picks.sort(key=lambda pk: (int(pk["season"]) if str(pk["season"]).isdigit() else 9999, pk["round"]))
 
                 user_pieces = [
-                    a for a in user_profile["bench_assets"] + user_profile["starter_assets"]
+                    a for a in user_profile["all_assets"]
                     if min_piece_val <= a["market_value"] <= max_piece_val
                 ]
 
@@ -693,7 +722,7 @@ def generate_trade_suggestions(
         # -------------------------------------------------------------
         if is_dynasty and partner_cat == "win":
             sellable_players = [
-                a for a in user_profile["bench_assets"] + user_profile["veteran_assets"]
+                a for a in user_profile["bench_assets"] + user_profile["taxi_assets"] + user_profile["reserve_assets"] + user_profile["veteran_assets"]
                 if a["market_value"] >= 1000.0
             ]
             partner_picks = [
@@ -813,7 +842,7 @@ def generate_trade_suggestions(
                 if pk.get("round") == 1
             ]
             partner_young_assets = [
-                a for a in partner.get("bench_assets", []) + partner.get("starter_assets", [])
+                a for a in partner.get("all_assets", [])
                 if (a.get("age") or 30) <= 25 and 1500.0 <= a.get("market_value", 0) <= 6500.0
             ]
 
@@ -966,7 +995,7 @@ def build_positional_room_leaderboard(
     for p in all_team_profiles:
         rid = p["roster_id"]
         mgr = p.get("manager_name", f"Team {rid}")
-        all_players = p.get("starter_assets", []) + p.get("bench_assets", []) + p.get("taxi_assets", [])
+        all_players = p.get("all_assets", [])
 
         def _get_val(a):
             if use_redraft:

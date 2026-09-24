@@ -2698,11 +2698,10 @@ def build_player_owner_lookup(all_team_profiles, users):
     Sleeper @username, and Franchise Trajectory status text/category) for
     the Market Rankings table's Owner/Trajectory columns. The username is
     the plain Sleeper display_name (not manager_name, which appends the
-    fantasy team name in parens). bench_assets already includes taxi-squad
-    players (analyze_team_profile only excludes reserve_ids there, not
-    taxi_ids), but reserve_ids (IR) players are excluded from bench_assets
-    entirely and only surface via their own reserve_assets list - without
-    it, real IR'd players on other rosters were misreported as free agents.
+    fantasy team name in parens). Uses all_assets (starters + bench + taxi
+    + reserve/IR) - anything narrower silently drops a whole roster slot
+    category back into showing as "Free Agent" (confirmed real bug for
+    both taxi and reserve/IR before all_assets existed).
     A player absent from this map is a free agent.
     """
     username_by_owner_id = {u.get("user_id"): f"@{u.get('display_name', 'Unknown')}" for u in users}
@@ -2713,7 +2712,7 @@ def build_player_owner_lookup(all_team_profiles, users):
         status = prof.get("status", "")
         trajectory = status.split("(")[0].strip() if status else "—"
         category = prof.get("category", "neutral")
-        for asset in prof.get("starter_assets", []) + prof.get("bench_assets", []) + prof.get("reserve_assets", []):
+        for asset in prof.get("all_assets", []):
             pid = asset.get("player_id")
             if pid:
                 owner_by_pid[str(pid)] = {
@@ -3950,13 +3949,22 @@ else:
     # Enrichment fields the Workspace tabs read directly off each profile
     # (starter/bench/picks totals, live clinch status) - app.py-specific
     # presentation, not part of the shared skeleton.
+    #
+    # prof["bench"] is deliberately WIDENED beyond the raw bench_assets key:
+    # it's meant to answer "everything of mine that isn't starting" for
+    # display/trade purposes (roster breakdown tables, Trade Calculator's
+    # asset pickers), so it also folds in taxi_assets and reserve_assets -
+    # unlike bench_assets itself, which stays pure (lineup-eligible only)
+    # for the lineup-simulation call sites below that must never treat a
+    # taxi'd or IR'd player as startable.
     for prof in all_team_profiles:
+        non_starter_assets = prof.get("bench_assets", []) + prof.get("taxi_assets", []) + prof.get("reserve_assets", [])
         prof["starter_value"] = sum(a.get("market_value", 0.0) for a in prof.get("starter_assets", []))
-        prof["bench_value"] = sum(a.get("market_value", 0.0) for a in prof.get("bench_assets", []))
+        prof["bench_value"] = sum(a.get("market_value", 0.0) for a in non_starter_assets)
         prof["picks_value"] = sum(pk.get("market_value", 0.0) for pk in prof.get("pick_assets", []))
         prof["total_value"] = prof["starter_value"] + prof["bench_value"] + prof["picks_value"]
         prof["starters"] = prof["starter_assets"]
-        prof["bench"] = prof["bench_assets"]
+        prof["bench"] = non_starter_assets
         prof["picks"] = prof["pick_assets"]
         prof["clinch_status"] = live_sim_results.get(prof["roster_id"], {}).get("status_code", "HUNT")
 
@@ -3989,12 +3997,13 @@ else:
                 manager_name=manager_label,
                 total_rosters=total_rosters,
             )
+            ros_non_starter_assets = ros_prof.get("bench_assets", []) + ros_prof.get("taxi_assets", []) + ros_prof.get("reserve_assets", [])
             ros_prof["starter_value"] = sum(a.get("market_value", 0.0) for a in ros_prof.get("starter_assets", []))
-            ros_prof["bench_value"] = sum(a.get("market_value", 0.0) for a in ros_prof.get("bench_assets", []))
+            ros_prof["bench_value"] = sum(a.get("market_value", 0.0) for a in ros_non_starter_assets)
             ros_prof["picks_value"] = 0.0
             ros_prof["total_value"] = ros_prof["starter_value"] + ros_prof["bench_value"]
             ros_prof["starters"] = ros_prof["starter_assets"]
-            ros_prof["bench"] = ros_prof["bench_assets"]
+            ros_prof["bench"] = ros_non_starter_assets
             ros_prof["picks"] = []
             ros_prof["playoff_pct"] = base_prof.get("playoff_pct", 0.0)
             ros_prof["is_eliminated"] = base_prof.get("is_eliminated", False)
@@ -6367,7 +6376,11 @@ else:
                     c_imp_a, c_imp_b = st.columns(2)
                     with c_imp_a:
                         if prof_a:
-                            cur_p_objs = [a.get("player_obj") for a in prof_a["starters"] + prof_a["bench"] if a.get("player_obj")]
+                            # bench_assets (not the widened "bench" alias) -
+                            # a taxi'd or IR'd player can't actually start,
+                            # so the optimal-lineup simulation must not
+                            # treat them as an eligible candidate.
+                            cur_p_objs = [a.get("player_obj") for a in prof_a["starters"] + prof_a["bench_assets"] if a.get("player_obj")]
                             give_pids = {ga["player_id"] for ga in selected_assets_a if ga.get("type") == "player"}
                             recv_p_objs = [rb.get("player_obj") for rb in selected_assets_b if rb.get("type") == "player" and rb.get("player_obj")]
                             new_p_objs = [p for p in cur_p_objs if str(p.get("player_id")) not in give_pids] + recv_p_objs
@@ -6388,7 +6401,8 @@ else:
 
                     with c_imp_b:
                         if prof_b:
-                            cur_p_objs_b = [b.get("player_obj") for b in prof_b["starters"] + prof_b["bench"] if b.get("player_obj")]
+                            # bench_assets, not the widened "bench" alias - see c_imp_a above.
+                            cur_p_objs_b = [b.get("player_obj") for b in prof_b["starters"] + prof_b["bench_assets"] if b.get("player_obj")]
                             give_pids_b = {gb["player_id"] for gb in selected_assets_b if gb.get("type") == "player"}
                             recv_p_objs_a = [ra.get("player_obj") for ra in selected_assets_a if ra.get("type") == "player" and ra.get("player_obj")]
                             new_p_objs_b = [p for p in cur_p_objs_b if str(p.get("player_id")) not in give_pids_b] + recv_p_objs_a

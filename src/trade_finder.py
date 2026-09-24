@@ -72,12 +72,10 @@ def resolve_asset_from_query(
     seen_owner_pids = set()
 
     for prof in all_profiles:
-        # bench_assets already includes taxi-squad players (analyze_team_profile
-        # only excludes reserve_ids there, not taxi_ids), so taxi_assets is
-        # searched too purely to catch teams where a taxi player isn't otherwise
-        # reachable - the seen-set below stops that overlap from double-listing
-        # the same roster as an owner.
-        all_players = prof.get("starter_assets", []) + prof.get("bench_assets", []) + prof.get("taxi_assets", [])
+        # all_assets is the full roster (starters + bench + taxi +
+        # reserve/IR) - searching anything narrower means a real IR'd or
+        # taxi'd player can't be found/resolved by name here at all.
+        all_players = prof.get("all_assets", [])
         for p in all_players:
             p_name = p.get("name", "").lower()
             # Exact match or substring match
@@ -131,7 +129,9 @@ def find_targeted_buy_trades(
     # Symmetric blend from the user's own perspective (see trade_engine.generate_trade_suggestions).
     ros_weight = CATEGORY_ROS_WEIGHT.get(user_cat, 0.0) if is_dynasty else 0.0
 
-    user_players = user_profile.get("bench_assets", []) + user_profile.get("starter_assets", [])
+    # Full roster (not just bench+starters) - a taxi'd or IR'd player is a
+    # perfectly valid piece to offer up in a buy proposal.
+    user_players = user_profile.get("all_assets", [])
     user_picks = sorted(
         user_profile.get("pick_assets", []),
         key=lambda pk: (int(pk["season"]) if str(pk["season"]).isdigit() else 9999, pk["round"]),
@@ -380,7 +380,9 @@ def find_targeted_sell_trades(
             partner.get("pick_assets", []),
             key=lambda pk: (int(pk["season"]) if str(pk["season"]).isdigit() else 9999, pk["round"]),
         )
-        partner_players = partner.get("starter_assets", []) + partner.get("bench_assets", [])
+        # Full roster (not just starters+bench) - the partner's taxi'd or
+        # IR'd players are valid sweeteners in the return package.
+        partner_players = partner.get("all_assets", [])
 
         # 1. Look for a pick return (if dynasty and partner has picks)
         offer_found = False

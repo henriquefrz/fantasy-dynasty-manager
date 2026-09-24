@@ -711,7 +711,12 @@ def compute_dynasty_power_rankings(
     for prof in team_profiles:
         rid = prof["roster_id"]
         starters_val = sum(a.get("market_value", 0.0) for a in prof.get("starter_assets", []))
-        bench_val = sum(a.get("market_value", 0.0) for a in prof.get("bench_assets", []))
+        # Bench Depth = every non-starter asset (bench + taxi + reserve/IR),
+        # derived from all_assets rather than bench_assets alone - a taxi
+        # stash or an IR'd stud is still roster capital you own, and
+        # dropping them here previously made this component (and the
+        # dynasty_score it feeds into) blind to real IR'd/taxi'd assets.
+        bench_val = sum(a.get("market_value", 0.0) for a in prof.get("all_assets", [])) - starters_val
         picks_val = sum(pk.get("market_value", 0.0) for pk in prof.get("pick_assets", []))
         total_val = starters_val + bench_val + picks_val
 
@@ -762,7 +767,9 @@ def compute_ros_power_rankings(
     for prof in team_profiles:
         rid = prof["roster_id"]
         starters_val = sum(a.get("market_value", 0.0) for a in prof.get("starter_assets", []))
-        bench_val = sum(a.get("market_value", 0.0) for a in prof.get("bench_assets", []))
+        # Bench Depth = every non-starter asset (bench + taxi + reserve/IR) -
+        # see compute_dynasty_power_rankings' identical comment above.
+        bench_val = sum(a.get("market_value", 0.0) for a in prof.get("all_assets", [])) - starters_val
         total_val = starters_val + bench_val
 
         ros_results[rid] = {
