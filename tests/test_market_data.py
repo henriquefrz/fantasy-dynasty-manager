@@ -13,6 +13,7 @@ import src.market_data as market_data
 from src.market_data import (
     apply_ktc_te_premium,
     apply_valuation_mode,
+    compute_ktc_official_adjustment,
     compute_market_rank_divergence,
     _build_ktc_id_crosswalks,
     _extract_ktc_redraft_pillar,
@@ -366,3 +367,50 @@ def test_empty_intersection_returns_none_thresholds_without_crashing():
     lookup = {"p1": {"position": "WR", "fc_rank_native": None, "ktc_rank_native": None, "dp_rank_native": None}}
     info = compute_market_rank_divergence(lookup)
     assert info == {"n": 0, "p10": None, "p90": None}
+
+
+# ---------------------------------------------------------------------------
+# compute_ktc_official_adjustment: ported from KeepTradeCut's own live
+# adjustPackageNew()/processVNew()/reverseAdjustNew() (extracted from
+# https://keeptradecut.com/js/site.min.js, ALGOTOUSE=2 - the algorithm KTC's
+# own site actually runs, not the outdated 2022 third-party blog formula
+# that no longer matches production). Each fixture's expected (side, value,
+# display) was captured by calling KTC's real functions directly in a
+# browser console against keeptradecut.com/trade-calculator (1QB dynasty
+# values, Sep 2026) - this pins our port to their real, current output.
+# ---------------------------------------------------------------------------
+
+_KTC_TOP_OVERALL = 9998  # playersArray[0].value at the time these fixtures were captured
+
+# fmt: off
+_KTC_CHASE, _KTC_STBROWN, _KTC_OLAVE = 9635, 8435, 6763
+_KTC_ALLEN, _KTC_JEFFERSON = 7686, 7631
+_KTC_TAYLOR, _KTC_PICKENS, _KTC_FLOWERS, _KTC_SMITH = 7198, 6408, 6366, 6279
+_KTC_WALKER, _KTC_BURROW, _KTC_HALL = 7240, 5858, 6162
+_KTC_GIBBS, _KTC_WILSON = 9998, 6239
+# fmt: on
+
+
+@pytest.mark.parametrize(
+    "side_a,side_b,expected_side,expected_value,expected_display",
+    [
+        pytest.param([_KTC_CHASE], [_KTC_STBROWN, _KTC_OLAVE], 1, 741, False, id="2-for-1 stud vs depth"),
+        pytest.param([_KTC_ALLEN], [_KTC_JEFFERSON], 1, 403, False, id="1-for-1 close values"),
+        pytest.param([_KTC_TAYLOR], [_KTC_PICKENS, _KTC_FLOWERS, _KTC_SMITH], 1, 3515, True, id="3-for-1 stud vs depth"),
+        pytest.param([_KTC_WALKER, _KTC_BURROW], [_KTC_TAYLOR, _KTC_HALL], 2, 1060, True, id="2-for-2 mixed signal"),
+        pytest.param([_KTC_TAYLOR, _KTC_HALL], [_KTC_WALKER, _KTC_BURROW], 1, 1060, True, id="2-for-2 mixed signal, sides swapped"),
+        pytest.param([_KTC_GIBBS], [_KTC_FLOWERS, _KTC_SMITH, _KTC_WILSON], 1, 4363, True, id="1-for-3 elite vs three starters"),
+        pytest.param([_KTC_STBROWN], [_KTC_OLAVE], 1, 3214, True, id="1-for-1 stud premium"),
+    ],
+)
+def test_compute_ktc_official_adjustment_matches_live_ktc_site(side_a, side_b, expected_side, expected_value, expected_display):
+    result = compute_ktc_official_adjustment(side_a, side_b, _KTC_TOP_OVERALL)
+
+    assert result["adjust_side"] == expected_side
+    assert result["adjust_value"] == expected_value
+    assert result["display"] == expected_display
+
+
+def test_compute_ktc_official_adjustment_returns_none_for_a_one_sided_trade():
+    assert compute_ktc_official_adjustment([], [_KTC_CHASE], _KTC_TOP_OVERALL) is None
+    assert compute_ktc_official_adjustment([_KTC_CHASE], [], _KTC_TOP_OVERALL) is None

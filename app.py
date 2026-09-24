@@ -120,6 +120,7 @@ from src.market_data import (
     apply_valuation_mode,
     apply_ktc_te_premium,
     get_market_data_freshness,
+    compute_ktc_official_adjustment,
     VALUATION_MODES,
 )
 
@@ -6333,8 +6334,8 @@ else:
                     st.html(f"<div style='background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(52, 211, 153, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;'>{chips_b_html}</div>")
 
                 # Multi-Model Platform Breakdown
-                st.markdown("#### Constituent Platform Trade Verdicts")
-                st.caption("How each underlying source model scores this trade proposal side-by-side:")
+                st.markdown("#### Raw Value Comparison by Source")
+                st.caption("Compares raw chart values from each source - not each platform's official trade calculator logic:")
 
                 fc_a = sum(float(a.get("fc_val") or 0.0) for a in selected_assets_a if a.get("fc_val"))
                 fc_b = sum(float(b.get("fc_val") or 0.0) for b in selected_assets_b if b.get("fc_val"))
@@ -6377,6 +6378,39 @@ else:
                     ]
 
                 st.dataframe(pd.DataFrame(platform_data), hide_index=True, use_container_width=True)
+
+                # KTC's own trade calculator applies a stud premium + package
+                # discount on top of its raw value chart (ktc_val above is
+                # just the chart) - only exists for Dynasty values, KTC has
+                # no equivalent calculator for its Fantasy/Redraft chart.
+                if not is_calc_redraft:
+                    ktc_side_a = [float(a["ktc_val"]) for a in selected_assets_a if a.get("ktc_val")]
+                    ktc_side_b = [float(b["ktc_val"]) for b in selected_assets_b if b.get("ktc_val")]
+                    ktc_top_overall = max((v.get("ktc_val") or 0.0) for v in active_calc_lookup.values()) if active_calc_lookup else 0.0
+                    ktc_official = compute_ktc_official_adjustment(ktc_side_a, ktc_side_b, ktc_top_overall) if ktc_top_overall > 0 else None
+
+                    if ktc_official:
+                        if ktc_official["adjust_side"] == 1:
+                            ktc_verdict_line = f"🔵 Favors Side A by {ktc_official['adjust_value']:,.0f} pts" if ktc_official["display"] else "⚖️ Even (adjustment below KTC's own display threshold)"
+                        elif ktc_official["adjust_side"] == 2:
+                            ktc_verdict_line = f"🟢 Favors Side B by {ktc_official['adjust_value']:,.0f} pts" if ktc_official["display"] else "⚖️ Even (adjustment below KTC's own display threshold)"
+                        else:
+                            ktc_verdict_line = "⚖️ Even"
+
+                        st.html(f"""
+                        <div style='background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px 16px; margin-top: 4px; margin-bottom: 8px;'>
+                            <div style='font-weight: 700; color: #38bdf8; font-size: 0.92rem; margin-bottom: 4px;'>KTC Official Calculator (Unofficial Approximation)</div>
+                            <div style='font-size: 0.82rem; color: #cbd5e1; margin-bottom: 8px;'>
+                                Side A adjusted: <strong style='color: #f8fafc;'>{ktc_official['adj_total_a']:,.0f} pts</strong>
+                                &nbsp;•&nbsp; Side B adjusted: <strong style='color: #f8fafc;'>{ktc_official['adj_total_b']:,.0f} pts</strong>
+                                &nbsp;•&nbsp; {ktc_verdict_line}
+                            </div>
+                            <div style='font-size: 0.74rem; color: #94a3b8;'>
+                                Reverse-engineered from KeepTradeCut's own live trade-calculator JavaScript (their stud premium + package-size discount, not just the raw value chart above).
+                                Unofficial and unconfirmed by KTC - may drift if they change their algorithm.
+                            </div>
+                        </div>
+                        """)
 
                 # Lineup Impact for League Rosters
                 if (prof_a or prof_b) and roster_pos:

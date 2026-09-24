@@ -769,6 +769,216 @@ def compute_composite_value(fc_val, ktc_val, dp_val, mode="equal", rank_ecr=None
     return round(composite, 1)
 
 
+# KeepTradeCut's real, currently-live trade calculator algorithm
+# (ALGOTOUSE=2 -> adjustPackageNew/processVNew/reverseAdjustNew), extracted
+# directly from the public https://keeptradecut.com/js/site.min.js bundle and
+# validated against 7 trades executed live in KTC's own calculator (Sep 2026)
+# - see tests/test_market_data.py::test_compute_ktc_official_adjustment_matches_live_ktc_site.
+# This is NOT the same as KTC's raw value chart (ktc_val): it reproduces
+# KTC's own "Value Adjustment" concept (stud premium + package-size discount),
+# which KTC only publishes as client-side JS, not as a documented formula.
+# It only exists for Dynasty values - KTC's Fantasy/Redraft Rankings page has
+# no equivalent calculator to reverse-engineer, so this must not be applied
+# to ktc_redraft_val.
+KTC_ADJUSTMENT_MAX_PLAYER_VALUE = 10000.0
+KTC_ADJUSTMENT_CURVE_DENOMINATOR = 10099.0  # hardcoded in KTC's own processVNew
+
+
+def _ktc_raw_adjustment(value, trade_max):
+    return (
+        0.1 * (value / KTC_ADJUSTMENT_CURVE_DENOMINATOR) ** 1.4
+        + 0.7 * (value / (1.05 * trade_max)) ** 1.25
+        + 0.2
+    ) * value
+
+
+def _ktc_solve_for_value(target, global_max, trade_max, tolerance=1e-8, max_iterations=20):
+    """Newton's method port of KTC's solveForX(): inverts _ktc_raw_adjustment for value."""
+    x = 5 * target
+
+    def f(x):
+        return (0.1 * (x / global_max) ** 1.4 + 0.7 * (x / (1.05 * trade_max)) ** 1.25 + 0.2) * x - target
+
+    def f_prime(x):
+        return (
+            0.24 * (x ** 1.4) / (global_max ** 1.4)
+            + 1.575 * (x ** 1.25) / ((1.05 ** 1.25) * (trade_max ** 1.25))
+            + 0.2
+        )
+
+    for _ in range(max_iterations):
+        fx = f(x)
+        dfx = f_prime(x)
+        if abs(dfx) < 1e-12:
+            raise ValueError("KTC adjustment solver: derivative too small to continue")
+        x1 = x - fx / dfx
+        if abs(x1 - x) < tolerance:
+            return x1
+        x = x1
+    raise ValueError("KTC adjustment solver: did not converge")
+
+
+def _ktc_reverse_adjust(diff, trade_max, global_max):
+    return round(_ktc_solve_for_value(diff, global_max, trade_max))
+
+
+def _ktc_check_equality(a, b, tolerance_pct):
+    a = max(0.0, a)
+    b = max(0.0, b)
+    total = a + b
+    if total == 0:
+        return True
+    diff_pct = min(100.0, abs(a - b) / total * 100.0)
+    return round(diff_pct, 1) <= tolerance_pct
+
+
+def compute_ktc_official_adjustment(side_a_values, side_b_values, top_overall_value, variance_pct=5):
+    """
+    Faithful port of KeepTradeCut's adjustPackageNew() - the algorithm actually
+    running behind https://keeptradecut.com/trade-calculator today (Dynasty
+    values only). Unlike a flat sum of ktc_val, this reproduces KTC's stud
+    premium (elite players are worth a premium beyond their raw chart value in
+    a trade) and package-size discount (many small assets don't cleanly add up
+    to one big one).
+
+    side_a_values / side_b_values: raw ktc_val per asset on each side (players
+        and/or picks - whatever already has a ktc_val).
+    top_overall_value: current #1 overall player's ktc_val in the active value
+        source (mirrors KTC's own playersArray[0].value).
+
+    Returns None if either side is empty (KTC's own calculator has no defined
+    adjustment for a one-sided or empty trade either).
+    """
+    if not side_a_values or not side_b_values:
+        return None
+
+    total_a = sum(side_a_values)
+    total_b = sum(side_b_values)
+    trade_max = max(side_a_values + side_b_values)
+    global_max = top_overall_value + 100
+
+    raw_adj_a = sum(_ktc_raw_adjustment(v, trade_max) for v in side_a_values)
+    raw_adj_b = sum(_ktc_raw_adjustment(v, trade_max) for v in side_b_values)
+
+    ratio_a = raw_adj_a / total_a if total_a else 0.0
+    ratio_b = raw_adj_b / total_b if total_b else 0.0
+    raw_diff_floor = math.floor(abs(raw_adj_a - raw_adj_b))
+    totals_close = _ktc_check_equality(total_a, total_b, variance_pct)
+    rawadj_close = _ktc_check_equality(raw_adj_a, raw_adj_b, variance_pct)
+
+    side = None
+    value = 0.0
+    apply_adjustment = True
+    adj_a = 0.0
+    adj_b = 0.0
+
+    def reverse(diff):
+        return _ktc_reverse_adjust(diff, trade_max, global_max)
+
+    def resolve_favored_side():
+        if total_a < total_b:
+            return 1
+        if total_b < total_a:
+            return 2
+        return None
+
+    if totals_close and rawadj_close:
+        if raw_adj_a > raw_adj_b:
+            side = 1
+            b = total_b + reverse(raw_diff_floor) - total_a
+            if b > 0:
+                value, adj_a = b, b
+            else:
+                apply_adjustment, side, value, adj_b = False, 2, -b, -b
+        elif raw_adj_b > raw_adj_a:
+            side = 2
+            b = total_a + reverse(raw_diff_floor) - total_b
+            if b > 0:
+                value, adj_b = b, b
+            else:
+                apply_adjustment, side, value, adj_a = False, 1, -b, -b
+
+    elif ratio_a > ratio_b:
+        side = 1
+        if raw_adj_a > raw_adj_b:
+            b = total_b + reverse(raw_diff_floor) - total_a
+            if b > 0:
+                value, adj_a = b, b
+            else:
+                apply_adjustment, side, value, adj_b = False, 2, abs(b), abs(b)
+        else:
+            favored = resolve_favored_side()
+            w = reverse(abs(raw_adj_a - raw_adj_b)) if favored else 0
+            if favored and w > 0:
+                side = favored
+                if favored == 2:
+                    T = w - (total_a - total_b)
+                    if T > 0:
+                        value, adj_b = T, T
+                    else:
+                        apply_adjustment, value = False, T
+                else:
+                    T = w - (total_b - total_a)
+                    if T > 0:
+                        if T > KTC_ADJUSTMENT_MAX_PLAYER_VALUE:
+                            apply_adjustment, value, side = False, 0, 1
+                        else:
+                            side, value, adj_b = 2, T, T
+                    else:
+                        apply_adjustment, value, adj_a = True, -T, -T
+            else:
+                apply_adjustment = False
+
+    else:
+        side = 2
+        if raw_adj_b > raw_adj_a:
+            b = total_a + reverse(raw_diff_floor) - total_b
+            if b > 0:
+                value, adj_b = b, b
+            else:
+                apply_adjustment, side, value, adj_a = False, 1, abs(b), abs(b)
+        else:
+            favored = resolve_favored_side()
+            w = reverse(abs(raw_adj_a - raw_adj_b)) if favored else 0
+            if favored and w > 0:
+                side = favored
+                if favored == 1:
+                    T = w - (total_b - total_a)
+                    if T > 0:
+                        value, adj_a = T, T
+                    else:
+                        apply_adjustment, value = False, T
+                else:
+                    T = w - (total_a - total_b)
+                    if T > 0:
+                        if T > KTC_ADJUSTMENT_MAX_PLAYER_VALUE:
+                            apply_adjustment, value, side = False, 0, 1
+                        else:
+                            side, value, adj_a = 1, T, T
+                    else:
+                        apply_adjustment, value, adj_b = True, -T, -T
+            else:
+                apply_adjustment = False
+
+    display = False
+    if value != 0:
+        display = apply_adjustment
+        if abs(value / (total_a + total_b)) < 0.033:
+            display = False
+
+    return {
+        "total_a": total_a,
+        "total_b": total_b,
+        "raw_adj_a": raw_adj_a,
+        "raw_adj_b": raw_adj_b,
+        "adjust_side": side,
+        "adjust_value": round(value),
+        "display": display,
+        "adj_total_a": total_a + adj_a,
+        "adj_total_b": total_b + adj_b,
+    }
+
+
 # fp_ros_rankings is only re-scraped 3x/week (see
 # .github/workflows/scrape-fantasypros-ros.yml); this gives generous slack
 # over that ~2-3 day cadence before flagging the file as stale, since a
