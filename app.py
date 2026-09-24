@@ -5503,18 +5503,18 @@ else:
                             st.caption(f"• {name}")
 
         if is_dynasty:
-            sub_mc, sub_ros, sub_dyn, sub_rooms = st.tabs([
+            sub_mc, sub_dyn, sub_ros, sub_rooms = st.tabs([
                 "Season Standings & Playoff Simulation (Monte Carlo)",
-                "ROS Asset Power Rankings",
                 "Dynasty Asset Power Rankings",
+                "ROS Asset Power Rankings",
                 "Positional Room & Draft Capital Leaderboard",
             ])
             with sub_mc:
                 render_simulation_view()
-            with sub_ros:
-                render_ros_power_view()
             with sub_dyn:
                 render_dynasty_power_view()
+            with sub_ros:
+                render_ros_power_view()
             with sub_rooms:
                 render_positional_room_view()
         else:
