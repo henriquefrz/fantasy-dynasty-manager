@@ -1256,108 +1256,6 @@ def safe_age_display(age_raw):
         return "—"
 
 
-def render_player_table_html(player_rows, show_equity=True, show_ros_value=False):
-    """
-    Renders an executive dark table with 44px round avatars,
-    spacious rows (~56-60px), non-wrapping slot tags, dual ECR badges,
-    symmetrical column balance, and consensus market value.
-
-    show_ros_value adds a second "ROS Value" column (from the league's
-    redraft_lookup) alongside "Dynasty Value" - only meaningful for
-    dynasty leagues, where the two numbers genuinely differ. Callers on a
-    redraft league, or on a table that already has a single-lens value
-    (e.g. the Power Rankings tab's dedicated ROS/Dynasty breakdowns),
-    leave this off so the existing single "Consensus Value" column is
-    unchanged.
-    """
-    if not player_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
-
-    val_label = "Dynasty Value" if show_ros_value else "Consensus Value"
-    ros_th = "<th style='width: 15%; text-align: center;'>ROS Value</th>" if show_ros_value else ""
-
-    if show_equity:
-        header_cols = f"""
-            <th style='width: 95px; text-align: center;'>Slot</th>
-            <th style='width: {28 if show_ros_value else 34}%; text-align: left;'>Player</th>
-            <th style='width: 15%; text-align: center;'>{val_label}</th>
-            {ros_th}
-            <th style='width: 14%; text-align: center;'>Overall ECR</th>
-            <th style='width: 14%; text-align: center;'>Pos ECR</th>
-            <th style='width: 11%; text-align: center;'>Equity</th>
-        """
-    else:
-        header_cols = f"""
-            <th style='width: 95px; text-align: center;'>Slot</th>
-            <th style='width: {34 if show_ros_value else 40}%; text-align: left;'>Player</th>
-            <th style='width: 16%; text-align: center;'>{val_label}</th>
-            {ros_th}
-            <th style='width: 15%; text-align: center;'>Overall ECR</th>
-            <th style='width: 15%; text-align: center;'>Pos ECR</th>
-        """
-
-    html = f"""
-    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
-    <div class='table-responsive-wrapper'>
-    <table class='roster-table roster-table-roster'>
-        <thead>
-            <tr>
-                {header_cols}
-            </tr>
-        </thead>
-        <tbody>
-    """
-    for r in player_rows:
-        slot = r.get("Slot", "BN")
-        pos = r.get("Pos", "UTIL")
-        badge_cls = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
-        avatar = r.get("Avatar", "")
-        pname = r.get("Player", "Unknown")
-        team = r.get("NFL Team", "FA")
-        age = safe_age_display(r.get("Age"))
-        age_meta = f"<span>•</span><span>{age}y</span>" if age != "—" else ""
-        overall_ecr = r.get("Overall ECR", "—")
-        pos_ecr = r.get("Pos ECR", "—")
-        val = r.get("Consensus Value", "0 pts")
-        eq = r.get("Equity Share", "0.0%")
-
-        avatar_img = f"<img src='{avatar}' class='player-avatar-44' onerror=\"this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'\" />" if avatar else "<div class='player-avatar-44' style='display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8;'>—</div>"
-
-        equity_td = f"<td style='color: #38bdf8; font-weight: 600; text-align: center;'>{eq}</td>" if show_equity else ""
-        ros_td = f"<td style='text-align: center; color: #94a3b8;'>{r.get('ROS Value', '0 pts')}</td>" if show_ros_value else ""
-
-        html += f"""
-            <tr>
-                <td style='text-align: center;'><span class='badge-pos {badge_cls}' style='min-width: 65px; text-align: center; white-space: nowrap;'>{slot}</span></td>
-                <td style='text-align: left;'>
-                    <div class='player-cell'>
-                        {avatar_img}
-                        <div class='player-info'>
-                            <span class='player-name'>{pname}</span>
-                            <div class='player-meta'>
-                                <span style='font-weight: 600; color: #cbd5e1;'>{pos}</span>
-                                <span>•</span>
-                                <span>{team}</span>
-                                {age_meta}
-                            </div>
-                        </div>
-                    </div>
-                </td>
-                <td class='val-pill' style='text-align: center;'>{val}</td>
-                {ros_td}
-                <td style='text-align: center;'><span class='rank-pill'>{overall_ecr}</span></td>
-                <td style='text-align: center;'><span class='rank-pill rank-pill-highlight'>{pos_ecr}</span></td>
-                {equity_td}
-            </tr>
-        """
-    html += """
-        </tbody>
-    </table>
-    </div>
-    """
-    return "\n".join(l.lstrip() for l in html.splitlines())
-
-
 def render_market_table_html(market_rows, is_redraft: bool = False, show_trajectory: bool = False):
     """
     Renders an executive table for Free Agents or Market Database with 44px avatars,
@@ -2226,16 +2124,23 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
 def render_starter_card_grid_html(starters_rows, show_ros_value=False):
     """
     Renders modern dashboard starter cards inspired by cyberpunk sports UI.
-    Each card shows slot badge, 52px circular player headshot, player name,
-    positional ECR, overall ECR, and consensus value.
+    Each card shows slot badge, 52px circular player headshot (or a
+    target-icon placeholder for a draft pick row - see is_pick below),
+    team + age, positional/overall ECR (or season/round for a pick), and
+    consensus value.
+
+    A row is treated as a draft pick (no headshot, no ECR) when its "Pos"
+    is "PICK" - the same convention build_market_assets_list and
+    render_asset_chips already use - so pick and player rows can share one
+    unified, value-sorted grid instead of a separate pick-only view.
 
     show_ros_value splits the single "Market Value" box into two side-by-
     side boxes (Dynasty Value, ROS Value) reusing the "ROS Value" key
     build_player_row already computes - only meaningful for dynasty
-    leagues, mirroring render_player_table_html's show_ros_value.
+    leagues, where the two numbers genuinely differ.
     """
     if not starters_rows:
-        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No active starters designated.</p>"
+        return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No players to display.</p>"
 
     card_items = []
     for s in starters_rows:
@@ -2243,19 +2148,36 @@ def render_starter_card_grid_html(starters_rows, show_ros_value=False):
         player = s.get("Player", "")
         pos = s.get("Pos", "WR")
         team = s.get("NFL Team", "FA")
-        avatar = s.get("Avatar") or "https://sleepercdn.com/images/v2/icons/player_default.webp"
-        pos_ecr = s.get("Pos ECR", "—")
-        overall_ecr = s.get("Overall ECR", "—")
+        age_disp = safe_age_display(s.get("Age"))
+        team_meta = f"{team} • {age_disp}y" if age_disp != "—" else team
         val = s.get("Consensus Value", "0 pts")
-        eq = s.get("Equity Share", "0.0%")
+        is_pick = (pos == "PICK")
 
         pos_class = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
+
+        if is_pick:
+            avatar_html = f"""
+            <div class='lineup-avatar-wrap' style='background: linear-gradient(135deg, rgba(168, 85, 247, 0.5) 0%, rgba(139, 92, 246, 0.3) 100%);'>
+                <div class='lineup-avatar' style='display: flex; align-items: center; justify-content: center; font-size: 1.4rem;'>🎯</div>
+            </div>
+            """
+            stat_label_1, stat_val_1 = "SEASON", str(s.get("Season", "—"))
+            stat_label_2, stat_val_2 = "ROUND", str(s.get("Round", "—"))
+        else:
+            avatar = s.get("Avatar") or "https://sleepercdn.com/images/v2/icons/player_default.webp"
+            avatar_html = f"""
+            <div class='lineup-avatar-wrap'>
+                <img src='{avatar}' class='lineup-avatar' alt='{player}' onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';" />
+            </div>
+            """
+            stat_label_1, stat_val_1 = "POS ECR", s.get("Pos ECR", "—")
+            stat_label_2, stat_val_2 = "OVERALL", s.get("Overall ECR", "—")
 
         if show_ros_value:
             ros_val = s.get("ROS Value", "0 pts")
             value_boxes = f"""
                     <div class='lineup-stat-box'>
-                        <div class='lineup-stat-label'>DYNASTY ({eq})</div>
+                        <div class='lineup-stat-label'>DYNASTY</div>
                         <div class='lineup-stat-val text-gold'>{val}</div>
                     </div>
                     <div class='lineup-stat-box'>
@@ -2266,7 +2188,7 @@ def render_starter_card_grid_html(starters_rows, show_ros_value=False):
         else:
             value_boxes = f"""
                     <div class='lineup-stat-box' style='grid-column: span 2;'>
-                        <div class='lineup-stat-label'>MARKET VALUE ({eq})</div>
+                        <div class='lineup-stat-label'>MARKET VALUE</div>
                         <div class='lineup-stat-val text-gold'>{val}</div>
                     </div>
             """
@@ -2275,21 +2197,19 @@ def render_starter_card_grid_html(starters_rows, show_ros_value=False):
         <div class='lineup-card'>
             <div class='lineup-card-header'>
                 <span class='badge-pos {pos_class}'>{slot}</span>
-                <span class='lineup-card-team'>{team}</span>
+                <span class='lineup-card-team'>{team_meta}</span>
             </div>
-            <div class='lineup-avatar-wrap'>
-                <img src='{avatar}' class='lineup-avatar' alt='{player}' onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';" />
-            </div>
+            {avatar_html}
             <div class='lineup-card-body'>
                 <div class='lineup-name' title='{player}'>{player}</div>
                 <div class='lineup-stats-grid'>
                     <div class='lineup-stat-box'>
-                        <div class='lineup-stat-label'>POS ECR</div>
-                        <div class='lineup-stat-val text-cyan'>{pos_ecr}</div>
+                        <div class='lineup-stat-label'>{stat_label_1}</div>
+                        <div class='lineup-stat-val text-cyan'>{stat_val_1}</div>
                     </div>
                     <div class='lineup-stat-box'>
-                        <div class='lineup-stat-label'>OVERALL</div>
-                        <div class='lineup-stat-val'>{overall_ecr}</div>
+                        <div class='lineup-stat-label'>{stat_label_2}</div>
+                        <div class='lineup-stat-val'>{stat_val_2}</div>
                     </div>
                     {value_boxes}
                 </div>
@@ -4282,10 +4202,9 @@ else:
                 champ_html += "</tbody></table></div>"
                 st.html(champ_html)
 
-        # Full Roster Breakdown & Equity Distribution
+        # Full Roster Breakdown
         st.markdown("---")
         st.markdown("### Complete Franchise Roster Breakdown & Asset Valuation")
-        st.caption("Spacious player roster view featuring 44px circular headshots, consensus valuations, positional and overall ECR, and franchise equity shares.")
 
         user_pids = user_roster.get("players") or []
         user_starter_pids = set(user_roster.get("starters") or [])
@@ -4354,72 +4273,18 @@ else:
             else:
                 bench_data.append(build_player_row(pid, "BENCH"))
 
-        bench_data.sort(key=lambda x: x["_val"], reverse=True)
-        taxi_data.sort(key=lambda x: x["_val"], reverse=True)
-        ir_data.sort(key=lambda x: x["_val"], reverse=True)
+        st.caption("Complete franchise asset valuation with consensus market values and ECR - starters, bench, taxi, and IR together, sorted by value.")
 
-        col_rst_title, col_rst_toggle = st.columns([3, 1.8], vertical_alignment="center")
-        with col_rst_title:
-            st.caption("Complete franchise asset valuation with consensus market values, ECR, and equity shares.")
-        with col_rst_toggle:
-            universal_roster_view = st.radio(
-                "Roster View Mode",
-                ["Card Grid (Dashboard)", "Detailed Table"],
-                index=0,
-                horizontal=True,
-                key="universal_roster_view_mode",
-                label_visibility="collapsed"
-            )
-
-        roster_sub_starters, roster_sub_bench, roster_sub_taxi, roster_sub_all = st.tabs([
-            f"Starters ({len(starters_data)})",
-            f"Bench ({len(bench_data)})",
-            f"Taxi & IR ({len(taxi_data) + len(ir_data)})",
-            f"All Rostered Players ({len(user_pids)})",
-        ])
-
-        with roster_sub_starters:
-            if starters_data:
-                if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(starters_data, show_ros_value=is_dynasty))
-                else:
-                    st.html(render_player_table_html(starters_data, show_equity=True, show_ros_value=is_dynasty))
-            else:
-                st.info("No active starters designated.")
-
-        with roster_sub_bench:
-            if bench_data:
-                if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(bench_data, show_ros_value=is_dynasty))
-                else:
-                    st.html(render_player_table_html(bench_data, show_equity=True, show_ros_value=is_dynasty))
-            else:
-                st.info("No bench players detected.")
-
-        with roster_sub_taxi:
-            if taxi_data:
-                st.markdown("#### Taxi Squad Assets")
-                if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(taxi_data, show_ros_value=is_dynasty))
-                else:
-                    st.html(render_player_table_html(taxi_data, show_equity=True, show_ros_value=is_dynasty))
-            if ir_data:
-                st.markdown("#### Injured Reserve (IR)")
-                if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(ir_data, show_ros_value=is_dynasty))
-                else:
-                    st.html(render_player_table_html(ir_data, show_equity=True, show_ros_value=is_dynasty))
-            if not taxi_data and not ir_data:
-                st.info("No taxi squad or IR reserve players.")
-
-        with roster_sub_all:
-            all_roster_rows = starters_data + bench_data + taxi_data + ir_data
-            all_roster_rows.sort(key=lambda x: x["_val"], reverse=True)
-            if all_roster_rows:
-                if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(all_roster_rows, show_ros_value=is_dynasty))
-                else:
-                    st.html(render_player_table_html(all_roster_rows, show_equity=True, show_ros_value=is_dynasty))
+        # A single unified, value-sorted grid instead of a Starters/Bench/
+        # Taxi & IR/All split - each card's slot badge already identifies
+        # a player's role, so the split added navigation without adding
+        # information.
+        all_roster_rows = starters_data + bench_data + taxi_data + ir_data
+        all_roster_rows.sort(key=lambda x: x["_val"], reverse=True)
+        if all_roster_rows:
+            st.html(render_starter_card_grid_html(all_roster_rows, show_ros_value=is_dynasty))
+        else:
+            st.info("No rostered players detected.")
 
         # Draft Capital Table for Dynasty
         if is_dynasty and user_profile and user_profile.get("picks"):
@@ -5401,68 +5266,45 @@ else:
             with st.container(border=True):
                 inspect_mgr = st.selectbox("Select Team to Inspect (ROS):", [t["manager_name"] for t in ranked_ros], key=f"inspect_ros_team_{selected_league_id}")
                 selected_prof = next(p for p in all_ros_team_profiles if p["manager_name"] == inspect_mgr)
-                tot_val = selected_prof.get("total_value", 0.0)
 
-                insp_sub_starters, insp_sub_bench = st.tabs([
-                    f"ROS Starters ({len(selected_prof['starters'])})",
-                    f"ROS Bench ({len(selected_prof['bench'])})",
-                ])
+                st.caption(
+                    f"ROS Starting Lineup: **{selected_prof.get('starter_value', 0):,.0f} pts** • "
+                    f"ROS Bench Depth: **{selected_prof.get('bench_value', 0):,.0f} pts**"
+                )
 
-                with insp_sub_starters:
-                    st.caption(f"ROS Starting Lineup Valuation: **{selected_prof.get('starter_value', 0):,.0f} pts**")
-                    st_rows = []
-                    for a in selected_prof["starters"]:
-                        pid = a.get("player_id")
-                        pos = a.get("position") or "UTIL"
-                        team = a.get("team") or "FA"
-                        m_val = float(a.get("market_value") or 0.0)
-                        p_data = redraft_lookup.get(pid, {})
-                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
-                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
-                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
-                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
-                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
-                        st_rows.append({
-                            "Slot": a.get("slot") or "FLEX",
-                            "Player": a.get("name", "Unknown"),
-                            "Pos": pos,
-                            "NFL Team": team,
-                            "Age": a.get("age") or "—",
-                            "Avatar": get_player_avatar_url(pid, pos, team),
-                            "Overall ECR": overall_ecr_str,
-                            "Pos ECR": pos_ecr_str,
-                            "Consensus Value": f"{m_val:,.0f} pts",
-                            "Equity Share": eq_str,
-                        })
-                    st.html(render_player_table_html(st_rows, show_equity=True))
+                def _ros_asset_row(a, slot_label):
+                    pid = a.get("player_id")
+                    pos = a.get("position") or "UTIL"
+                    team = a.get("team") or "FA"
+                    m_val = float(a.get("market_value") or 0.0)
+                    p_data = redraft_lookup.get(pid, {})
+                    ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
+                    o_ecr = p_data.get("rank_ecr_overall", 999.0)
+                    pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+                    overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+                    return {
+                        "Slot": slot_label,
+                        "Player": a.get("name", "Unknown"),
+                        "Pos": pos,
+                        "NFL Team": team,
+                        "Age": a.get("age") or "—",
+                        "Avatar": get_player_avatar_url(pid, pos, team),
+                        "Overall ECR": overall_ecr_str,
+                        "Pos ECR": pos_ecr_str,
+                        "Consensus Value": f"{m_val:,.0f} pts",
+                        "_val": m_val,
+                    }
 
-                with insp_sub_bench:
-                    st.caption(f"ROS Bench Depth Valuation: **{selected_prof.get('bench_value', 0):,.0f} pts**")
-                    bn_rows = []
-                    for a in selected_prof["bench"]:
-                        pid = a.get("player_id")
-                        pos = a.get("position") or "UTIL"
-                        team = a.get("team") or "FA"
-                        m_val = float(a.get("market_value") or 0.0)
-                        p_data = redraft_lookup.get(pid, {})
-                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
-                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
-                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
-                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
-                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
-                        bn_rows.append({
-                            "Slot": "BN",
-                            "Player": a.get("name", "Unknown"),
-                            "Pos": pos,
-                            "NFL Team": team,
-                            "Age": a.get("age") or "—",
-                            "Avatar": get_player_avatar_url(pid, pos, team),
-                            "Overall ECR": overall_ecr_str,
-                            "Pos ECR": pos_ecr_str,
-                            "Consensus Value": f"{m_val:,.0f} pts",
-                            "Equity Share": eq_str,
-                        })
-                    st.html(render_player_table_html(bn_rows, show_equity=True))
+                # Single unified, value-sorted grid instead of a
+                # Starters/Bench split - see the Franchise Hub roster
+                # breakdown above for the same pattern.
+                ros_rows = [_ros_asset_row(a, a.get("slot") or "FLEX") for a in selected_prof["starters"]]
+                ros_rows += [_ros_asset_row(a, "BN") for a in selected_prof["bench"]]
+                ros_rows.sort(key=lambda x: x["_val"], reverse=True)
+                if ros_rows:
+                    st.html(render_starter_card_grid_html(ros_rows))
+                else:
+                    st.info("No ROS roster assets to display.")
 
         def render_dynasty_power_view():
             st.caption("Dynasty Power Formula: 50% Starters Value + 30% Bench Depth + 20% Future Draft Capital (Industry Standard).")
@@ -5492,87 +5334,65 @@ else:
             with st.container(border=True):
                 inspect_mgr = st.selectbox("Select Team to Inspect:", [t["manager_name"] for t in ranked_dyn])
                 selected_prof = next(p for p in all_team_profiles if p["manager_name"] == inspect_mgr)
-                tot_val = selected_prof.get("total_value", 0.0)
 
-                insp_sub_starters, insp_sub_bench, insp_sub_picks = st.tabs([
-                    f"Starters ({len(selected_prof['starters'])})",
-                    f"Bench ({len(selected_prof['bench'])})",
-                    f"Draft Capital ({len(selected_prof.get('picks', []))})",
-                ])
+                st.caption(
+                    f"Starting Lineup: **{selected_prof.get('starter_value', 0):,.0f} pts** • "
+                    f"Bench Depth: **{selected_prof.get('bench_value', 0):,.0f} pts** • "
+                    f"Draft Capital: **{selected_prof.get('picks_value', 0):,.0f} pts**"
+                )
 
-                with insp_sub_starters:
-                    st.caption(f"Starting Lineup Valuation: **{selected_prof.get('starter_value', 0):,.0f} pts**")
-                    st_rows = []
-                    for a in selected_prof["starters"]:
-                        pid = a.get("player_id")
-                        pos = a.get("position") or "UTIL"
-                        team = a.get("team") or "FA"
-                        m_val = float(a.get("market_value") or 0.0)
-                        p_data = primary_lookup.get(pid, {})
-                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
-                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
-                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
-                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
-                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
-                        st_rows.append({
-                            "Slot": a.get("slot") or "FLEX",
-                            "Player": a.get("name", "Unknown"),
-                            "Pos": pos,
-                            "NFL Team": team,
-                            "Age": a.get("age") or "—",
-                            "Avatar": get_player_avatar_url(pid, pos, team),
-                            "Overall ECR": overall_ecr_str,
-                            "Pos ECR": pos_ecr_str,
-                            "Consensus Value": f"{m_val:,.0f} pts",
-                            "Equity Share": eq_str,
-                        })
-                    st.html(render_player_table_html(st_rows, show_equity=True))
+                def _dyn_asset_row(a, slot_label):
+                    pid = a.get("player_id")
+                    pos = a.get("position") or "UTIL"
+                    team = a.get("team") or "FA"
+                    m_val = float(a.get("market_value") or 0.0)
+                    p_data = primary_lookup.get(pid, {})
+                    ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
+                    o_ecr = p_data.get("rank_ecr_overall", 999.0)
+                    pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
+                    overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
+                    return {
+                        "Slot": slot_label,
+                        "Player": a.get("name", "Unknown"),
+                        "Pos": pos,
+                        "NFL Team": team,
+                        "Age": a.get("age") or "—",
+                        "Avatar": get_player_avatar_url(pid, pos, team),
+                        "Overall ECR": overall_ecr_str,
+                        "Pos ECR": pos_ecr_str,
+                        "Consensus Value": f"{m_val:,.0f} pts",
+                        "_val": m_val,
+                    }
 
-                with insp_sub_bench:
-                    st.caption(f"Full Bench Depth Valuation: **{selected_prof.get('bench_value', 0):,.0f} pts**")
-                    bn_rows = []
-                    for a in selected_prof["bench"]:
-                        pid = a.get("player_id")
-                        pos = a.get("position") or "UTIL"
-                        team = a.get("team") or "FA"
-                        m_val = float(a.get("market_value") or 0.0)
-                        p_data = primary_lookup.get(pid, {})
-                        ecr = a.get("rank_ecr") or p_data.get("rank_ecr_pos", 999.0)
-                        o_ecr = p_data.get("rank_ecr_overall", 999.0)
-                        pos_ecr_str = f"{pos}{int(ecr)}" if (ecr and ecr < 900) else "—"
-                        overall_ecr_str = f"#{int(o_ecr)}" if (o_ecr and o_ecr < 900) else "—"
-                        eq_str = f"{(m_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
-                        bn_rows.append({
-                            "Slot": "BN",
-                            "Player": a.get("name", "Unknown"),
-                            "Pos": pos,
-                            "NFL Team": team,
-                            "Age": a.get("age") or "—",
-                            "Avatar": get_player_avatar_url(pid, pos, team),
-                            "Overall ECR": overall_ecr_str,
-                            "Pos ECR": pos_ecr_str,
-                            "Consensus Value": f"{m_val:,.0f} pts",
-                            "Equity Share": eq_str,
-                        })
-                    st.html(render_player_table_html(bn_rows, show_equity=True))
+                def _dyn_pick_row(pk):
+                    pk_val = float(pk.get("market_value") or 0.0)
+                    return {
+                        "Slot": "PICK",
+                        "Player": pk.get("name", "Draft Pick"),
+                        "Pos": "PICK",
+                        "NFL Team": "DRAFT",
+                        "Season": pk.get("season", "—"),
+                        "Round": pk.get("round", "—"),
+                        "Consensus Value": f"{pk_val:,.0f} pts",
+                        "_val": pk_val,
+                    }
 
-                with insp_sub_picks:
-                    if is_dynasty and selected_prof.get("picks"):
-                        st.caption(f"Draft Capital Portfolio Valuation: **{selected_prof.get('picks_value', 0):,.0f} pts**")
-                        pk_rows = []
-                        for pk in selected_prof["picks"]:
-                            pk_val = float(pk.get("market_value") or 0.0)
-                            pk_eq = f"{(pk_val / tot_val * 100):.1f}%" if tot_val > 0 else "0.0%"
-                            pk_rows.append({
-                                "Draft Pick Asset": pk.get("name", "Draft Pick"),
-                                "Season": str(pk.get("season", "—")),
-                                "Round": f"Round {pk.get('round', '—')}",
-                                "Consensus Value": f"{pk_val:,.0f} pts",
-                                "Equity Share": pk_eq,
-                            })
-                        st.html(render_picks_table_html(pk_rows, show_equity=True))
-                    else:
-                        st.info("No draft pick assets in this league format.")
+                # Single unified, value-sorted grid - starters, bench, and
+                # draft picks together - instead of a Starters/Bench/Draft
+                # Capital split; see the Franchise Hub roster breakdown
+                # above for the same pattern. Picks render as their own
+                # card (target icon, no headshot - see
+                # render_starter_card_grid_html's is_pick branch), sorted
+                # into the same list by the same _val as players.
+                dyn_rows = [_dyn_asset_row(a, a.get("slot") or "FLEX") for a in selected_prof["starters"]]
+                dyn_rows += [_dyn_asset_row(a, "BN") for a in selected_prof["bench"]]
+                if is_dynasty:
+                    dyn_rows += [_dyn_pick_row(pk) for pk in selected_prof.get("picks", [])]
+                dyn_rows.sort(key=lambda x: x["_val"], reverse=True)
+                if dyn_rows:
+                    st.html(render_starter_card_grid_html(dyn_rows))
+                else:
+                    st.info("No roster assets to display.")
 
         def render_positional_room_view():
             if is_dynasty:
