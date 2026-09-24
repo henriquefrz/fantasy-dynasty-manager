@@ -6038,6 +6038,9 @@ else:
                                 "season": pk.get("season", "2027"),
                                 "round": pk.get("round", 1),
                                 "original_owner": pk.get("original_owner", 1),
+                                "ktc_val": pk.get("ktc_val"),
+                                "fc_val": pk.get("fc_val"),
+                                "dp_val": pk.get("dp_val"),
                             }))
 
                     # Most valuable asset first - players and picks
@@ -6145,6 +6148,9 @@ else:
                                 "season": pk.get("season", "2027"),
                                 "round": pk.get("round", 1),
                                 "original_owner": pk.get("original_owner", 1),
+                                "ktc_val": pk.get("ktc_val"),
+                                "fc_val": pk.get("fc_val"),
+                                "dp_val": pk.get("dp_val"),
                             }))
 
                     # Most valuable asset first - see owned_assets_a above.
@@ -6384,12 +6390,31 @@ else:
                 # just the chart) - only exists for Dynasty values, KTC has
                 # no equivalent calculator for its Fantasy/Redraft chart.
                 if not is_calc_redraft:
-                    ktc_side_a = [float(a["ktc_val"]) for a in selected_assets_a if a.get("ktc_val")]
-                    ktc_side_b = [float(b["ktc_val"]) for b in selected_assets_b if b.get("ktc_val")]
+                    missing_ktc_a = [a.get("name", "Unknown asset") for a in selected_assets_a if not a.get("ktc_val")]
+                    missing_ktc_b = [b.get("name", "Unknown asset") for b in selected_assets_b if not b.get("ktc_val")]
                     ktc_top_overall = max((v.get("ktc_val") or 0.0) for v in active_calc_lookup.values()) if active_calc_lookup else 0.0
-                    ktc_official = compute_ktc_official_adjustment(ktc_side_a, ktc_side_b, ktc_top_overall) if ktc_top_overall > 0 else None
 
-                    if ktc_official:
+                    if missing_ktc_a or missing_ktc_b or ktc_top_overall <= 0:
+                        # Every asset needs its own ktc_val for KTC's real
+                        # formula to run - a partial sum over only the
+                        # covered assets would silently misrepresent a
+                        # side's true value, so this explains the gap
+                        # instead of just not rendering the card.
+                        missing_names = ", ".join(missing_ktc_a + missing_ktc_b) or "one or more assets"
+                        st.html(f"""
+                        <div style='background: rgba(148, 163, 184, 0.06); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; padding: 12px 16px; margin-top: 4px; margin-bottom: 8px;'>
+                            <div style='font-weight: 700; color: #94a3b8; font-size: 0.92rem; margin-bottom: 4px;'>KTC Official Calculator (Unofficial Approximation) - Unavailable</div>
+                            <div style='font-size: 0.78rem; color: #94a3b8;'>
+                                No individual KeepTradeCut chart value for: <strong style='color: #cbd5e1;'>{missing_names}</strong>.
+                                This approximation needs every asset's own KTC value to run KTC's real stud-premium formula.
+                            </div>
+                        </div>
+                        """)
+                    else:
+                        ktc_side_a = [float(a["ktc_val"]) for a in selected_assets_a]
+                        ktc_side_b = [float(b["ktc_val"]) for b in selected_assets_b]
+                        ktc_official = compute_ktc_official_adjustment(ktc_side_a, ktc_side_b, ktc_top_overall)
+
                         if ktc_official["adjust_side"] == 1:
                             ktc_verdict_line = f"🔵 Favors Side A by {ktc_official['adjust_value']:,.0f} pts" if ktc_official["display"] else "⚖️ Even (adjustment below KTC's own display threshold)"
                         elif ktc_official["adjust_side"] == 2:

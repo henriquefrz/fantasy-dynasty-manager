@@ -217,6 +217,9 @@ def make_pick_asset(
     target_season: str,
     total_rosters: int = 12,
     draft_type: str = "linear",
+    ktc_picks_lookup: Dict[str, float] = None,
+    fc_picks_lookup: Dict[str, float] = None,
+    dp_picks_lookup: Dict[str, float] = None,
 ) -> Dict[str, Any]:
     """Wraps a draft pick tuple into a standardized trade asset with league-size scaling."""
     season, round_num, orig_roster_id = pick_tuple
@@ -233,6 +236,20 @@ def make_pick_asset(
     league_size_label = f" [{total_rosters}T]" if total_rosters != 12 else ""
     name = f"{season} Round {round_num}{tier_label}{league_size_label}"
 
+    def _single_source_val(source_lookup):
+        # Mirrors pt_val above, but against a single-source picks lookup
+        # (compute_picks_lookup_from_bundle(bundle, mode="ktc"/"fc"/"dp")) -
+        # gives this pick the same per-source breakdown players already
+        # carry (ktc_val/fc_val/dp_val), instead of only the blended
+        # market_value. None (not 0.0) when the source has no coverage for
+        # this pick, matching how player assets leave the field absent.
+        if not source_lookup:
+            return None
+        return get_single_pick_value(
+            season, round_num, sim_projected_rank, source_lookup,
+            total_rosters=total_rosters, target_season=target_season, draft_type=draft_type,
+        )
+
     return {
         "type": "pick",
         "season": season,
@@ -242,6 +259,9 @@ def make_pick_asset(
         "name": name,
         "market_value": pt_val,
         "total_rosters": total_rosters,
+        "ktc_val": _single_source_val(ktc_picks_lookup),
+        "fc_val": _single_source_val(fc_picks_lookup),
+        "dp_val": _single_source_val(dp_picks_lookup),
     }
 
 
@@ -261,6 +281,9 @@ def analyze_team_profile(
     total_rosters: int = 12,
     target_season: str = None,
     draft_type: str = "linear",
+    ktc_picks_lookup: Dict[str, float] = None,
+    fc_picks_lookup: Dict[str, float] = None,
+    dp_picks_lookup: Dict[str, float] = None,
 ) -> Dict[str, Any]:
     """
     Profiles a team's starters, bench depth, positional strengths/deficits, and tradeable assets.
@@ -310,7 +333,10 @@ def analyze_team_profile(
     # compute_dynasty_power_rankings, compute_ros_power_rankings).
     all_assets = starter_assets + bench_assets + taxi_assets + reserve_assets
     pick_assets = [
-        make_pick_asset(pk, picks_lookup, sim_rank_map, target_season=target_season, total_rosters=total_rosters, draft_type=draft_type)
+        make_pick_asset(
+            pk, picks_lookup, sim_rank_map, target_season=target_season, total_rosters=total_rosters, draft_type=draft_type,
+            ktc_picks_lookup=ktc_picks_lookup, fc_picks_lookup=fc_picks_lookup, dp_picks_lookup=dp_picks_lookup,
+        )
         for pk in owned_picks
     ]
     # Sort pick assets chronologically (nearest season first, round ascending)

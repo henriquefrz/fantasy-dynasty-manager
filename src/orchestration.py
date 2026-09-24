@@ -117,6 +117,14 @@ def build_league_context(league, rosters, users, market_db, active_week, mode="e
 
     picks_bundle = market_db["picks_bundle_sf"] if is_superflex else market_db["picks_bundle_1qb"]
     picks_lookup = compute_picks_lookup_from_bundle(picks_bundle, mode=mode)
+    # Single-source picks lookups (same bundle, no new data fetched) - give
+    # pick assets the same ktc_val/fc_val/dp_val breakdown player assets
+    # already carry, instead of only the blended market_value. Needed for
+    # the Trade Center's "Raw Value Comparison by Source" table and the KTC
+    # Official Calculator card to see a pick at all (see make_pick_asset).
+    ktc_picks_lookup = compute_picks_lookup_from_bundle(picks_bundle, mode="ktc")
+    fc_picks_lookup = compute_picks_lookup_from_bundle(picks_bundle, mode="fc")
+    dp_picks_lookup = compute_picks_lookup_from_bundle(picks_bundle, mode="dp")
 
     if not is_dynasty:
         primary_lookup = redraft_lookup
@@ -147,6 +155,9 @@ def build_league_context(league, rosters, users, market_db, active_week, mode="e
         "primary_lookup": primary_lookup,
         "redraft_lookup": redraft_lookup,
         "picks_lookup": picks_lookup,
+        "ktc_picks_lookup": ktc_picks_lookup,
+        "fc_picks_lookup": fc_picks_lookup,
+        "dp_picks_lookup": dp_picks_lookup,
         "all_rosters_players": all_rosters_players,
         "user_map": user_map,
         "picks_ownership": picks_ownership,
@@ -192,6 +203,9 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
     primary_lookup = context["primary_lookup"]
     redraft_lookup = context["redraft_lookup"]
     picks_lookup = context["picks_lookup"]
+    ktc_picks_lookup = context.get("ktc_picks_lookup", {})
+    fc_picks_lookup = context.get("fc_picks_lookup", {})
+    dp_picks_lookup = context.get("dp_picks_lookup", {})
     picks_ownership = context["picks_ownership"]
     user_map = context["user_map"]
     total_rosters = context["total_rosters"]
@@ -283,6 +297,9 @@ def build_team_profiles(context, league, rosters, active_week, weekly_projection
             total_rosters=total_rosters,
             target_season=target_season,
             draft_type=draft_type,
+            ktc_picks_lookup=ktc_picks_lookup if is_dynasty else {},
+            fc_picks_lookup=fc_picks_lookup if is_dynasty else {},
+            dp_picks_lookup=dp_picks_lookup if is_dynasty else {},
         )
         prof["current_tier"] = current_tiers[rid]
         prof["dynasty_tier"] = None

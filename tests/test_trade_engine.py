@@ -4,7 +4,7 @@ Converted from scratch/test_trade_engine.py (already close to pytest shape).
 Unit tests for Model 3 (Stud Premium + package discounts) in
 evaluate_trade_fairness / calculate_effective_trade_value.
 """
-from src.trade_engine import evaluate_trade_fairness, analyze_team_profile
+from src.trade_engine import evaluate_trade_fairness, analyze_team_profile, make_pick_asset
 
 
 def _make_profile_player(pid, name, pos, value):
@@ -127,3 +127,81 @@ def test_balanced_two_for_one_blockbuster_evaluates_within_tolerance():
     assert result["eff_give"] == 6641.0
     assert result["eff_receive"] == 7475.0
     assert result["net_diff"] == 834.0
+
+
+# ---------------------------------------------------------------------------
+# Pick assets carrying per-source ktc_val/fc_val/dp_val (Trade Center bug:
+# picks showed "0 pts" in the "Raw Value Comparison by Source" table and
+# silently hid the KTC Official Calculator card, because make_pick_asset
+# only ever set market_value - never the individual source breakdown that
+# player assets already carry).
+# ---------------------------------------------------------------------------
+
+def test_make_pick_asset_populates_per_source_values_when_lookups_given():
+    picks_lookup = {("2027", 1, "mid"): 3000.0}
+    ktc_picks_lookup = {("2027", 1, "mid"): 3500.0}
+    fc_picks_lookup = {("2027", 1, "mid"): 2800.0}
+    dp_picks_lookup = {("2027", 1, "mid"): 2600.0}
+
+    asset = make_pick_asset(
+        ("2027", 1, 1), picks_lookup, sim_rank_map={}, target_season="2028", total_rosters=12,
+        ktc_picks_lookup=ktc_picks_lookup, fc_picks_lookup=fc_picks_lookup, dp_picks_lookup=dp_picks_lookup,
+    )
+
+    assert asset["market_value"] == 3000.0
+    assert asset["ktc_val"] == 3500.0
+    assert asset["fc_val"] == 2800.0
+    assert asset["dp_val"] == 2600.0
+
+
+def test_make_pick_asset_leaves_per_source_values_none_without_lookups():
+    """A pick built without the new lookups (e.g. an older caller) must not
+    crash and must leave ktc_val/fc_val/dp_val absent (None), not 0.0 - a
+    real 0-value quote and "no data" must stay distinguishable."""
+    picks_lookup = {("2027", 1, "mid"): 3000.0}
+
+    asset = make_pick_asset(("2027", 1, 1), picks_lookup, sim_rank_map={}, target_season="2028", total_rosters=12)
+
+    assert asset["market_value"] == 3000.0
+    assert asset["ktc_val"] is None
+    assert asset["fc_val"] is None
+    assert asset["dp_val"] is None
+
+
+def test_analyze_team_profile_threads_single_source_picks_lookups_to_pick_assets():
+    """
+    Reproduces the real Trade Center bug end to end: a roster with one owned
+    pick, built through the same analyze_team_profile entry point
+    src/orchestration.py uses. Before the fix, prof["pick_assets"][0] had no
+    ktc_val/fc_val/dp_val at all, so the "Raw Value Comparison by Source"
+    table's `if a.get("ktc_val")` filter silently dropped the pick (summing
+    to 0 pts) and the KTC Official Calculator card's side list came back
+    empty and the card just vanished.
+    """
+    player, lookup = _make_profile_player("p_starter", "Test Starter QB", "QB", 9000.0)
+
+    prof = analyze_team_profile(
+        roster={"roster_id": 1, "reserve": [], "taxi": []},
+        roster_players=[player],
+        owned_picks=[("2027", 1, 1)],
+        primary_lookup=lookup,
+        redraft_lookup=lookup,
+        picks_lookup={("2027", 1, "mid"): 3000.0},
+        sim_rank_map={},
+        roster_positions=["QB", "BN"],
+        is_dynasty=True,
+        status="Active",
+        category="neutral",
+        manager_name="Test Manager",
+        total_rosters=12,
+        target_season="2028",
+        ktc_picks_lookup={("2027", 1, "mid"): 3500.0},
+        fc_picks_lookup={("2027", 1, "mid"): 2800.0},
+        dp_picks_lookup={("2027", 1, "mid"): 2600.0},
+    )
+
+    assert len(prof["pick_assets"]) == 1
+    pick = prof["pick_assets"][0]
+    assert pick["ktc_val"] == 3500.0
+    assert pick["fc_val"] == 2800.0
+    assert pick["dp_val"] == 2600.0
