@@ -2222,11 +2222,16 @@ def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
-def render_starter_card_grid_html(starters_rows):
+def render_starter_card_grid_html(starters_rows, show_ros_value=False):
     """
     Renders modern dashboard starter cards inspired by cyberpunk sports UI.
     Each card shows slot badge, 52px circular player headshot, player name,
     positional ECR, overall ECR, and consensus value.
+
+    show_ros_value splits the single "Market Value" box into two side-by-
+    side boxes (Dynasty Value, ROS Value) reusing the "ROS Value" key
+    build_player_row already computes - only meaningful for dynasty
+    leagues, mirroring render_player_table_html's show_ros_value.
     """
     if not starters_rows:
         return "<p style='color: #94a3b8; font-style: italic; padding: 12px;'>No active starters designated.</p>"
@@ -2244,6 +2249,26 @@ def render_starter_card_grid_html(starters_rows):
         eq = s.get("Equity Share", "0.0%")
 
         pos_class = f"badge-{pos.lower()}" if f"badge-{pos.lower()}" in ("badge-qb", "badge-rb", "badge-wr", "badge-te", "badge-k", "badge-def", "badge-pick") else "badge-rb"
+
+        if show_ros_value:
+            ros_val = s.get("ROS Value", "0 pts")
+            value_boxes = f"""
+                    <div class='lineup-stat-box'>
+                        <div class='lineup-stat-label'>DYNASTY ({eq})</div>
+                        <div class='lineup-stat-val text-gold'>{val}</div>
+                    </div>
+                    <div class='lineup-stat-box'>
+                        <div class='lineup-stat-label'>ROS VALUE</div>
+                        <div class='lineup-stat-val text-cyan'>{ros_val}</div>
+                    </div>
+            """
+        else:
+            value_boxes = f"""
+                    <div class='lineup-stat-box' style='grid-column: span 2;'>
+                        <div class='lineup-stat-label'>MARKET VALUE ({eq})</div>
+                        <div class='lineup-stat-val text-gold'>{val}</div>
+                    </div>
+            """
 
         card_html = f"""
         <div class='lineup-card'>
@@ -2265,10 +2290,7 @@ def render_starter_card_grid_html(starters_rows):
                         <div class='lineup-stat-label'>OVERALL</div>
                         <div class='lineup-stat-val'>{overall_ecr}</div>
                     </div>
-                    <div class='lineup-stat-box' style='grid-column: span 2;'>
-                        <div class='lineup-stat-label'>MARKET VALUE ({eq})</div>
-                        <div class='lineup-stat-val text-gold'>{val}</div>
-                    </div>
+                    {value_boxes}
                 </div>
             </div>
         </div>
@@ -4348,7 +4370,7 @@ else:
         with roster_sub_starters:
             if starters_data:
                 if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(starters_data))
+                    st.html(render_starter_card_grid_html(starters_data, show_ros_value=is_dynasty))
                 else:
                     st.html(render_player_table_html(starters_data, show_equity=True, show_ros_value=is_dynasty))
             else:
@@ -4357,7 +4379,7 @@ else:
         with roster_sub_bench:
             if bench_data:
                 if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(bench_data))
+                    st.html(render_starter_card_grid_html(bench_data, show_ros_value=is_dynasty))
                 else:
                     st.html(render_player_table_html(bench_data, show_equity=True, show_ros_value=is_dynasty))
             else:
@@ -4367,13 +4389,13 @@ else:
             if taxi_data:
                 st.markdown("#### Taxi Squad Assets")
                 if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(taxi_data))
+                    st.html(render_starter_card_grid_html(taxi_data, show_ros_value=is_dynasty))
                 else:
                     st.html(render_player_table_html(taxi_data, show_equity=True, show_ros_value=is_dynasty))
             if ir_data:
                 st.markdown("#### Injured Reserve (IR)")
                 if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(ir_data))
+                    st.html(render_starter_card_grid_html(ir_data, show_ros_value=is_dynasty))
                 else:
                     st.html(render_player_table_html(ir_data, show_equity=True, show_ros_value=is_dynasty))
             if not taxi_data and not ir_data:
@@ -4384,7 +4406,7 @@ else:
             all_roster_rows.sort(key=lambda x: x["_val"], reverse=True)
             if all_roster_rows:
                 if universal_roster_view == "Card Grid (Dashboard)":
-                    st.html(render_starter_card_grid_html(all_roster_rows))
+                    st.html(render_starter_card_grid_html(all_roster_rows, show_ros_value=is_dynasty))
                 else:
                     st.html(render_player_table_html(all_roster_rows, show_equity=True, show_ros_value=is_dynasty))
 
