@@ -2708,12 +2708,12 @@ def fetch_user_and_leagues(username):
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def fetch_league_data(league_id, season, week):
+def fetch_league_data(league_id, season, week, draft_rounds=None):
     rosters = get_league_rosters(league_id)
     users = get_league_users(league_id)
     schedule = get_league_schedule(league_id, start_week=1, end_week=18, current_week=week)
     traded_picks = get_traded_picks(league_id)
-    draft_type = get_league_draft_type(league_id)
+    draft_type = get_league_draft_type(league_id, expected_rounds=draft_rounds)
     projections = get_weekly_projections(season, week)
     stats = get_weekly_stats(season, week)
     matchups = get_league_matchups(league_id, week, current_week=week)
@@ -3837,7 +3837,10 @@ else:
             st.rerun()
 
     with st.spinner(f"Loading Workspace: {selected_league_name}..."):
-        league_data = fetch_league_data(selected_league["league_id"], active_season, active_week)
+        league_data = fetch_league_data(
+            selected_league["league_id"], active_season, active_week,
+            draft_rounds=selected_league.get("settings", {}).get("draft_rounds"),
+        )
 
     rosters = league_data["rosters"]
     users = league_data["users"]

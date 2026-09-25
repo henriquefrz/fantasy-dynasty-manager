@@ -201,3 +201,51 @@ def test_ros_projections_cache_also_respects_the_ttl():
     with patch("src.sleeper_api.requests.get", side_effect=fake_get):
         sleeper_api.get_ros_projections("2026", start_week=1, end_week=2)
     assert call_count["n"] > calls_after_first, "expected fresh network calls after aging the ROS cache entry past the TTL"
+
+
+# ---------------------------------------------------------------------------
+# get_league_draft_type: a rounds mismatch (the only draft Sleeper has on
+# file is a stale startup draft with a different round count than the
+# league's current settings.draft_rounds) used to silently copy that
+# startup draft's type - real case: Diferenciados' only draft on file is a
+# 22-round snake startup draft, but its actual yearly 4-round rookie draft
+# is linear, so every pick's tier incorrectly alternated early/late by
+# round instead of staying flat. Now defaults to "linear" on a mismatch
+# instead of trusting the stale draft's type.
+# ---------------------------------------------------------------------------
+
+def test_rounds_mismatch_defaults_to_linear_instead_of_copying_the_stale_draft_type():
+    """The real Diferenciados case: a 22-round snake startup draft on file, current draft_rounds=4."""
+    stale_startup_draft = [{"type": "snake", "settings": {"rounds": 22}}]
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response(stale_startup_draft)):
+        result = sleeper_api.get_league_draft_type(LEAGUE_ID, expected_rounds=4)
+
+    assert result == "linear", "a rounds mismatch must default to linear, not copy the stale draft's snake type"
+
+
+def test_rounds_match_still_trusts_the_real_draft_type():
+    """When a draft's round count DOES match current settings, its real type must still be trusted."""
+    matching_draft = [{"type": "snake", "settings": {"rounds": 4}}]
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response(matching_draft)):
+        result = sleeper_api.get_league_draft_type(LEAGUE_ID, expected_rounds=4)
+
+    assert result == "snake", "a genuinely matching draft's type must still be honored, not overridden to linear"
+
+
+def test_no_expected_rounds_keeps_the_old_first_draft_fallback():
+    """Callers that don't pass expected_rounds at all get the pre-existing behavior unchanged."""
+    only_draft = [{"type": "snake", "settings": {"rounds": 22}}]
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response(only_draft)):
+        result = sleeper_api.get_league_draft_type(LEAGUE_ID)
+
+    assert result == "snake"
+
+
+def test_no_drafts_on_file_defaults_to_linear():
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response([])):
+        result = sleeper_api.get_league_draft_type(LEAGUE_ID, expected_rounds=4)
+
+    assert result == "linear"

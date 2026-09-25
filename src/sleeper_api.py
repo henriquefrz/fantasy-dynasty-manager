@@ -206,8 +206,20 @@ def get_league_draft_type(league_id, expected_rounds=None):
     used to project a team's absolute draft slot from its standing. Prefers
     the draft object whose round count matches expected_rounds (the league's
     current settings.draft_rounds) over a stale startup draft with a
-    different round count; falls back to "linear" (the standard dynasty
-    rookie-draft convention) when no matching draft is found.
+    different round count.
+
+    When expected_rounds is given and no draft on file matches it, defaults
+    to "linear" instead of trusting whichever draft happens to be first -
+    a rounds mismatch almost always means the only draft Sleeper has on
+    file is the original startup draft (which can run any number of rounds
+    and either type), not a representative sample of the league's ongoing
+    yearly rookie draft. Annual/supplemental rookie drafts are
+    conventionally linear, so that's the safer default than silently
+    copying a startup draft's type (confirmed real-world case: a league
+    whose only draft on file was a 22-round snake startup draft, while its
+    actual yearly 4-round rookie draft is linear - copying the startup
+    draft's type made every other pick round's tier incorrectly alternate
+    early/late instead of staying flat).
     """
     url = f"{BASE_URL}/league/{league_id}/drafts"
 
@@ -223,6 +235,7 @@ def get_league_draft_type(league_id, expected_rounds=None):
         matching = [d for d in drafts if (d.get("settings") or {}).get("rounds") == expected_rounds]
         if matching:
             return matching[0].get("type") or "linear"
+        return "linear"
 
     return (drafts[0].get("type") if drafts else None) or "linear"
 
