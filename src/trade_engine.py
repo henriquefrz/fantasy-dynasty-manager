@@ -1109,11 +1109,15 @@ def build_positional_room_leaderboard(
             "rb_bench_eff": rb_bn,
             "wr_bench_eff": wr_bn,
             "te_bench_eff": te_bn,
-            "top_qbs": [a.get("name", "") for a in qb_players[:3]],
-            "top_rbs": [a.get("name", "") for a in rb_players[:3]],
-            "top_wrs": [a.get("name", "") for a in wr_players[:3]],
-            "top_tes": [a.get("name", "") for a in te_players[:3]],
-            "top_picks": [pk.get("name", "") for pk in picks[:3]] if not use_redraft else [],
+            # Full roster at this position, already value-sorted (not just
+            # the top few) - the room VALUE above already weighs every one
+            # of these by tier, so the display list shouldn't silently
+            # drop the ones that only got a discounted (not zero) weight.
+            "top_qbs": [a.get("name", "") for a in qb_players],
+            "top_rbs": [a.get("name", "") for a in rb_players],
+            "top_wrs": [a.get("name", "") for a in wr_players],
+            "top_tes": [a.get("name", "") for a in te_players],
+            "top_picks": [pk.get("name", "") for pk in picks] if not use_redraft else [],
         })
 
     def assign_ranks(key, rank_field):

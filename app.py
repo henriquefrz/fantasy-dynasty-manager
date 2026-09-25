@@ -2084,6 +2084,24 @@ def render_league_standings_table_html(standings_rows, user_roster_id):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_room_depth_list_html(names, max_height_px=170):
+    """
+    Renders a position's full player-name list (Franchise Positional Room
+    Depth's "top_qbs"/"top_rbs"/etc, no longer capped to 3 - see
+    build_positional_room_leaderboard) as a scrollable bullet list, so a
+    deep position (8+ RBs) doesn't stretch its column far taller than the
+    others sitting next to it in the same row.
+    """
+    if not names:
+        return "<div style='color: #64748b; font-size: 0.8rem; font-style: italic;'>None</div>"
+    items = "".join(f"<div style='padding: 2px 0; color: #94a3b8; font-size: 0.8rem;'>• {name}</div>" for name in names)
+    return f"""
+    <div style='max-height: {max_height_px}px; overflow-y: auto; padding-right: 4px;'>
+        {items}
+    </div>
+    """
+
+
 def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val", show_picks: bool = True):
     """
     Renders the League-Wide Positional Room Leaderboard table.
@@ -5589,25 +5607,20 @@ else:
 
                 with col_q:
                     st.metric("QB Room", f"{sel_room_data['qb_val']:,.0f} pts", f"Rank #{sel_room_data['qb_rank']}")
-                    for name in sel_room_data['top_qbs']:
-                        st.caption(f"• {name}")
+                    st.html(render_room_depth_list_html(sel_room_data['top_qbs']))
                 with col_r:
                     st.metric("RB Room", f"{sel_room_data['rb_val']:,.0f} pts", f"Rank #{sel_room_data['rb_rank']}")
-                    for name in sel_room_data['top_rbs']:
-                        st.caption(f"• {name}")
+                    st.html(render_room_depth_list_html(sel_room_data['top_rbs']))
                 with col_w:
                     st.metric("WR Room", f"{sel_room_data['wr_val']:,.0f} pts", f"Rank #{sel_room_data['wr_rank']}")
-                    for name in sel_room_data['top_wrs']:
-                        st.caption(f"• {name}")
+                    st.html(render_room_depth_list_html(sel_room_data['top_wrs']))
                 with col_t:
                     st.metric("TE Room", f"{sel_room_data['te_val']:,.0f} pts", f"Rank #{sel_room_data['te_rank']}")
-                    for name in sel_room_data['top_tes']:
-                        st.caption(f"• {name}")
+                    st.html(render_room_depth_list_html(sel_room_data['top_tes']))
                 if show_picks:
                     with col_pk:
                         st.metric("Draft Capital", f"{sel_room_data['picks_val']:,.0f} pts", f"Rank #{sel_room_data['picks_rank']}")
-                        for name in sel_room_data['top_picks']:
-                            st.caption(f"• {name}")
+                        st.html(render_room_depth_list_html(sel_room_data['top_picks']))
 
         if is_dynasty:
             sub_mc, sub_dyn, sub_ros, sub_rooms = st.tabs([
