@@ -132,6 +132,115 @@ def test_concurrent_leagues_do_not_contaminate_each_others_random_sequence():
     assert mismatches == 0, f"target league's result diverged from its sequential baseline in {mismatches}/{trials} concurrent trials"
 
 
+# ---------------------------------------------------------------------------
+# "Phantom divisions": a roster's settings.division field can survive after
+# a commissioner turns divisions OFF (league.settings.divisions set to 0 or
+# removed) - Sleeper doesn't clear it. divisions_by_roster used to trust
+# that residual field unconditionally, so a league with divisions off but
+# 2+ distinct stale division numbers on its rosters still got divisional
+# playoff seeding. Confirmed on 3 real leagues (Matt Ryan's League, Liga do
+# Inguinho, Dinastia do Pão de Queijo) that this actually reordered seeds.
+# Fixed to only build divisions_by_roster from the real field when
+# league.settings.divisions > 0.
+# ---------------------------------------------------------------------------
+
+def test_phantom_residual_division_field_ignored_when_divisions_setting_is_off():
+    """
+    Same league_id (-> identical deterministic RNG seed), same schedule
+    fallback, same per-team expectations - the ONLY difference between the
+    two roster lists is a residual settings.division field. If it's
+    correctly ignored (league.settings.divisions=0), both runs must
+    simulate identically; before the fix, the residual 1/1/1/1/2/2/2/2
+    split would have triggered divisional seeding and diverged the results.
+    """
+    league = {
+        "league_id": "phantom_division_test_league",
+        "settings": {"playoff_teams": 6, "playoff_week_start": 15, "divisions": 0},
+    }
+    team_expectations = {
+        rid: {"expected_pts": 80.0 + rid * 4.0, "std_dev": 15.0, "bench_depth_pts": 20.0}
+        for rid in range(1, NUM_TEAMS + 1)
+    }
+    flat_exp = _broadcast_weekly_expectations(team_expectations)
+
+    rosters_with_stale_division = []
+    for rid in range(1, NUM_TEAMS + 1):
+        r = _make_roster(rid)
+        r["settings"]["division"] = 1 if rid <= NUM_TEAMS // 2 else 2
+        rosters_with_stale_division.append(r)
+
+    rosters_without_division_field = [_make_roster(rid) for rid in range(1, NUM_TEAMS + 1)]
+
+    with_residual = run_monte_carlo_simulation(
+        league=league, rosters=rosters_with_stale_division, schedule={},
+        team_week_expectations=flat_exp, current_week=1, playoff_week_start=15, num_simulations=NUM_SIMULATIONS,
+    )
+    without_field = run_monte_carlo_simulation(
+        league=league, rosters=rosters_without_division_field, schedule={},
+        team_week_expectations=flat_exp, current_week=1, playoff_week_start=15, num_simulations=NUM_SIMULATIONS,
+    )
+
+    for rid in range(1, NUM_TEAMS + 1):
+        assert with_residual[rid]["playoff_pct"] == without_field[rid]["playoff_pct"], (
+            f"roster {rid}: a stale settings.division field must not change simulated outcomes "
+            f"when league.settings.divisions is off"
+        )
+        assert with_residual[rid]["champ_pct"] == without_field[rid]["champ_pct"]
+
+
+def test_genuinely_configured_divisions_still_apply():
+    """
+    The flip side: when league.settings.divisions is actually > 0, the
+    residual field must still drive real divisional seeding - the fix must
+    not have thrown out the working case along with the phantom one.
+    """
+    # Same league_id in both calls -> identical deterministic RNG seed, so
+    # any difference in outcome is attributable ONLY to the divisions
+    # setting, not to an incidentally different random sequence.
+    shared_league_id = "genuine_division_test_league"
+    league_no_divisions = {
+        "league_id": shared_league_id,
+        "settings": {"playoff_teams": 6, "playoff_week_start": 15, "divisions": 0},
+    }
+    league_with_divisions = {
+        "league_id": shared_league_id,
+        "settings": {"playoff_teams": 6, "playoff_week_start": 15, "divisions": 2},
+    }
+    team_expectations = {
+        rid: {"expected_pts": 80.0 + rid * 4.0, "std_dev": 15.0, "bench_depth_pts": 20.0}
+        for rid in range(1, NUM_TEAMS + 1)
+    }
+    flat_exp = _broadcast_weekly_expectations(team_expectations)
+
+    rosters = []
+    for rid in range(1, NUM_TEAMS + 1):
+        r = _make_roster(rid)
+        r["settings"]["division"] = 1 if rid <= NUM_TEAMS // 2 else 2
+        rosters.append(r)
+
+    off_result = run_monte_carlo_simulation(
+        league=league_no_divisions, rosters=rosters, schedule={},
+        team_week_expectations=flat_exp, current_week=1, playoff_week_start=15, num_simulations=NUM_SIMULATIONS,
+    )
+    on_result = run_monte_carlo_simulation(
+        league=league_with_divisions, rosters=rosters, schedule={},
+        team_week_expectations=flat_exp, current_week=1, playoff_week_start=15, num_simulations=NUM_SIMULATIONS,
+    )
+
+    # Divisional vs flat seeding usually still sends the same 6 teams to
+    # the playoffs here (both division champs already rank in the top 6
+    # either way) - what genuinely differs is WHO gets seeds 1-2 (and
+    # therefore a first-round bye), since divisional seeding can promote a
+    # division champion ahead of a higher-record non-champion.
+    bye_pcts_differ = any(
+        off_result[rid]["bye_pct"] != on_result[rid]["bye_pct"] for rid in range(1, NUM_TEAMS + 1)
+    )
+    assert bye_pcts_differ, (
+        "a genuinely divisional league (divisions=2) must still seed differently than a "
+        "non-divisional one given the same rosters/records - divisional logic must still work"
+    )
+
+
 def test_historical_snapshot_uses_real_per_week_data_not_one_flattened_week(synthetic_league):
     """
     Pins the real bug behind the "Week-by-Week Evolution & Trends" chart

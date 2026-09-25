@@ -276,8 +276,25 @@ def run_monte_carlo_simulation(
     roster_ids = [r["roster_id"] for r in rosters]
 
     # Division assignment per roster (static across simulations), used for division-aware
-    # playoff seeding. Only leagues with 2+ configured divisions trigger that logic.
-    divisions_by_roster = {r["roster_id"]: r.get("settings", {}).get("division") for r in rosters}
+    # playoff seeding. Only leagues with divisions genuinely turned on
+    # (league.settings.divisions > 0) populate this - Sleeper leaves a
+    # roster's settings.division field in place even after a commissioner
+    # turns divisions OFF (settings.divisions set to 0 or removed), so
+    # trusting that residual field unconditionally made a league with
+    # divisions off get divisional playoff seeding anyway, as long as its
+    # rosters still carried 2+ distinct division numbers from whenever
+    # divisions were last configured (confirmed real leagues: Matt Ryan's
+    # League, Liga do Inguinho, Dinastia do Pão de Queijo all have
+    # divisions=0 today but a stale 6/6 division split on their rosters).
+    # _compute_playoff_seeds only checks divisions_by_roster's OWN 2+
+    # distinct values, not the league's actual current divisions setting,
+    # so leaving every value None here is what makes it correctly fall
+    # back to plain overall-record seeding for a non-divisional league.
+    league_divisions_count = league.get("settings", {}).get("divisions") or 0
+    if league_divisions_count > 0:
+        divisions_by_roster = {r["roster_id"]: r.get("settings", {}).get("division") for r in rosters}
+    else:
+        divisions_by_roster = {r["roster_id"]: None for r in rosters}
 
     # Deterministic simulation seed derived from hash(league_id) + week * 1000
     # to eliminate UI rerun jitter. Uses a PRIVATE random.Random instance, not
