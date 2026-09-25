@@ -2031,6 +2031,59 @@ def render_ros_power_table_html(ros_rows, user_roster_id):
     return "\n".join(l.lstrip() for l in html.splitlines())
 
 
+def render_league_standings_table_html(standings_rows, user_roster_id):
+    """
+    Renders a faithful replica of Sleeper's own native League Standings
+    screen - raw Rank/Record/PF/PA/Streak, no proprietary Power Score or
+    simulation, so a manager doesn't have to leave the app to check the
+    official numbers. Manager/Team cell reuses the same circular-avatar +
+    name treatment as the Franchise Hub's own team identity banner.
+    """
+    html = """
+    <div class='mobile-scroll-hint'>↔ Swipe horizontally to view full stats</div>
+    <div class='table-responsive-wrapper'>
+    <table class='roster-table roster-table-power'>
+        <thead>
+            <tr>
+                <th style='width: 60px; text-align: center;'>Rank</th>
+                <th style='width: 32%; text-align: left;'>Manager / Team</th>
+                <th style='width: 14%; text-align: center;'>Record</th>
+                <th style='width: 18%; text-align: center;'>PF</th>
+                <th style='width: 18%; text-align: center;'>PA</th>
+                <th style='width: 14%; text-align: center;'>Streak</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    for r in standings_rows:
+        is_me = (r.get("roster_id") == user_roster_id)
+        row_style = "background: rgba(14, 165, 233, 0.16); border-left: 4px solid #38bdf8;" if is_me else ""
+        name_weight = "font-weight: 800; color: #38bdf8;" if is_me else "font-weight: 600; color: #f8fafc;"
+        streak = r.get("Streak", "—")
+        streak_color = "#34d399" if streak.endswith("W") else ("#fb7185" if streak.endswith("L") else "#94a3b8")
+        html += f"""
+        <tr style='{row_style}'>
+            <td style='text-align: center; color: #94a3b8; font-weight: 700;'>#{r['Rank']}</td>
+            <td style='text-align: left;'>
+                <div style='display: flex; align-items: center; gap: 10px;'>
+                    <img src='{r['Avatar']}' style='width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.15); object-fit: cover; flex-shrink: 0;' onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'" />
+                    <span style='{name_weight}'>{r['Manager / Team']}</span>
+                </div>
+            </td>
+            <td style='text-align: center; color: #e2e8f0; font-weight: 600;'>{r['Record']}</td>
+            <td class='val-pill' style='text-align: center;'>{r['PF']}</td>
+            <td style='text-align: center; color: #94a3b8;'>{r['PA']}</td>
+            <td style='text-align: center; font-weight: 700; color: {streak_color};'>{streak}</td>
+        </tr>
+        """
+    html += """
+        </tbody>
+    </table>
+    </div>
+    """
+    return "\n".join(l.lstrip() for l in html.splitlines())
+
+
 def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val", show_picks: bool = True):
     """
     Renders the League-Wide Positional Room Leaderboard table.
@@ -4201,6 +4254,57 @@ else:
                     """
                 champ_html += "</tbody></table></div>"
                 st.html(champ_html)
+
+        # League Standings (Sleeper Official) - raw, un-simulated numbers
+        # straight from roster["settings"]/["metadata"], the same payload
+        # every other section of this tab already fetches (no new API
+        # call). Deliberately separate from the "Season Standings &
+        # Playoff Simulation" table in Power Rankings, which blends in a
+        # proprietary Power Score - this one is a 1:1 mirror of what
+        # Sleeper itself shows, so a manager never has to leave the app to
+        # check the official numbers.
+        st.markdown("---")
+        st.markdown("### League Standings (Sleeper Official)")
+        st.caption("Raw standings straight from Sleeper - Rank, Record, PF, PA, and Streak exactly as Sleeper reports them, not a proprietary Power Score.")
+
+        standings_rows = []
+        for r in rosters:
+            r_settings = r.get("settings", {}) or {}
+            r_wins = r_settings.get("wins", 0)
+            r_losses = r_settings.get("losses", 0)
+            r_ties = r_settings.get("ties", 0)
+            r_total_games = r_wins + r_losses + r_ties
+            # Sleeper's own standings sort: win percentage descending (ties
+            # count as half a win, so it never collides with a team a tie
+            # apart), Points For descending as the tiebreaker - the same
+            # convention ESPN/Yahoo/Sleeper all use for a plain
+            # (non-divisional, non-median) standings table.
+            r_win_pct = (r_wins + r_ties * 0.5) / r_total_games if r_total_games > 0 else 0.0
+            r_fpts = r_settings.get("fpts", 0) + r_settings.get("fpts_decimal", 0) / 100.0
+            r_fpts_against = r_settings.get("fpts_against", 0) + r_settings.get("fpts_against_decimal", 0) / 100.0
+
+            r_owner_id = r.get("owner_id")
+            r_owner_user = next((u for u in users if u.get("user_id") == r_owner_id), {})
+            r_avatar_id = r_owner_user.get("avatar")
+            r_avatar = f"https://sleepercdn.com/avatars/thumbs/{r_avatar_id}" if r_avatar_id else "https://sleepercdn.com/images/v2/icons/player_default.webp"
+
+            standings_rows.append({
+                "roster_id": r.get("roster_id"),
+                "_win_pct": r_win_pct,
+                "_fpts": r_fpts,
+                "Manager / Team": user_map.get(r_owner_id, f"Team {r.get('roster_id')}"),
+                "Avatar": r_avatar,
+                "Record": f"{r_wins}-{r_losses}" + (f"-{r_ties}" if r_ties else ""),
+                "PF": f"{r_fpts:,.1f}",
+                "PA": f"{r_fpts_against:,.1f}",
+                "Streak": (r.get("metadata") or {}).get("streak") or "—",
+            })
+
+        standings_rows.sort(key=lambda x: (-x["_win_pct"], -x["_fpts"]))
+        for rank_idx, row in enumerate(standings_rows, 1):
+            row["Rank"] = rank_idx
+
+        st.html(render_league_standings_table_html(standings_rows, user_roster["roster_id"]))
 
         # Full Roster Breakdown
         st.markdown("---")
