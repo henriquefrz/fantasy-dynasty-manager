@@ -4,7 +4,7 @@ Converted from scratch/test_trade_engine.py (already close to pytest shape).
 Unit tests for Model 3 (Stud Premium + package discounts) in
 evaluate_trade_fairness / calculate_effective_trade_value.
 """
-from src.trade_engine import evaluate_trade_fairness, analyze_team_profile, make_pick_asset
+from src.trade_engine import evaluate_trade_fairness, analyze_team_profile, make_pick_asset, CATEGORY_ROS_WEIGHT
 
 
 def _make_profile_player(pid, name, pos, value):
@@ -205,3 +205,54 @@ def test_analyze_team_profile_threads_single_source_picks_lookups_to_pick_assets
     assert pick["ktc_val"] == 3500.0
     assert pick["fc_val"] == 2800.0
     assert pick["dp_val"] == 2600.0
+
+
+# ---------------------------------------------------------------------------
+# Dynasty+ROS fairness blend (CATEGORY_ROS_WEIGHT): converted from the
+# flaky tests/integration/test_trade_refinements.py::
+# test_taylor_for_jeanty_is_unfavorable_for_a_contender, which depended on
+# two real players' live KTC/FantasyCalc/DynastyProcess market values -
+# already drifted once since that test was written, turning a real
+# "unfavorable" trade into "balanced" and breaking the test on live data
+# alone, with the actual blend logic never having changed. Synthetic
+# assets pin the same real bug this was meant to catch (a "win"/contender
+# team getting a trade suggested as fair even though it trades a
+# strong-ROS asset for a weak-ROS one) without ever depending on a live
+# snapshot of two specific NFL players' values again.
+# ---------------------------------------------------------------------------
+
+def test_dynasty_ros_blend_flags_a_contender_unfavorable_trade_that_looks_balanced_on_pure_dynasty():
+    """
+    "Taylor-type": lower dynasty value, but far ahead in ROS production
+    (the asset a win-now team actually wants). "Jeanty-type": higher
+    dynasty value, but weak ROS production. On pure dynasty value alone
+    (ros_weight=0.0, a rebuild team's lens) this reads as a fair,
+    balanced trade. Blended with CATEGORY_ROS_WEIGHT["win"] (30% ROS /
+    70% dynasty - what a contender's own evaluation actually uses), it
+    must swing decisively into "unfavorable", since a contender is really
+    trading away its best win-now asset for a worse one.
+    """
+    taylor_type = {"name": "Taylor-type RB", "type": "player", "market_value": 6000.0, "redraft_val": 7000.0}
+    pick_2027_1st = {"name": "2027 Round 1 (Late)", "type": "pick", "market_value": 3000.0}
+    jeanty_type = {"name": "Jeanty-type RB", "type": "player", "market_value": 7500.0, "redraft_val": 4000.0}
+
+    give = [taylor_type, pick_2027_1st]
+    receive = [jeanty_type]
+
+    pure_dynasty = evaluate_trade_fairness(give, receive, ros_weight=0.0)
+    assert pure_dynasty["is_balanced"] is True, (
+        f"sanity check: this fixture must read as balanced on pure dynasty value, or the "
+        f"blend assertion below proves nothing - got fairness_ratio={pure_dynasty['fairness_ratio']}"
+    )
+
+    win_ros_weight = CATEGORY_ROS_WEIGHT["win"]
+    blended = evaluate_trade_fairness(give, receive, ros_weight=win_ros_weight)
+
+    assert not blended["is_balanced"], (
+        f"Taylor-type + {pick_2027_1st['name']} for Jeanty-type must be UNFAVORABLE for a contender "
+        f"(win_ros_weight={win_ros_weight}), got fairness_ratio={blended['fairness_ratio']} "
+        f"net_diff={blended['net_diff']}"
+    )
+    assert blended["fairness_ratio"] == 0.84
+    assert blended["net_diff"] == -1432.5
+    assert blended["ros_weight"] == win_ros_weight
