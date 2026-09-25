@@ -2102,6 +2102,72 @@ def render_room_depth_list_html(names, max_height_px=170):
     """
 
 
+def render_terms_glossary_html():
+    """
+    Shared glossary for the app's three families of auto-generated labels:
+    Franchise Trajectory, Playoff Status, and Market Signal. Reused as-is
+    (same full content, no partial subsets) everywhere a "What do these
+    terms mean?" expander is shown, so the explanation never drifts between
+    locations. Descriptions mirror the exact criteria implemented in
+    classify_dynasty_team/classify_redraft_team (src/team_strength.py),
+    the per-team status chain (src/playoff_simulator.py), and
+    compute_market_rank_divergence (src/market_data.py).
+    """
+    def entry(color, icon, name, desc):
+        return f"""
+        <div style='padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);'>
+            <span style='color: {color}; font-weight: 700; font-size: 0.82rem;'>{icon} {name}</span>
+            <div style='color: #94a3b8; font-size: 0.8rem; margin-top: 2px;'>{desc}</div>
+        </div>
+        """
+
+    dynasty_entries = "".join([
+        entry("#38bdf8", "🏰", "Dominant Empire", "Elite starting lineup right now, plus a strong young core for the future - the best of both worlds."),
+        entry("#38bdf8", "🏰", "Win-Now Favorite", "High-scoring lineup today with solid (if not elite) long-term depth behind it."),
+        entry("#38bdf8", "🏰", "All-In Win-Now", "Peak scoring window built on veteran production; long-term assets are thin, so the team should push hard for a title now."),
+        entry("#38bdf8", "🏰", "Ascending Contender", "Competitive starters today, backed by an elite young core - a real playoff threat that's still getting better."),
+        entry("#fbbf24", "⚖️", "Frisky Competitor", "Balanced roster, average today and average long-term - capable of a postseason run but not a lock."),
+        entry("#fbbf24", "⚖️", "Fragile Bubble Team", "Competitive starters, but thin depth and draft capital behind them - one injury away from trouble."),
+        entry("#34d399", "🌱", "Productive Struggle", "Weak lineup today, but elite young talent and draft picks - a rebuild that's already paying off long-term."),
+        entry("#34d399", "🌱", "Retooling Roster", "Below-average today, developing youth and picks to return to contention over time."),
+        entry("#34d399", "🌱", "Ground-Up Rebuild", "Weak today and thin long-term - the roster should prioritize picks and high-upside youth over veterans."),
+    ])
+    redraft_entries = "".join([
+        entry("#38bdf8", "🏰", "Title Contender", "Top-tier starting lineup and scoring ceiling - the championship favorite this season."),
+        entry("#fbbf24", "⚖️", "Playoff Contender", "Firmly in the playoff hunt - stream matchups and optimize the starting lineup to stay there."),
+        entry("#34d399", "🌱", "Uphill Battle / Rebuilding", "Struggling scoring pace - needs aggressive lineup or roster moves to turn the season around."),
+    ])
+    playoff_entries = "".join([
+        entry("#f43f5e", "❌", "Eliminated", "Mathematically cannot make the playoffs, or the simulation gives 0% odds this deep into the season."),
+        entry("#10b981", "🏆", "Clinched Playoff", "Mathematically locked into a playoff spot, or the simulation gives 99.5%+ odds this deep into the season."),
+        entry("#fb7185", "🔒", "Rebuild Locked (&lt;=5%)", "Not mathematically eliminated yet, but the simulation gives 5% or less odds of making the playoffs - focus on next season."),
+        entry("#f59e0b", "⚠️", "Danger Zone", "Simulated playoff odds of 15% or less - still alive, but needs help to get in."),
+        entry("#06b6d4", "⭐", "Playoff Track", "Simulated playoff odds of 70% or higher - the favorite to make the postseason."),
+        entry("#3b82f6", "🎯", "In The Hunt", "Simulated playoff odds between 15% and 70% - a real chance either way."),
+    ])
+    market_entries = "".join([
+        entry("#f87171", "🔥", "Sell High", "The crowd market (KeepTradeCut/FantasyCalc) ranks this player noticeably higher than expert consensus (DynastyProcess) - among the top 10% most overvalued-by-the-market players. Could be a good time to trade them away."),
+        entry("#34d399", "💎", "Buy Low", "Expert consensus (DynastyProcess) ranks this player noticeably higher than the crowd market (KeepTradeCut/FantasyCalc) - among the top 10% most undervalued-by-the-market players. Could be a good buying opportunity."),
+    ])
+
+    return f"""
+    <div style='font-size: 0.85rem;'>
+        <div style='color: #f8fafc; font-weight: 700; margin-bottom: 4px;'>📈 Franchise Trajectory (Dynasty leagues)</div>
+        <div style='color: #64748b; font-size: 0.78rem; margin-bottom: 6px;'>Combines this season's starting-lineup strength with the roster's long-term (dynasty) asset value to describe where a team stands.</div>
+        {dynasty_entries}
+        <div style='color: #f8fafc; font-weight: 700; margin: 14px 0 4px 0;'>📈 Franchise Trajectory (Redraft leagues)</div>
+        <div style='color: #64748b; font-size: 0.78rem; margin-bottom: 6px;'>Based only on this season's starting-lineup strength, since redraft leagues have no long-term roster to weigh.</div>
+        {redraft_entries}
+        <div style='color: #f8fafc; font-weight: 700; margin: 14px 0 4px 0;'>🏈 Playoff Status</div>
+        <div style='color: #64748b; font-size: 0.78rem; margin-bottom: 6px;'>Based on mathematical clinch/elimination checks plus the season simulation's playoff-odds percentage.</div>
+        {playoff_entries}
+        <div style='color: #f8fafc; font-weight: 700; margin: 14px 0 4px 0;'>💹 Market Signal</div>
+        <div style='color: #64748b; font-size: 0.78rem; margin-bottom: 6px;'>Compares each player's rank across market sources vs. expert consensus; only the most extreme 10% on each side get a label. This is informational context, not a trade recommendation.</div>
+        {market_entries}
+    </div>
+    """
+
+
 def render_positional_room_table_html(room_rows, user_roster_id, sort_col="total_val", show_picks: bool = True):
     """
     Renders the League-Wide Positional Room Leaderboard table.
@@ -4064,6 +4130,9 @@ else:
         else:
             fpts = user_roster.get("settings", {}).get("fpts", 0.0)
             st.metric("Points Scored", f"{fpts:,.1f} pts")
+
+    with st.expander("ℹ️ What do these terms mean?"):
+        st.html(render_terms_glossary_html())
 
     st.markdown("---")
 
@@ -7052,6 +7121,9 @@ else:
                     "</div>",
                     unsafe_allow_html=True
                 )
+
+                with st.expander("ℹ️ What do these terms mean?"):
+                    st.html(render_terms_glossary_html())
 
                 signal_assets = build_market_assets_list(primary_lookup, players, is_redraft=False)
                 for r in signal_assets:
