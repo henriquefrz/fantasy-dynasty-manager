@@ -3031,7 +3031,6 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
             continue
 
         formatted_moves = []
-        copy_lines = []
 
         # 1. Urgent injuries: active starter is Out / IR
         for inj in urgent_injuries:
@@ -3053,7 +3052,6 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                         "text": f"{slot}: {starter_name} is {status} — start {pname} from bench ({ppts:.1f} pts)",
                         "impact": ppts,
                     })
-                    copy_lines.append(f"{slot}: start {pname} over {starter_name} ({status})")
                 else:
                     formatted_moves.append({
                         "type": "injury_out",
@@ -3065,7 +3063,6 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                         "text": f"{slot}: {starter_name} is {status} — No healthy bench pivot found!",
                         "impact": 5.0,
                     })
-                    copy_lines.append(f"{slot}: {starter_name} is {status} (bench empty)")
 
         # 2. Start/Sit swaps (gain >= 0.5 pts)
         for s in swaps:
@@ -3084,7 +3081,6 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                 "text": f"{slot}: start {st_p} over {sit_p} (+{gain:.1f} pts)",
                 "impact": gain,
             })
-            copy_lines.append(f"{slot}: start {st_p} over {sit_p} (+{gain:.1f} pts)")
 
         # 3. Contextual Questionable warnings alongside swaps
         for inj in urgent_injuries:
@@ -3104,7 +3100,6 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
                     "text": f"{slot}: monitor {starter_name} (Q) — bench pivot ready: {pname} ({ppts:.1f} pts)",
                     "impact": 0.5,
                 })
-                copy_lines.append(f"{slot}: monitor {starter_name} (Q) -> pivot {pname}")
 
         total_impact = sum(m["impact"] for m in formatted_moves)
         has_out = any(m["type"] == "injury_out" for m in formatted_moves)
@@ -3113,7 +3108,6 @@ def fetch_portfolio_lineup_recommendations(user_id, league_ids, active_season, a
             "league_id": lid,
             "league_name": lname,
             "moves": formatted_moves,
-            "copy_text": f"{lname}: " + "; ".join(copy_lines),
             "total_impact": total_impact,
             "has_out_injury": has_out,
             "points_diff": audit.get("points_differential", 0.0),
@@ -3184,9 +3178,9 @@ def render_hub_lineup_header_html(num_leagues, total_actions, active_week):
 
 def render_hub_lineup_row_html(alert):
     """
-    Renders one league's lineup-alert row (name, change count, move list,
-    Copy Moves button). Rendered in the same st.columns row as a real
-    st.button("Open Workspace") for that league - see the call site.
+    Renders one league's lineup-alert row (name, change count, move list).
+    Rendered alongside a real st.button("Open Workspace") for that league -
+    see the call site.
     """
     def _get_slot_badge_class(s_name):
         s = s_name.upper()
@@ -3206,7 +3200,6 @@ def render_hub_lineup_row_html(alert):
 
     lname = alert["league_name"]
     moves = alert["moves"]
-    copy_text = alert["copy_text"].replace("'", "\\'").replace('"', '&quot;')
 
     moves_rendered = []
     for m in moves:
@@ -3272,25 +3265,17 @@ def render_hub_lineup_row_html(alert):
     moves_block = "".join(moves_rendered)
 
     return f"""
-    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 260px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="font-weight: 800; font-size: 1.02rem; color: #f8fafc; letter-spacing: -0.01em;">
-                    {lname}
-                </span>
-                <span style="color: #64748b; font-size: 0.78rem; font-weight: 600;">
-                    ({len(moves)} {'change' if len(moves) == 1 else 'changes'})
-                </span>
-            </div>
-            <div>
-                {moves_block}
-            </div>
+    <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="font-weight: 800; font-size: 1.02rem; color: #f8fafc; letter-spacing: -0.01em;">
+                {lname}
+            </span>
+            <span style="color: #64748b; font-size: 0.78rem; font-weight: 600;">
+                ({len(moves)} {'change' if len(moves) == 1 else 'changes'})
+            </span>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-            <button onclick="navigator.clipboard.writeText('{copy_text}'); this.innerText='Copied!'; this.style.borderColor='#34d399'; this.style.color='#34d399'; setTimeout(() => {{ this.innerText='Copy Moves'; this.style.borderColor='rgba(56, 189, 248, 0.25)'; this.style.color='#e2e8f0'; }}, 2000);"
-                    style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); color: #e2e8f0; border-radius: 6px; padding: 6px 13px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;">
-                Copy Moves
-            </button>
+        <div>
+            {moves_block}
         </div>
     </div>
     """
@@ -3449,8 +3434,8 @@ if selected_mode not in mode_keys:
 # Top Navigation Bar (Option 1: Linear & Vercel Glassmorphism)
 # -----------------------------------------------------------------------------
 with st.container(key="topbar_nav_container"):
-    top_col_brand, top_col_nav, top_col_cfg, top_col_user = st.columns(
-        [2.8, 3.4, 1.6, 2.2], vertical_alignment="center"
+    top_col_brand, top_col_nav, top_col_glossary, top_col_cfg, top_col_user = st.columns(
+        [2.8, 3.0, 1.4, 1.6, 2.2], vertical_alignment="center"
     )
 
     with top_col_brand:
@@ -3519,6 +3504,11 @@ with st.container(key="topbar_nav_container"):
             on_change=on_top_workspace_changed,
             label_visibility="collapsed"
         )
+
+    with top_col_glossary:
+        with st.popover("📖 Glossary", use_container_width=True):
+            st.markdown("#### What do these terms mean?")
+            st.html(render_terms_glossary_html())
 
     with top_col_cfg:
         with st.popover("Settings", use_container_width=True):
@@ -4130,9 +4120,6 @@ else:
         else:
             fpts = user_roster.get("settings", {}).get("fpts", 0.0)
             st.metric("Points Scored", f"{fpts:,.1f} pts")
-
-    with st.expander("ℹ️ What do these terms mean?"):
-        st.html(render_terms_glossary_html())
 
     st.markdown("---")
 
@@ -7121,9 +7108,6 @@ else:
                     "</div>",
                     unsafe_allow_html=True
                 )
-
-                with st.expander("ℹ️ What do these terms mean?"):
-                    st.html(render_terms_glossary_html())
 
                 signal_assets = build_market_assets_list(primary_lookup, players, is_redraft=False)
                 for r in signal_assets:
