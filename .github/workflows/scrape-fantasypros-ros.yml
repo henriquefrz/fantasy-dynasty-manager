@@ -33,19 +33,22 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install -r requirements.txt
 
       - name: Run FantasyPros ROS scraper
         run: python scripts/scrape_fantasypros_ros.py
 
-      - name: Commit and push updated rankings
+      - name: Capture dynasty value + roster snapshot
+        run: python scripts/capture_value_snapshot.py
+
+      - name: Commit and push updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- data/fp_ros_ppr_latest.json; then
-            echo "No changes to data/fp_ros_ppr_latest.json - skipping commit."
+          git add data/fp_ros_ppr_latest.json data/value_history/
+          if git diff --cached --quiet; then
+            echo "No changes to commit - skipping."
           else
-            git add data/fp_ros_ppr_latest.json
-            git commit -m "Update FantasyPros ROS PPR rankings ($(date -u +%Y-%m-%d))"
+            git commit -m "Update FantasyPros ROS rankings + value/roster snapshot ($(date -u +%Y-%m-%d))"
             git push
           fi

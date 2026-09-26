@@ -15,6 +15,7 @@ Provides:
 import base64
 import concurrent.futures
 import copy
+import json
 import math
 import os
 import sys
@@ -121,6 +122,7 @@ from src.market_data import (
     apply_ktc_te_premium,
     get_market_data_freshness,
     compute_ktc_official_adjustment,
+    compute_composite_value,
     VALUATION_MODES,
 )
 
@@ -2627,6 +2629,77 @@ def fetch_market_database(_cache_version="v28_market_rank_divergence"):
         "market_signal_info_sf": market_signal_info_sf,
         "market_signal_info_1qb": market_signal_info_1qb,
     }
+
+
+VALUE_HISTORY_DIR = os.path.join(PROJECT_ROOT, "data", "value_history")
+VALUE_HISTORY_PATHS = {
+    True: os.path.join(VALUE_HISTORY_DIR, "dynasty_sf.jsonl"),
+    False: os.path.join(VALUE_HISTORY_DIR, "dynasty_1qb.jsonl"),
+}
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_dynasty_value_history(is_superflex, _cache_version="v1"):
+    """
+    Loads every captured date from data/value_history/dynasty_sf.jsonl or
+    dynasty_1qb.jsonl (see scripts/capture_value_snapshot.py) into
+    {pid: [{"date": ..., "fc": ..., "ktc": ..., "dp": ..., "pos": ...}, ...]},
+    sorted oldest-to-newest per player. Only the raw per-source components
+    are stored on disk - the composite for a given valuation mode is
+    reconstructed later (see build_dynasty_value_series) via the same
+    compute_composite_value used for live data, so this loader doesn't need
+    to know which mode is active.
+    Returns {} gracefully when the file doesn't exist yet (no snapshots
+    captured so far).
+    """
+    path = VALUE_HISTORY_PATHS[is_superflex]
+    if not os.path.exists(path):
+        return {}
+
+    by_player = {}
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            date_str = row.get("date")
+            for pid, p in row.get("players", {}).items():
+                by_player.setdefault(pid, []).append({
+                    "date": date_str,
+                    "fc": p.get("fc"),
+                    "ktc": p.get("ktc"),
+                    "dp": p.get("dp"),
+                    "pos": p.get("pos"),
+                })
+
+    for entries in by_player.values():
+        entries.sort(key=lambda e: e["date"])
+
+    return by_player
+
+
+def build_dynasty_value_series(pid, is_superflex, mode):
+    """
+    Reconstructs one player's/pick's historical composite market_value
+    series under the currently active valuation mode, from the raw
+    fc/ktc/dp components captured for each date - same recompute
+    apply_valuation_mode does for live data (compute_composite_value),
+    just applied per historical snapshot line instead of the live lookup.
+
+    Kickers/Defenses are a known exception: their composite depends on a
+    FantasyPros ECR rank that isn't captured in the snapshot (only
+    fc/ktc/dp are), so their historical series flattens to the function's
+    floor value rather than tracking real rank movement - an accepted, tiny
+    edge case (nobody tracks a kicker's dynasty value trend).
+    """
+    history = load_dynasty_value_history(is_superflex)
+    entries = history.get(str(pid), [])
+    series = []
+    for e in entries:
+        value = compute_composite_value(e["fc"], e["ktc"], e["dp"], mode=mode, position=e["pos"])
+        series.append({"date": e["date"], "value": value})
+    return series
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -6732,6 +6805,41 @@ else:
                     key=f"mkt_owner_filter_{filter_key_scope}",
                     help="Filters by which team in this league owns the player - includes Free Agent as its own option.",
                 )
+
+            # Value History (dynasty-only - captured snapshots track the
+            # dynasty SF/1QB composite, not the league/week-dependent
+            # redraft/ROS value, so this tool is hidden entirely while
+            # browsing the Single-Season scope rather than shown broken).
+            if not is_redraft:
+                st.markdown("---")
+                history_label_to_pid = {
+                    f"{r['name']} ({r['pos']} - {r['team']})": r["pid"]
+                    for r in all_market_assets if r.get("name")
+                }
+                history_labels = ["— Select a player —"] + sorted(history_label_to_pid.keys())
+                selected_history_label = st.selectbox(
+                    "📈 View value history for:",
+                    history_labels,
+                    key=f"mkt_value_history_select_{filter_key_scope}",
+                    help="Tracks this player's/pick's captured dynasty consensus value over time - only available from the date snapshots started being captured.",
+                )
+                if selected_history_label != "— Select a player —":
+                    history_pid = history_label_to_pid[selected_history_label]
+                    value_series = build_dynasty_value_series(history_pid, is_superflex, selected_mode)
+                    if len(value_series) < 2:
+                        st.info(
+                            f"Not enough value history captured yet for **{selected_history_label}** "
+                            f"({len(value_series)} snapshot{'s' if len(value_series) != 1 else ''} so far) - "
+                            "check back after a few more scheduled captures build up a trend."
+                        )
+                    else:
+                        history_df = pd.DataFrame(value_series).set_index("date")
+                        st.line_chart(history_df["value"], height=250)
+                        st.caption(
+                            f"{len(value_series)} snapshots captured, {value_series[0]['date']} to {value_series[-1]['date']} "
+                            f"· {VALUATION_MODES.get(selected_mode, selected_mode)} valuation"
+                        )
+                st.markdown("---")
 
             filtered_rows = []
             for r in all_market_assets:
