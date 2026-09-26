@@ -6806,41 +6806,6 @@ else:
                     help="Filters by which team in this league owns the player - includes Free Agent as its own option.",
                 )
 
-            # Value History (dynasty-only - captured snapshots track the
-            # dynasty SF/1QB composite, not the league/week-dependent
-            # redraft/ROS value, so this tool is hidden entirely while
-            # browsing the Single-Season scope rather than shown broken).
-            if not is_redraft:
-                st.markdown("---")
-                history_label_to_pid = {
-                    f"{r['name']} ({r['pos']} - {r['team']})": r["pid"]
-                    for r in all_market_assets if r.get("name")
-                }
-                history_labels = ["— Select a player —"] + sorted(history_label_to_pid.keys())
-                selected_history_label = st.selectbox(
-                    "📈 View value history for:",
-                    history_labels,
-                    key=f"mkt_value_history_select_{filter_key_scope}",
-                    help="Tracks this player's/pick's captured dynasty consensus value over time - only available from the date snapshots started being captured.",
-                )
-                if selected_history_label != "— Select a player —":
-                    history_pid = history_label_to_pid[selected_history_label]
-                    value_series = build_dynasty_value_series(history_pid, is_superflex, selected_mode)
-                    if len(value_series) < 2:
-                        st.info(
-                            f"Not enough value history captured yet for **{selected_history_label}** "
-                            f"({len(value_series)} snapshot{'s' if len(value_series) != 1 else ''} so far) - "
-                            "check back after a few more scheduled captures build up a trend."
-                        )
-                    else:
-                        history_df = pd.DataFrame(value_series).set_index("date")
-                        st.line_chart(history_df["value"], height=250)
-                        st.caption(
-                            f"{len(value_series)} snapshots captured, {value_series[0]['date']} to {value_series[-1]['date']} "
-                            f"· {VALUATION_MODES.get(selected_mode, selected_mode)} valuation"
-                        )
-                st.markdown("---")
-
             filtered_rows = []
             for r in all_market_assets:
                 if pos_mkt != "ALL" and r["pos"] != pos_mkt:
@@ -6854,7 +6819,8 @@ else:
                 filtered_rows.append(r)
 
             if filtered_rows:
-                c_mksort1, c_mksort2, c_mksort3 = st.columns([2, 1.2, 1.2], vertical_alignment="bottom")
+                sort_row_cols = st.columns([2, 1.2, 1.2, 1.3], vertical_alignment="bottom") if not is_redraft else st.columns([2, 1.2, 1.2])
+                c_mksort1, c_mksort2, c_mksort3 = sort_row_cols[0], sort_row_cols[1], sort_row_cols[2]
                 with c_mksort1:
                     sort_options = (
                         ["Consensus Value", "Overall Rank", "Pos Rank", "Sleeper Projections PPG", "FantasyPros ECR", "KTC Redraft Value", "Player Name"]
@@ -6879,6 +6845,51 @@ else:
                         index=1,
                         key=f"mkt_page_size_{'redraft' if is_redraft else 'dynasty'}"
                     )
+
+                # Value History (dynasty-only - captured snapshots track the
+                # dynasty SF/1QB composite, not the league/week-dependent
+                # redraft/ROS value, so this tool doesn't exist in the
+                # Single-Season scope rather than being shown broken there).
+                # A compact popover instead of a dedicated selectbox row -
+                # see the "Copy Moves" investigation earlier this session
+                # for why this can't just be an onclick icon on the HTML
+                # table (st.html() strips inline event handlers).
+                if not is_redraft:
+                    with sort_row_cols[3]:
+                        with st.popover("📈 Player History", use_container_width=True):
+                            st.markdown("**View value history**")
+                            history_label_to_pid = {
+                                f"{r['name']} ({r['pos']} - {r['team']})": r["pid"]
+                                for r in all_market_assets if r.get("name")
+                            }
+                            history_labels = ["— Select a player —"] + sorted(history_label_to_pid.keys())
+                            selected_history_label = st.selectbox(
+                                "Search player:",
+                                history_labels,
+                                key=f"mkt_value_history_select_{filter_key_scope}",
+                                label_visibility="collapsed",
+                            )
+                            if selected_history_label != "— Select a player —":
+                                history_pid = history_label_to_pid[selected_history_label]
+                                history_entries = load_dynasty_value_history(is_superflex).get(str(history_pid), [])
+                                if not history_entries:
+                                    st.caption("No value history captured yet for this player.")
+                                else:
+                                    history_table_rows = [
+                                        {
+                                            "Date": e["date"],
+                                            "KTC": e["ktc"] if e["ktc"] is not None else "—",
+                                            "FantasyCalc": e["fc"] if e["fc"] is not None else "—",
+                                            "DynastyProcess": e["dp"] if e["dp"] is not None else "—",
+                                            "Consensus": compute_composite_value(e["fc"], e["ktc"], e["dp"], mode=selected_mode, position=e["pos"]),
+                                        }
+                                        for e in history_entries
+                                    ]
+                                    st.table(history_table_rows)
+                                    if len(history_table_rows) >= 2:
+                                        value_series = build_dynasty_value_series(history_pid, is_superflex, selected_mode)
+                                        chart_df = pd.DataFrame(value_series).set_index("date")
+                                        st.line_chart(chart_df["value"], height=200)
 
                 sorted_mkt = list(filtered_rows)
                 is_desc = "Descending" in sort_mkt_order
