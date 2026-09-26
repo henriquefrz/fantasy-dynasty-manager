@@ -6878,10 +6878,10 @@ else:
                                     history_table_rows = [
                                         {
                                             "Date": e["date"],
-                                            "KTC": e["ktc"] if e["ktc"] is not None else "—",
-                                            "FantasyCalc": e["fc"] if e["fc"] is not None else "—",
-                                            "DynastyProcess": e["dp"] if e["dp"] is not None else "—",
-                                            "Consensus": compute_composite_value(e["fc"], e["ktc"], e["dp"], mode=selected_mode, position=e["pos"]),
+                                            "KTC": f"{e['ktc']:,.0f}" if e["ktc"] is not None else "—",
+                                            "FantasyCalc": f"{e['fc']:,.0f}" if e["fc"] is not None else "—",
+                                            "DynastyProcess": f"{e['dp']:,.0f}" if e["dp"] is not None else "—",
+                                            "Consensus": f"{compute_composite_value(e['fc'], e['ktc'], e['dp'], mode=selected_mode, position=e['pos']):,.0f}",
                                         }
                                         for e in history_entries
                                     ]
