@@ -1998,6 +1998,63 @@ def _parse_fc_picks(fc_raw):
     return fc_picks
 
 
+def _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks):
+    """
+    DynastyProcess's values-picks.csv only covers a handful of near-term
+    draft classes (2026-2028 as of writing) - it has no rows at all for
+    later seasons that KTC/FantasyCalc already price. Without DP in the
+    blend, that season's composite loses DP's (consistently lower) value
+    entirely instead of being pulled down by it, which can invert the
+    natural year-over-year decay a draft pick should have (confirmed real
+    case: 2029 Round 1 mid composite priced HIGHER than 2028's).
+
+    Which seasons DP is missing is detected dynamically against whatever
+    values-picks.csv contains at call time - never a hardcoded year - so
+    this stops synthesizing a season the moment DynastyProcess actually
+    starts publishing it for real; nothing here needs to change when that
+    happens.
+
+    For each (round, tier) DP has for the most recent season it DOES cover,
+    synthesizes the next season's DP value by applying the real KTC/
+    FantasyCalc year-over-year decay ratio for that exact (round, tier) -
+    averaged across whichever of the two sources have both years - to DP's
+    known prior-season value. The ratio is clamped to [0.5, 1.0] (a pick a
+    year further out should never be priced HIGHER than this year's, and a
+    single noisy year-over-year step shouldn't be allowed to gut the value
+    either) - same spirit as _extrapolate_deep_rounds' round-over-round
+    decay clamp.
+
+    Mutates and returns dp_picks; only ever fills in a (season, round, tier)
+    key that dp_picks doesn't already have - real DP data always wins.
+    """
+    dp_seasons = {k[0] for k in dp_picks if isinstance(k[0], str)}
+    market_seasons = {k[0] for k in ktc_picks if isinstance(k[0], str)} | {k[0] for k in fc_picks if isinstance(k[0], str)}
+
+    for season in sorted(market_seasons - dp_seasons):
+        prior_season = str(int(season) - 1)
+        if prior_season not in dp_seasons:
+            continue  # nothing to extrapolate FROM either - leave it missing.
+
+        for key in [k for k in dp_picks if k[0] == prior_season]:
+            _, round_num, *tier = key
+            target_key = (season, round_num, *tier)
+            if target_key in dp_picks:
+                continue
+
+            ratios = [
+                source[target_key] / source[key]
+                for source in (ktc_picks, fc_picks)
+                if source.get(key) and source.get(target_key) and source[key] > 0
+            ]
+            if not ratios:
+                continue  # no market decay signal available for this key either.
+
+            decay_ratio = min(1.0, max(0.5, sum(ratios) / len(ratios)))
+            dp_picks[target_key] = round(dp_picks[key] * decay_ratio, 1)
+
+    return dp_picks
+
+
 def _populate_missing_tiers(picks_dict):
     """
     Ensures that for any (season, round_num) with a mid/generic entry,
@@ -2028,6 +2085,8 @@ def build_picks_sources_bundle(
     dp_picks = _parse_dp_picks(values_picks_raw, values_players_raw, is_superflex) if values_picks_raw else {}
     ktc_picks = _parse_ktc_picks(ktc_raw, is_superflex) if ktc_raw else {}
     fc_picks = _parse_fc_picks(fc_raw) if fc_raw else {}
+
+    _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks)
 
     _populate_missing_tiers(dp_picks)
     _populate_missing_tiers(ktc_picks)

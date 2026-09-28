@@ -487,6 +487,122 @@ def get_league_matchups(league_id: str, week: int, current_week: int = None):
         return []
 
 
+_LEAGUE_TRANSACTIONS_CACHE = {}
+
+# Same historical/live split as LEAGUE_MATCHUPS_CACHE_TTL_SECONDS above -
+# a week strictly before current_week has all its trades/waivers/free
+# agency moves already settled and can never change again, so it gets the
+# long LEAGUE_HISTORY_CACHE_TTL_SECONDS; the current week's waiver run can
+# still be processing, so it keeps a short TTL.
+LEAGUE_TRANSACTIONS_CACHE_TTL_SECONDS = 5 * 60
+
+
+def get_league_transactions(league_id: str, week: int, current_week: int = None):
+    """
+    Returns every transaction (trade, waiver, free_agent) Sleeper recorded
+    for this league in this week, each with its own "adds"/"drops" dict
+    ({player_id: roster_id}) and "status" ("complete" transactions are the
+    only ones that actually changed a roster). Never used in this project
+    before this - see build_weekly_roster_snapshots, which walks these
+    backward from the current roster to reconstruct what a roster looked
+    like in a past week.
+    """
+    cache_key = (str(league_id), int(week))
+    is_historical = current_week is not None and week < current_week
+    ttl = LEAGUE_HISTORY_CACHE_TTL_SECONDS if is_historical else LEAGUE_TRANSACTIONS_CACHE_TTL_SECONDS
+
+    cached = _LEAGUE_TRANSACTIONS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        if time.time() - cached_at < ttl:
+            return cached_data
+
+    url = f"{BASE_URL}/league/{league_id}/transactions/{week}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        data = response.json()
+        _LEAGUE_TRANSACTIONS_CACHE[cache_key] = (time.time(), data)
+        return data
+    except Exception as e:
+        print(f"Warning: Failed to fetch league transactions for league {league_id} Week {week}: {e}")
+        if cached is not None:
+            print(f"Info: Falling back to stale cached transactions for league {league_id} Week {week}")
+            return cached[1]
+        return []
+
+
+def build_weekly_roster_snapshots(league_id: str, current_rosters: list, current_week: int):
+    """
+    Reconstructs each roster's real player list as it stood at the START
+    of every week from 1 to current_week, by walking BACKWARD from the
+    CURRENT roster (the only state Sleeper's API actually gives us - there
+    is no "roster as of date X" endpoint) and undoing every completed
+    trade/waiver/free-agent transaction one week at a time.
+
+    Backward-from-current instead of forward-from-draft-day: the current
+    roster is verified ground truth (a live API call), while "the roster
+    right after the rookie draft" has no equivalent single source of
+    truth to start from (the startup/rookie draft itself isn't exposed as
+    a transaction, and a league migrated from another platform may have
+    no draft record in Sleeper at all). Walking backward only needs
+    current_week transaction fetches total (one per week), not one draft
+    reconstruction per league on top of that.
+
+    A transaction tagged for week W is treated as already in effect for
+    week W itself (fantasy trades/waivers are processed before that
+    week's games), so reconstructing "roster at the start of week W" means
+    undoing every transaction tagged week W+1 through current_week - not
+    week W itself.
+
+    Draft pick ownership changes inside a trade's "draft_picks" list are
+    intentionally ignored here: this reconstruction only feeds the
+    Power Rankings simulation's per-week scoring (which cares about which
+    PLAYERS were rostered, not pick capital), not the Trade Center or
+    Franchise Hub's draft capital views.
+
+    Returns {week: [roster_dict, ...]} for week in 1..current_week, each
+    roster_dict a shallow copy of its current_rosters entry with "players"
+    replaced by that week's reconstructed player list. Weeks are computed
+    with only current_week total transaction fetches (one per week, most
+    already long-TTL cached for past weeks) instead of one fetch per
+    (week, target_week) pair, since each week's roster is derived
+    incrementally from the next week's already-reconstructed roster
+    rather than re-walking all the way back from "today" every time.
+    """
+    player_sets = {
+        r["roster_id"]: set(p for p in (r.get("players") or []) if p)
+        for r in current_rosters
+    }
+    roster_by_id = {r["roster_id"]: r for r in current_rosters}
+
+    snapshots = {current_week: current_rosters}
+
+    for week in range(current_week, 0, -1):
+        transactions = get_league_transactions(league_id, week, current_week=current_week)
+        completed = [t for t in transactions if t.get("status") == "complete"]
+        # Undo most-recent-first so a player added and dropped more than
+        # once within the same week unwinds in the correct order.
+        completed.sort(key=lambda t: t.get("created") or 0, reverse=True)
+
+        for txn in completed:
+            for pid, rid in (txn.get("adds") or {}).items():
+                player_sets.get(rid, set()).discard(pid)
+            for pid, rid in (txn.get("drops") or {}).items():
+                player_sets.setdefault(rid, set()).add(pid)
+
+        prev_week = week - 1
+        if prev_week >= 1:
+            snapshots[prev_week] = [
+                {**roster_by_id[rid], "players": sorted(player_sets.get(rid, set()))}
+                for rid in roster_by_id
+            ]
+
+    return snapshots
+
+
 NFL_SCORES_URL = "https://api.sleeper.app/scores/nfl/regular/{season}/{week}"
 
 _NFL_GAME_STATUS_CACHE = {}

@@ -249,3 +249,86 @@ def test_no_drafts_on_file_defaults_to_linear():
         result = sleeper_api.get_league_draft_type(LEAGUE_ID, expected_rounds=4)
 
     assert result == "linear"
+
+
+# ---------------------------------------------------------------------------
+# build_weekly_roster_snapshots: reconstructs each week's real roster by
+# undoing transactions backward from the current roster - regression test
+# for the real Liga do Inguinho incident, where a week-3 trade
+# (Judkins+Waddle -> Brian Thomas) was silently changing what the Week 1/2
+# Power Rankings snapshots showed, since the app used to reuse today's
+# (post-trade) roster for every historical week.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def clear_transactions_cache():
+    sleeper_api._LEAGUE_TRANSACTIONS_CACHE.clear()
+    yield
+    sleeper_api._LEAGUE_TRANSACTIONS_CACHE.clear()
+
+
+def test_trade_does_not_change_weeks_before_it():
+    """Mirrors the real Liga do Inguinho trade: roster 11 gives up players
+    12512+7526 and receives 11631, completed in week 3."""
+    current_rosters = [
+        {"roster_id": 11, "players": ["11631", "9999"]},
+        {"roster_id": 12, "players": ["12512", "7526", "8888"]},
+    ]
+    trade = {
+        "status": "complete",
+        "created": 1_000_000,
+        "adds": {"11631": 11, "12512": 12, "7526": 12},
+        "drops": {"11631": 12, "12512": 11, "7526": 11},
+    }
+
+    def fake_get(url, timeout=10):
+        if url.endswith("/transactions/3"):
+            return _fake_response([trade])
+        return _fake_response([])
+
+    with patch("src.sleeper_api.requests.get", side_effect=fake_get):
+        snapshots = sleeper_api.build_weekly_roster_snapshots(LEAGUE_ID, current_rosters, current_week=3)
+
+    assert sorted(snapshots.keys()) == [1, 2, 3]
+
+    for week in (1, 2):
+        r11 = next(r for r in snapshots[week] if r["roster_id"] == 11)
+        r12 = next(r for r in snapshots[week] if r["roster_id"] == 12)
+        assert "11631" not in r11["players"], f"week {week}: acquired player must not appear before the trade"
+        assert set(r11["players"]) == {"12512", "7526", "9999"}, f"week {week}: roster 11 must still hold what it had before the trade"
+        assert "12512" not in r12["players"] and "7526" not in r12["players"], f"week {week}: given-up players must still belong to roster 12"
+        assert set(r12["players"]) == {"11631", "8888"}
+
+    # Week 3 (the trade week itself) already reflects the post-trade state,
+    # matching the current/live roster passed in.
+    r11_w3 = next(r for r in snapshots[3] if r["roster_id"] == 11)
+    r12_w3 = next(r for r in snapshots[3] if r["roster_id"] == 12)
+    assert set(r11_w3["players"]) == {"11631", "9999"}
+    assert set(r12_w3["players"]) == {"12512", "7526", "8888"}
+
+
+def test_incomplete_transaction_is_never_undone():
+    """A failed/pending waiver claim never actually changed the roster - it must be ignored entirely."""
+    current_rosters = [{"roster_id": 1, "players": ["100"]}]
+    failed_waiver = {
+        "status": "failed",
+        "created": 500,
+        "adds": {"200": 1},
+        "drops": {"100": 1},
+    }
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response([failed_waiver])):
+        snapshots = sleeper_api.build_weekly_roster_snapshots(LEAGUE_ID, current_rosters, current_week=2)
+
+    r1_week1 = next(r for r in snapshots[1] if r["roster_id"] == 1)
+    assert r1_week1["players"] == ["100"], "a failed transaction must not be undone - the roster never actually changed"
+
+
+def test_no_transactions_keeps_the_same_roster_every_week():
+    current_rosters = [{"roster_id": 1, "players": ["100", "200"]}]
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response([])):
+        snapshots = sleeper_api.build_weekly_roster_snapshots(LEAGUE_ID, current_rosters, current_week=4)
+
+    for week in range(1, 5):
+        assert set(snapshots[week][0]["players"]) == {"100", "200"}

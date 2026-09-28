@@ -11,7 +11,7 @@ import random
 import hashlib
 from typing import Dict, List, Tuple, Any, Optional
 from src.start_sit import calculate_weekly_projected_points, simulate_optimal_weekly_lineup
-from src.sleeper_api import compute_historical_standings
+from src.sleeper_api import compute_historical_standings, get_roster_players
 
 
 DEFAULT_WEEKLY_STD_DEV = 13.5  # Standard deviation in fantasy football weekly team scoring
@@ -73,6 +73,62 @@ def compute_team_weekly_expectations(
             "std_dev": DEFAULT_WEEKLY_STD_DEV,
             "bench_depth_pts": round(top_bench_pts, 1),
         }
+    return result
+
+
+def compute_historical_team_week_expectations(
+    rosters_by_week: Dict[int, List[Dict[str, Any]]],
+    players_db: Any,
+    weekly_projections_by_week: Dict[int, Dict[str, Any]],
+    scoring_settings: Dict[str, Any],
+    roster_positions: List[str],
+    current_week: int,
+) -> Dict[int, Dict[int, Dict[str, Any]]]:
+    """
+    Builds {roster_id: {week: {"expected_pts", "std_dev", "bench_depth_pts"}}}
+    using each week's OWN historically-reconstructed roster
+    (rosters_by_week[week], see sleeper_api.build_weekly_roster_snapshots)
+    instead of compute_team_weekly_expectations' normal one-fixed-roster
+    assumption - so a trade made this week no longer changes which players
+    get credit for a week that already happened (see the Liga do Inguinho
+    incident this fixes: a player acquired in week 3 was silently
+    contributing to the week 1/2 snapshots because those snapshots reused
+    today's post-trade roster for every week).
+
+    weekly_projections_by_week only has real per-player projections for
+    weeks from today's active week (current_week) onward - Sleeper doesn't
+    serve archived projections for weeks already played. A week before
+    that range reuses the earliest available week's raw projection curve
+    (same honest, pre-existing limitation run_historical_simulation_snapshot
+    already documents for point VALUES), but - unlike before this fix -
+    that curve is now applied against THAT week's real historical roster
+    instead of a number already baked from today's roster. This still
+    can't recover the exact historical point total (that data doesn't
+    exist), but it fixes which players are even eligible to be counted.
+    """
+    if not weekly_projections_by_week:
+        return {}
+
+    earliest_proj_week = min(weekly_projections_by_week.keys())
+    earliest_proj_data = weekly_projections_by_week[earliest_proj_week]
+
+    result: Dict[int, Dict[int, Dict[str, Any]]] = {}
+    for week in range(1, max(1, current_week) + 1):
+        week_rosters = rosters_by_week.get(week, [])
+        proj_for_week = weekly_projections_by_week.get(week, earliest_proj_data)
+
+        for roster in week_rosters:
+            rid = roster["roster_id"]
+            roster_players = get_roster_players(roster, players_db)
+            week_result = compute_team_weekly_expectations(
+                roster=roster,
+                roster_players=roster_players,
+                weekly_projections_by_week={week: proj_for_week},
+                scoring_settings=scoring_settings,
+                roster_positions=roster_positions,
+            )
+            result.setdefault(rid, {})[week] = week_result[week]
+
     return result
 
 

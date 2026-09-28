@@ -72,6 +72,7 @@ try:
         get_league_matchups,
         get_league_history,
         compute_historical_standings,
+        build_weekly_roster_snapshots,
         get_nfl_game_status_raw,
         build_team_game_status_map,
     )
@@ -98,6 +99,7 @@ except ImportError:
     get_league_matchups = getattr(_s_api, "get_league_matchups")
     get_league_history = getattr(_s_api, "get_league_history")
     compute_historical_standings = getattr(_s_api, "compute_historical_standings", lambda lid, r, w: {})
+    build_weekly_roster_snapshots = getattr(_s_api, "build_weekly_roster_snapshots")
     get_nfl_game_status_raw = getattr(_s_api, "get_nfl_game_status_raw")
     build_team_game_status_map = getattr(_s_api, "build_team_game_status_map")
 from src.league_classifier import classify_league, is_superflex_league
@@ -254,6 +256,7 @@ from src.draft_picks import (
 try:
     from src.playoff_simulator import (
         compute_team_weekly_expectations,
+        compute_historical_team_week_expectations,
         run_monte_carlo_simulation,
         compute_ros_power_rankings,
         run_historical_simulation_snapshot,
@@ -264,6 +267,7 @@ except ImportError:
     import src.playoff_simulator as _ps
     importlib.reload(_ps)
     compute_team_weekly_expectations = getattr(_ps, "compute_team_weekly_expectations")
+    compute_historical_team_week_expectations = getattr(_ps, "compute_historical_team_week_expectations")
     run_monte_carlo_simulation = getattr(_ps, "run_monte_carlo_simulation")
     compute_ros_power_rankings = getattr(_ps, "compute_ros_power_rankings")
     run_historical_simulation_snapshot = getattr(_ps, "run_historical_simulation_snapshot")
@@ -5272,16 +5276,24 @@ else:
 
         def render_simulation_view():
             playoff_start = selected_league.get("settings", {}).get("playoff_week_start", 15)
-            team_week_expectations = {
-                r["roster_id"]: compute_team_weekly_expectations(
-                    roster=r,
-                    roster_players=all_rosters_players.get(r["roster_id"], []),
-                    weekly_projections_by_week=weekly_projections_by_week,
-                    scoring_settings=scoring,
-                    roster_positions=roster_pos,
-                )
-                for r in rosters
-            }
+            # Historically-correct per-week expectations - each week's own
+            # reconstructed roster (see build_weekly_roster_snapshots),
+            # instead of today's roster flattened across every past week.
+            # This is what run_historical_simulation_snapshot/
+            # compute_weekly_evolution_history actually consume below, so a
+            # trade made this week no longer changes what week 1/2 showed
+            # (see the Liga do Inguinho incident this fixes).
+            rosters_by_week = build_weekly_roster_snapshots(
+                selected_league_id, rosters, active_week,
+            )
+            team_week_expectations = compute_historical_team_week_expectations(
+                rosters_by_week=rosters_by_week,
+                players_db=players,
+                weekly_projections_by_week=weekly_projections_by_week,
+                scoring_settings=scoring,
+                roster_positions=roster_pos,
+                current_week=active_week,
+            )
 
             max_sim_week = max(1, active_week)
             if max_sim_week == 1:

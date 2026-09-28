@@ -18,6 +18,7 @@ from src.market_data import (
     _build_ktc_id_crosswalks,
     _extract_ktc_redraft_pillar,
     _extrapolate_deep_rounds,
+    _extrapolate_dp_missing_season_from_market_decay,
     _resolve_ktc_sleeper_id,
 )
 
@@ -516,3 +517,67 @@ def test_extrapolate_deep_rounds_uses_the_observed_decay_ratio_not_always_the_fa
     # round3 * 0.75 (old fallback) would be 7.5 - assert the steeper,
     # clamped-to-0.5 ratio was actually used instead.
     assert round4 == pytest.approx(10.0 * 0.5, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
+# _extrapolate_dp_missing_season_from_market_decay: DynastyProcess's
+# values-picks.csv has no rows at all for a future draft class KTC/
+# FantasyCalc already price (confirmed real case: no 2029 rows as of this
+# fix, while KTC/FC both have 2029) - without DP in the blend, that
+# season's composite loses DP's (consistently lower) value entirely,
+# which inverted the natural year-over-year decay (2029 R1 mid priced
+# HIGHER than 2028's). This synthesizes DP's missing season from the real
+# KTC/FC year-over-year decay applied to DP's last known season, and must
+# stop the moment DP actually has real data for that season - checked
+# dynamically against the data itself, never a hardcoded year.
+# ---------------------------------------------------------------------------
+
+def test_extrapolates_missing_dp_season_from_real_market_decay():
+    dp_picks = {("2028", 1, "mid"): 1000.0}
+    ktc_picks = {("2028", 1, "mid"): 5000.0, ("2029", 1, "mid"): 4000.0}  # 0.80 decay
+    fc_picks = {("2028", 1, "mid"): 2000.0, ("2029", 1, "mid"): 1800.0}   # 0.90 decay
+
+    _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks)
+
+    # Averaged decay ratio (0.80 + 0.90) / 2 = 0.85, applied to DP's known 2028 value.
+    assert dp_picks[("2029", 1, "mid")] == pytest.approx(1000.0 * 0.85, abs=0.01)
+
+
+def test_extrapolation_never_increases_a_pick_above_its_prior_season():
+    """
+    A single noisy year-over-year market step (KTC/FC ratio > 1.0) must not
+    be allowed to make a future pick worth MORE than the current one - the
+    exact inversion this fix exists to prevent. The ratio is clamped to 1.0.
+    """
+    dp_picks = {("2028", 1, "late"): 1000.0}
+    ktc_picks = {("2028", 1, "late"): 4000.0, ("2029", 1, "late"): 4400.0}  # 1.10 - noisy uptick
+    fc_picks = {("2028", 1, "late"): 1600.0, ("2029", 1, "late"): 1600.0}   # 1.00
+
+    _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks)
+
+    assert dp_picks[("2029", 1, "late")] <= 1000.0, "a future pick must never be synthesized above its prior season's value"
+
+
+def test_real_dp_data_for_a_season_is_never_overridden_by_extrapolation():
+    """Once DynastyProcess has real data for a season, it wins outright - no synthesized value is written over it."""
+    dp_picks = {
+        ("2028", 1, "mid"): 1000.0,
+        ("2029", 1, "mid"): 9999.0,  # DP already published this - a deliberately implausible number to detect any override.
+    }
+    ktc_picks = {("2028", 1, "mid"): 5000.0, ("2029", 1, "mid"): 4000.0}
+    fc_picks = {("2028", 1, "mid"): 2000.0, ("2029", 1, "mid"): 1800.0}
+
+    _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks)
+
+    assert dp_picks[("2029", 1, "mid")] == 9999.0, "real DP data for a season must never be overwritten by the extrapolation"
+
+
+def test_no_prior_dp_season_leaves_the_gap_unfilled():
+    """Nothing to extrapolate FROM (DP has no season at all before the missing one) - must not fabricate a value from thin air."""
+    dp_picks = {}
+    ktc_picks = {("2028", 1, "mid"): 5000.0, ("2029", 1, "mid"): 4000.0}
+    fc_picks = {("2028", 1, "mid"): 2000.0, ("2029", 1, "mid"): 1800.0}
+
+    _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks)
+
+    assert ("2029", 1, "mid") not in dp_picks

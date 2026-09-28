@@ -13,7 +13,11 @@ import concurrent.futures
 
 import pytest
 
-from src.playoff_simulator import run_monte_carlo_simulation, run_historical_simulation_snapshot
+from src.playoff_simulator import (
+    run_monte_carlo_simulation,
+    run_historical_simulation_snapshot,
+    compute_historical_team_week_expectations,
+)
 
 NUM_TEAMS = 8
 NUM_SIMULATIONS = 300
@@ -374,3 +378,57 @@ def test_displayed_expected_pts_and_bench_depth_are_a_season_average_not_one_wee
         "power_score must be derived from the exact same expected_pts/bench_depth_pts "
         "shown in the table - recomputing it independently must match exactly."
     )
+
+
+# ---------------------------------------------------------------------------
+# compute_historical_team_week_expectations: regression test for the real
+# Liga do Inguinho incident - a player acquired via a week-3 trade must not
+# contribute to week 1/2's expected_pts, even though real per-player
+# projections only exist from today's active week onward (Sleeper doesn't
+# serve archived projections for weeks already played).
+# ---------------------------------------------------------------------------
+
+def test_historical_team_week_expectations_uses_that_weeks_own_roster():
+    players_db = {
+        "100": {"player_id": "100", "position": "RB", "full_name": "Stayed Player"},
+        "200": {"player_id": "200", "position": "RB", "full_name": "Acquired Player"},
+        "300": {"player_id": "300", "position": "RB", "full_name": "Given Up Player"},
+    }
+    roster_positions = ["RB", "BN"]
+    scoring_settings = {"rec": 1.0}
+
+    # Weeks 1-2: roster still holds the ORIGINAL player (300); week 3
+    # (today's active week, post-trade): has the ACQUIRED player (200).
+    rosters_by_week = {
+        1: [{"roster_id": 1, "players": ["100", "300"]}],
+        2: [{"roster_id": 1, "players": ["100", "300"]}],
+        3: [{"roster_id": 1, "players": ["100", "200"]}],
+    }
+
+    # Real per-player projections only exist for week 3 - same limitation
+    # the live pipeline already has for genuinely past weeks.
+    weekly_projections_by_week = {
+        3: {"100": {"pts_ppr": 40.0}, "200": {"pts_ppr": 90.0}, "300": {"pts_ppr": 20.0}},
+    }
+
+    result = compute_historical_team_week_expectations(
+        rosters_by_week=rosters_by_week,
+        players_db=players_db,
+        weekly_projections_by_week=weekly_projections_by_week,
+        scoring_settings=scoring_settings,
+        roster_positions=roster_positions,
+        current_week=3,
+    )
+
+    # Week 1/2: player 200 (acquired later) wasn't even on the roster, so
+    # its 90.0-pt projection must NOT count - only the best of the
+    # actually-owned pair (100 at 40.0) should feed the single RB slot.
+    for week in (1, 2):
+        assert result[1][week]["expected_pts"] == 40.0, (
+            f"week {week} expected_pts ({result[1][week]['expected_pts']}) must reflect only players "
+            "actually rostered that week (100/300 at 40.0/20.0), not the player acquired later in a trade"
+        )
+
+    # Week 3 (post-trade): the acquired player 200 IS legitimately on the
+    # roster now and should drive the optimal lineup.
+    assert result[1][3]["expected_pts"] == 90.0
