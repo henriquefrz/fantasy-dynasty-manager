@@ -17,6 +17,7 @@ from src.playoff_simulator import (
     run_monte_carlo_simulation,
     run_historical_simulation_snapshot,
     compute_historical_team_week_expectations,
+    compute_elimination_and_clinch_status,
 )
 
 NUM_TEAMS = 8
@@ -432,3 +433,92 @@ def test_historical_team_week_expectations_uses_that_weeks_own_roster():
     # Week 3 (post-trade): the acquired player 200 IS legitimately on the
     # roster now and should drive the optimal lineup.
     assert result[1][3]["expected_pts"] == 90.0
+
+
+# ---------------------------------------------------------------------------
+# compute_elimination_and_clinch_status: "Eliminated" must only fire on a
+# PROVEN mathematical elimination, never on a Monte Carlo simulation result
+# that merely rounds to 0% - confirmed real incident: several real 0-3
+# teams with 11+ regular-season weeks still remaining were shown as
+# "Eliminated" purely from simulation noise, while genuinely still able to
+# finish with 11+ wins. A 0%-but-not-proven team now falls to the
+# pre-existing, format-neutral "Long Shot (<=5%)" tier instead (renamed
+# from "Rebuild Locked (<=5%)", which implied building toward future
+# seasons - meaningless in a redraft league that resets every year).
+# ---------------------------------------------------------------------------
+
+def _make_synthetic_rosters(records):
+    """records: {roster_id: (wins, losses)}"""
+    return [
+        {"roster_id": rid, "settings": {"wins": w, "losses": l, "ties": 0, "fpts": 0, "fpts_decimal": 0}}
+        for rid, (w, l) in records.items()
+    ]
+
+
+def test_zero_percent_sim_result_is_not_treated_as_eliminated_with_many_weeks_left():
+    """
+    The real Liga do Inguinho/Dinastia dos Doentes/Dinastia do Pão de
+    Queijo scenario: a team far behind in a 12-team, 6-playoff-spot league
+    with many regular-season weeks still to play. Best case (win every
+    remaining game) is comfortably ahead of today's cutoff - nowhere near
+    mathematically eliminated - but the Monte Carlo simulation's
+    playoff_pct for a team this far behind can genuinely round to 0.0%.
+    """
+    records = {rid: (2, 2) for rid in range(1, 12)}
+    records[12] = (0, 4)  # the team in question - 4 games played, "Long Shot"'s own games-played gate
+    rosters = _make_synthetic_rosters(records)
+    sim_results = {rid: {"playoff_pct": 50.0} for rid in range(1, 12)}
+    sim_results[12] = {"playoff_pct": 0.0}
+
+    status = compute_elimination_and_clinch_status(
+        rosters=rosters, schedule={}, playoff_teams_count=6, playoff_week_start=15,
+        current_week=5, sim_results=sim_results,
+    )
+
+    team = status[12]
+    assert team["is_math_eliminated"] is False, "11 remaining weeks means real elimination is not yet possible"
+    assert team["status_label"] != "Eliminated", "a 0% SIMULATION result must never be displayed as a proven elimination"
+    assert team["status_label"] == "Long Shot (<=5%)"
+    assert team["status_code"] == "ELIMINATED", "status_code stays shared between the two labels - only the display text differs"
+
+
+def test_genuinely_mathematically_eliminated_team_still_shows_eliminated():
+    """Regression guard: a REAL elimination must still show the real 'Eliminated' label, unchanged by this fix."""
+    # 8-team league, 4 playoff spots, 1 regular-season week left. Team 8 has
+    # 0 wins with 1 game left (max possible = 1 win); 4 other teams already
+    # have 2+ wins locked in - team 8 cannot possibly catch enough of them.
+    records = {1: (5, 2), 2: (5, 2), 3: (4, 3), 4: (4, 3), 5: (3, 4), 6: (3, 4), 7: (2, 5), 8: (0, 6)}
+    rosters = _make_synthetic_rosters(records)
+    sim_results = {rid: {"playoff_pct": 0.0 if rid == 8 else 60.0} for rid in records}
+
+    status = compute_elimination_and_clinch_status(
+        rosters=rosters, schedule={}, playoff_teams_count=4, playoff_week_start=8,
+        current_week=7, sim_results=sim_results,
+    )
+
+    team8 = status[8]
+    assert team8["is_math_eliminated"] is True
+    assert team8["status_label"] == "Eliminated"
+    assert team8["status_code"] == "ELIMINATED"
+
+
+def test_low_sim_odds_after_enough_games_played_lands_on_long_shot():
+    """
+    Direct pin for the renamed label: a team with <=5% simulated odds that
+    is NOT mathematically eliminated (and has played enough games for the
+    tier's own games-played gate) must show "Long Shot (<=5%)", not the
+    old dynasty-flavored "Rebuild Locked (<=5%)" text.
+    """
+    records = {rid: (2, 2) for rid in range(1, 8)}
+    records[8] = (0, 4)
+    rosters = _make_synthetic_rosters(records)
+    sim_results = {rid: {"playoff_pct": 50.0} for rid in range(1, 8)}
+    sim_results[8] = {"playoff_pct": 3.0}
+
+    status = compute_elimination_and_clinch_status(
+        rosters=rosters, schedule={}, playoff_teams_count=4, playoff_week_start=15,
+        current_week=5, sim_results=sim_results,
+    )
+
+    assert status[8]["status_label"] == "Long Shot (<=5%)"
+    assert "Rebuild" not in status[8]["status_label"], "the old dynasty-flavored label text must be fully gone"

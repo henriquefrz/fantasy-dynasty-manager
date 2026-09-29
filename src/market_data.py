@@ -49,7 +49,15 @@ VALUATION_MODES = {
 
 CSV_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache_data", "market_csvs")
 
-KTC_CACHE_TTL_SECONDS = 24 * 60 * 60
+# Was 24h - too long relative to the scraper's own 3x/week cadence (Tue/
+# Thu/Sat): a user hitting the app right after a fresh scrape landed on
+# GitHub could still see a payload cached from just before it, stale for
+# up to a full day even though the source data was already current. 6h
+# bounds that worst case to within a business day without re-fetching
+# KTC/FantasyPros often enough to risk rate-limiting or getting blocked -
+# still far below the 3x/week scrape frequency itself, which nothing
+# short of a webhook-driven cache-bust would shrink further.
+KTC_CACHE_TTL_SECONDS = 6 * 60 * 60
 
 # KTC natively tiers TE market value by TE Premium bonus: "tep" matches a
 # league-wide +0.5 PPR bonus for TEs, "tepp" matches a +1.0 PPR bonus. Any
@@ -64,6 +72,30 @@ def _ktc_tep_tier_key(bonus_rec_te):
     if bonus_rec_te == 1.0:
         return "tepp"
     return None
+
+
+def clear_disk_cache():
+    """
+    Deletes every file under CSV_CACHE_DIR (KTC/KTC-fantasy-rankings/
+    FantasyPros-ROS JSON payloads, each with their own TTL - see
+    KTC_CACHE_TTL_SECONDS/FP_ROS_CACHE_TTL_SECONDS). The app's "Reload
+    Market Cache" button used to only call st.cache_data.clear(), which
+    never touched these - a user could click it expecting fresh data and
+    still get whatever was on disk from up to a full TTL window earlier,
+    completely independent of the in-memory cache being cleared. Returns
+    the number of files removed.
+    """
+    removed = 0
+    if os.path.isdir(CSV_CACHE_DIR):
+        for filename in os.listdir(CSV_CACHE_DIR):
+            file_path = os.path.join(CSV_CACHE_DIR, filename)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                    removed += 1
+            except Exception as e:
+                print(f"Warning: Failed to remove cached file {file_path}: {e}")
+    return removed
 
 
 def _download_csv(url):
@@ -97,9 +129,9 @@ def get_fp_rankings_raw():
     return _download_csv(FPECR_URL)
 
 
-# Scraped only 3x/week (see .github/workflows/scrape-fantasypros-ros.yml),
-# so a full day of staleness is acceptable - same cadence as KTC_CACHE_TTL_SECONDS.
-FP_ROS_CACHE_TTL_SECONDS = 24 * 60 * 60
+# Was 24h - see KTC_CACHE_TTL_SECONDS for why that was too long relative to
+# the scraper's own 3x/week (Tue/Thu/Sat) cadence.
+FP_ROS_CACHE_TTL_SECONDS = 6 * 60 * 60
 
 
 def _fetch_fp_ros_payload():

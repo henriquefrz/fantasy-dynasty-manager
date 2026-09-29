@@ -125,6 +125,7 @@ from src.market_data import (
     get_market_data_freshness,
     compute_ktc_official_adjustment,
     compute_composite_value,
+    clear_disk_cache,
     VALUATION_MODES,
 )
 
@@ -2144,9 +2145,9 @@ def render_terms_glossary_html():
         entry("#34d399", "🌱", "Uphill Battle / Rebuilding", "Struggling scoring pace - needs aggressive lineup or roster moves to turn the season around."),
     ])
     playoff_entries = "".join([
-        entry("#f43f5e", "❌", "Eliminated", "Mathematically cannot make the playoffs, or the simulation gives 0% odds this deep into the season."),
+        entry("#f43f5e", "❌", "Eliminated", "Mathematically cannot make the playoffs anymore - proven, not just simulated."),
         entry("#10b981", "🏆", "Clinched Playoff", "Mathematically locked into a playoff spot, or the simulation gives 99.5%+ odds this deep into the season."),
-        entry("#fb7185", "🔒", "Rebuild Locked (&lt;=5%)", "Not mathematically eliminated yet, but the simulation gives 5% or less odds of making the playoffs - focus on next season."),
+        entry("#fb7185", "🔒", "Long Shot (&lt;=5%)", "Not mathematically eliminated yet, but the simulation gives 5% or less odds of making the playoffs."),
         entry("#f59e0b", "⚠️", "Danger Zone", "Simulated playoff odds of 15% or less - still alive, but needs help to get in."),
         entry("#06b6d4", "⭐", "Playoff Track", "Simulated playoff odds of 70% or higher - the favorite to make the postseason."),
         entry("#3b82f6", "🎯", "In The Hunt", "Simulated playoff odds between 15% and 70% - a real chance either way."),
@@ -2549,9 +2550,16 @@ def render_start_sit_card_html(swap):
 # -----------------------------------------------------------------------------
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
-@st.cache_data(ttl=86400, show_spinner=False)
+@st.cache_data(ttl=21600, show_spinner=False)
 def fetch_market_database(_cache_version="v28_market_rank_divergence"):
-    """Fetches all foundational market datasets and raw API feeds once per 24 hours."""
+    """
+    Fetches all foundational market datasets and raw API feeds once per 6
+    hours - was 24h, which meant a user hitting the app right after the
+    scraper's own 3x/week run landed on GitHub could still see a payload
+    cached from just before it, stale for up to a full day even though
+    the source data was already current. See KTC_CACHE_TTL_SECONDS for the
+    matching change to the underlying disk-cached sources this wraps.
+    """
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
     fp_ros_rankings = get_fp_ros_rankings_raw()
@@ -3621,6 +3629,7 @@ with st.container(key="topbar_nav_container"):
             st.markdown("---")
             if st.button("Reload Market Cache", key="btn_reload_market_cache", use_container_width=True):
                 st.cache_data.clear()
+                clear_disk_cache()
                 st.rerun()
 
     with top_col_user:

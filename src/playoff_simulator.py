@@ -164,7 +164,18 @@ def compute_elimination_and_clinch_status(
     - CONTENDER: Playoff Odds >= 70% (⭐)
     - HUNT: 15% < Playoff Odds < 70% (🎯)
     - DANGER: 5% < Playoff Odds <= 15% (⚠️)
-    - ELIMINATED: Mathematically eliminated or Playoff Odds <= 5% (❌)
+    - ELIMINATED: code "ELIMINATED", two distinct labels sharing it -
+      "Eliminated" (❌) only when mathematically proven (is_math_eliminated);
+      "Long Shot (<=5%)" (🔒) when the simulation alone says Playoff Odds
+      <= 5% but real elimination isn't provable yet (a probabilistic
+      Monte Carlo result of 0% is not the same as a proven mathematical
+      impossibility - see the real Week 3/4 incident this distinction
+      fixes, where several 0-3 teams with 11+ regular-season weeks still
+      left were shown as "Eliminated" from sim noise alone). The label is
+      deliberately format-neutral (works the same in dynasty and redraft
+      leagues) rather than "Rebuild Locked", which implied building
+      toward future seasons - meaningless in a redraft league that resets
+      every year.
     """
     roster_ids = [r["roster_id"] for r in rosters]
     end_regular_season = playoff_week_start - 1
@@ -238,7 +249,7 @@ def compute_elimination_and_clinch_status(
         # Monte Carlo probability cross-check
         sim_p_pct = sim_results.get(rid, {}).get("playoff_pct", None) if sim_results else None
 
-        if is_math_eliminated or (sim_p_pct is not None and sim_p_pct == 0.0 and current_week >= 4):
+        if is_math_eliminated:
             code = "ELIMINATED"
             label = "Eliminated"
             badge_icon = "❌"
@@ -254,7 +265,7 @@ def compute_elimination_and_clinch_status(
             is_clinch = True
         elif sim_p_pct is not None and sim_p_pct <= 5.0 and (cur_w + cur_l) >= 4:
             code = "ELIMINATED"
-            label = "Rebuild Locked (<=5%)"
+            label = "Long Shot (<=5%)"
             badge_icon = "🔒"
             badge_color = "#fb7185"
             is_elim = True
