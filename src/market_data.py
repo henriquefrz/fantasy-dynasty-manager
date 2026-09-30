@@ -223,16 +223,52 @@ def get_fantasycalc_data_raw(is_dynasty=True, is_superflex=True):
     Fetches current market values from FantasyCalc based on thousands of actual
     completed trades across Sleeper and MFL fantasy leagues.
     Supports both Dynasty and Redraft, in Superflex or 1QB.
+
+    Reused from disk cache in .cache_data/market_csvs/ when younger than
+    KTC_CACHE_TTL_SECONDS (6h) - same pattern and TTL as get_ktc_data_raw,
+    for consistency across the sources fetch_market_database blends. This
+    used to have no caching at all, so every fetch_market_database
+    recompute paid FantasyCalc's live-fetch cost (~1s per call, 2 calls)
+    unconditionally, regardless of how long the outer TTL was set to -
+    confirmed the dominant reason a "warm" recompute was never actually
+    near-instant.
     """
     num_qbs = 2 if is_superflex else 1
     dynasty_str = "true" if is_dynasty else "false"
+    cache_path = os.path.join(CSV_CACHE_DIR, f"fantasycalc_data_raw_{'dynasty' if is_dynasty else 'redraft'}_{'sf' if is_superflex else '1qb'}.json")
+
+    if os.path.exists(cache_path):
+        cache_age = time.time() - os.path.getmtime(cache_path)
+        if cache_age < KTC_CACHE_TTL_SECONDS:
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print(f"Info: Using cached FantasyCalc data ({'Dynasty' if is_dynasty else 'Redraft'}, {'SF' if is_superflex else '1QB'}, age {cache_age / 3600:.1f}h)")
+                    return json.load(f)
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached FantasyCalc data {cache_path}: {cache_err}")
+
     url = f"https://api.fantasycalc.com/values/current?isDynasty={dynasty_str}&numQbs={num_qbs}"
     try:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if data:
+            try:
+                os.makedirs(CSV_CACHE_DIR, exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+            except Exception:
+                pass
+        return data
     except Exception as e:
         print(f"Warning: Failed to fetch FantasyCalc data: {e}")
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    print("Info: Loaded cached backup for FantasyCalc data")
+                    return json.load(f)
+            except Exception as cache_err:
+                print(f"Warning: Failed to read cached FantasyCalc data {cache_path}: {cache_err}")
         return []
 
 

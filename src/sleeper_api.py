@@ -672,10 +672,30 @@ def get_league_schedule(league_id: str, start_week: int = 1, end_week: int = 18,
     long, "this can never change again" cache TTL instead of being
     re-fetched from Sleeper every few minutes like the still-live current
     week - see get_league_matchups for the full rationale.
+
+    Fetches every week concurrently (same ThreadPoolExecutor pattern as
+    get_weekly_projections_by_week) instead of one sequential HTTP round
+    trip per week - confirmed via real timing that the default 1-18 range
+    cost 1-5s sequentially on a cold cache (18 calls back to back) versus
+    a fraction of a second once parallelized, since each week is an
+    independent request against a different get_league_matchups cache key
+    (thread-safe: distinct dict keys, no shared mutation to race on).
     """
+    import concurrent.futures
+
+    weeks = list(range(start_week, end_week + 1))
+    if not weeks:
+        return {}
+
+    def _fetch(w):
+        return w, get_league_matchups(league_id, w, current_week=current_week)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(weeks))) as executor:
+        matchups_by_week = dict(executor.map(_fetch, weeks))
+
     schedule = {}
-    for w in range(start_week, end_week + 1):
-        matchups_data = get_league_matchups(league_id, w, current_week=current_week)
+    for w in weeks:
+        matchups_data = matchups_by_week.get(w)
         if not matchups_data:
             continue
         by_matchup_id = {}
