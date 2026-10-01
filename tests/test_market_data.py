@@ -581,3 +581,151 @@ def test_no_prior_dp_season_leaves_the_gap_unfilled():
     _extrapolate_dp_missing_season_from_market_decay(dp_picks, ktc_picks, fc_picks)
 
     assert ("2029", 1, "mid") not in dp_picks
+
+
+# ---------------------------------------------------------------------------
+# _build_dst_lookup: DST used to always get rank_ecr_overall hardcoded to
+# 999.0, even though the scraper already writes a real "redraft-overall"
+# row for every DST team (the same cross-positional rank skill players
+# get) - confirmed real case: Houston Texans DST has a genuine
+# "redraft-overall" row sitting unused. This made every DST sort to the
+# bottom of any Overall-Rank view and show "—" there.
+# ---------------------------------------------------------------------------
+
+def test_build_dst_lookup_reads_the_real_overall_rank_row():
+    rows = [
+        {"id": "8120", "ecr": "152", "player": "Houston Texans", "pos": "DST", "team": "HOU", "page_type": "redraft-overall"},
+        {"id": "8120", "ecr": "152", "player": "Houston Texans", "pos": "DST", "team": "HOU", "page_type": "redraft-dst"},
+    ]
+
+    lookup = market_data._build_dst_lookup(rows, "redraft")
+
+    assert lookup["HOU"]["rank_ecr_overall"] == 152.0, "a real redraft-overall row exists for this DST and must be used, not the old 999.0 hardcode"
+    assert lookup["HOU"]["rank_ecr_pos"] == 152.0
+
+
+def test_build_dst_lookup_falls_back_to_sentinel_when_overall_row_is_genuinely_missing():
+    """If a future scraper change ever omits the overall row for DST, this must degrade gracefully, not crash."""
+    rows = [
+        {"id": "8120", "ecr": "152", "player": "Houston Texans", "pos": "DST", "team": "HOU", "page_type": "redraft-dst"},
+    ]
+
+    lookup = market_data._build_dst_lookup(rows, "redraft")
+
+    assert lookup["HOU"]["rank_ecr_overall"] == 999.0
+    assert lookup["HOU"]["rank_ecr_pos"] == 152.0
+
+
+# ---------------------------------------------------------------------------
+# compute_custom_redraft_lookup: a league's real rec setting must pick the
+# matching FantasyPros ROS source page (PPR vs Half-PPR) - confirmed real,
+# material mismatch before this fix: every league was valued off the
+# Full-PPR page regardless of its actual scoring (e.g. Liga do Inguinho
+# and Samonte Dynasty, both rec=0.5, were valued off Full-PPR ranks).
+# Uses DST entries (keyed by team, no player_ids crosswalk needed) to keep
+# the synthetic market_db minimal.
+# ---------------------------------------------------------------------------
+
+def _dst_row(team, ecr, page_type):
+    return {"id": "8120", "ecr": str(ecr), "player": f"{team} Defense", "pos": "DST", "team": team, "page_type": page_type}
+
+
+def _skill_row(ecr, page_type, fp_id="123", pos="RB"):
+    return {"id": fp_id, "ecr": str(ecr), "player": "Test Player", "pos": pos, "team": "HOU", "page_type": page_type}
+
+
+def _make_half_ppr_test_market_db():
+    # DST rows: distinguish the two sources for the baseline-shortcut tests,
+    # which return market_db["redraft_lookup"/"_half_ppr"] untouched (no
+    # enrich_lookup_with_redraft_values call), so DST's raw rank_ecr survives.
+    ppr_dst_rows = [_dst_row("HOU", 50, "redraft-overall"), _dst_row("HOU", 50, "redraft-dst")]
+    half_ppr_dst_rows = [_dst_row("HOU", 90, "redraft-overall"), _dst_row("HOU", 90, "redraft-dst")]
+
+    # Skill-position (RB) rows: for the recompute-path tests, which DO call
+    # enrich_lookup_with_redraft_values - that overwrites DST's rank_ecr via
+    # its own K/DST-specific blending branch, but leaves a skill player's
+    # raw fp_ecr_pos/fp_ecr_overall (set once, untouched after) as the
+    # reliable signal of which source page was actually used.
+    #
+    # _build_player_lookup re-ranks players by sorting ecr within the pool
+    # (rank_ecr_pos ends up as an ordinal 1, 2, 3..., not the raw ecr score),
+    # so a single-player pool can't distinguish sources - a decoy player with
+    # a FIXED ecr=70 (between the test player's 50 PPR / 90 Half-PPR) flips
+    # which of the two ranks #1 depending on which source is active.
+    player_ids = [
+        {"sleeper_id": "9999", "fantasypros_id": "123"},
+        {"sleeper_id": "8888", "fantasypros_id": "456"},
+    ]
+    decoy_ppr = [_skill_row(70, "redraft-overall", fp_id="456"), _skill_row(70, "redraft-rb", fp_id="456")]
+    ppr_skill_rows = [_skill_row(50, "redraft-overall"), _skill_row(50, "redraft-rb")] + decoy_ppr
+    half_ppr_skill_rows = [_skill_row(90, "redraft-overall"), _skill_row(90, "redraft-rb")] + decoy_ppr
+
+    ppr_rows = ppr_dst_rows + ppr_skill_rows
+    half_ppr_rows = half_ppr_dst_rows + half_ppr_skill_rows
+
+    redraft_lookup = market_data.build_positional_lookup(ppr_rows, player_ids, "redraft", is_superflex=False)
+    redraft_lookup_half_ppr = market_data.build_positional_lookup(half_ppr_rows, player_ids, "redraft", is_superflex=False)
+
+    return {
+        "redraft_lookup": redraft_lookup,
+        "redraft_lookup_half_ppr": redraft_lookup_half_ppr,
+        "fp_ros_rankings": ppr_rows,
+        "fp_ros_half_ppr_rankings": half_ppr_rows,
+        "player_ids": player_ids,
+        "ktc_redraft_sf": [],
+        "ktc_redraft_1qb": [],
+        "ros_projections_raw": {},
+    }
+
+
+def test_standard_baseline_shortcut_picks_half_ppr_lookup_for_rec_half():
+    market_db = _make_half_ppr_test_market_db()
+    scoring_tuple = tuple(sorted({"rec": 0.5}.items()))
+
+    result = market_data.compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex=False)
+
+    assert result is market_db["redraft_lookup_half_ppr"], "rec=0.5 must shortcut straight to the precomputed Half-PPR baseline lookup"
+    assert result["HOU"]["rank_ecr"] == 90.0
+
+
+def test_standard_baseline_shortcut_picks_ppr_lookup_for_rec_one():
+    market_db = _make_half_ppr_test_market_db()
+    scoring_tuple = tuple(sorted({"rec": 1.0}.items()))
+
+    result = market_data.compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex=False)
+
+    assert result is market_db["redraft_lookup"], "rec=1.0 must shortcut straight to the precomputed Full-PPR baseline lookup"
+    assert result["HOU"]["rank_ecr"] == 50.0
+
+
+def test_recompute_path_still_picks_half_ppr_source_for_a_custom_half_ppr_league():
+    """A league with rec=0.5 but some other non-default setting (here a TE Premium bonus) takes the recompute path - it must still use the Half-PPR source, not just the shortcut."""
+    market_db = _make_half_ppr_test_market_db()
+    scoring_tuple = tuple(sorted({"rec": 0.5, "bonus_rec_te": 0.5}.items()))
+
+    result = market_data.compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex=False)
+
+    assert result is not market_db["redraft_lookup_half_ppr"], "a non-default TEP setting must not hit the exact-baseline shortcut"
+    # Half-PPR source: test player's ecr=90 ranks WORSE than the decoy's fixed ecr=70 -> position rank #2.
+    assert result["9999"]["fp_ecr_pos"] == 2.0, "the recompute path must still select the Half-PPR source for a sub-0.75 rec league"
+
+
+def test_recompute_path_still_picks_ppr_source_for_a_custom_full_ppr_league():
+    market_db = _make_half_ppr_test_market_db()
+    scoring_tuple = tuple(sorted({"rec": 1.0, "bonus_rec_te": 0.5}.items()))
+
+    result = market_data.compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex=False)
+
+    assert result is not market_db["redraft_lookup"]
+    # Full-PPR source: test player's ecr=50 ranks BETTER than the decoy's fixed ecr=70 -> position rank #1.
+    assert result["9999"]["fp_ecr_pos"] == 1.0, "the recompute path must still select the Full-PPR source for a rec>=0.75 league"
+
+
+def test_quarter_ppr_buckets_to_half_ppr_source():
+    """rec=0.25 (Quarter-PPR) has no dedicated FantasyPros page - the documented bucket rule uses Half-PPR as the closer of the two available sources."""
+    market_db = _make_half_ppr_test_market_db()
+    scoring_tuple = tuple(sorted({"rec": 0.25}.items()))
+
+    result = market_data.compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex=False)
+
+    assert result["9999"]["fp_ecr_pos"] == 2.0, "rec=0.25 must bucket to the Half-PPR source, same as true Half-PPR"

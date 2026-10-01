@@ -107,6 +107,7 @@ from src.market_data import (
     get_fp_rankings_raw,
     get_fp_ros_rankings_raw,
     get_fp_ros_rankings_scraped_at,
+    get_fp_ros_half_ppr_rankings_raw,
     get_player_ids_raw,
     build_positional_lookup,
     get_values_players_raw,
@@ -2551,7 +2552,7 @@ def render_start_sit_card_html(swap):
 # Cached Data Fetching
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=21600, show_spinner=False)
-def fetch_market_database(_cache_version="v28_market_rank_divergence"):
+def fetch_market_database(_cache_version="v29_half_ppr_redraft_pillar"):
     """
     Fetches all foundational market datasets and raw API feeds once per 6
     hours - was 24h, which meant a user hitting the app right after the
@@ -2563,6 +2564,7 @@ def fetch_market_database(_cache_version="v28_market_rank_divergence"):
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
     fp_ros_rankings = get_fp_ros_rankings_raw()
+    fp_ros_half_ppr_rankings = get_fp_ros_half_ppr_rankings_raw()
     player_ids = get_player_ids_raw()
     values_players = get_values_players_raw()
     values_picks = get_values_picks_raw()
@@ -2606,6 +2608,20 @@ def fetch_market_database(_cache_version="v28_market_rank_divergence"):
         end_week=17,
     )
 
+    # Half-PPR mirror of base_redraft, same pipeline - picked by
+    # build_league_context per-league based on scoring_settings.rec
+    # instead of every league being valued off the Full-PPR page
+    # regardless of its real scoring (see FP_ROS_HALF_PPR_URL).
+    base_redraft_half_ppr = build_positional_lookup(fp_ros_half_ppr_rankings, player_ids, "redraft", is_superflex=False)
+    enrich_lookup_with_redraft_values(
+        base_redraft_half_ppr,
+        ktc_fantasy_raw=ktc_redraft_1qb,
+        projections_raw=ros_projections_raw,
+        player_ids_raw=player_ids,
+        start_week=week,
+        end_week=17,
+    )
+
     # Raw pick bundles for instant mode switching
     picks_bundle_sf = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_sf, fc_raw=fc_sf, is_superflex=True)
     picks_bundle_1qb = build_picks_sources_bundle(values_picks, values_players, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
@@ -2622,6 +2638,7 @@ def fetch_market_database(_cache_version="v28_market_rank_divergence"):
         "player_ids": player_ids,
         "fp_rankings": fp_rankings,
         "fp_ros_rankings": fp_ros_rankings,
+        "fp_ros_half_ppr_rankings": fp_ros_half_ppr_rankings,
         "values_players": values_players,
         "values_picks": values_picks,
         "ktc_sf": ktc_sf,
@@ -2635,6 +2652,7 @@ def fetch_market_database(_cache_version="v28_market_rank_divergence"):
         "dynasty_sf_lookup": base_dynasty_sf,
         "dynasty_1qb_lookup": base_dynasty_1qb,
         "redraft_lookup": base_redraft,
+        "redraft_lookup_half_ppr": base_redraft_half_ppr,
         "picks_bundle_sf": picks_bundle_sf,
         "picks_bundle_1qb": picks_bundle_1qb,
         "freshness": freshness_info,
@@ -2715,7 +2733,7 @@ def build_dynasty_value_series(pid, is_superflex, mode):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1, _cache_version: str = "v27_fp_ros_scraper"):
+def get_league_custom_redraft_lookup(_market_db, scoring_tuple: tuple, is_superflex: bool, week: int = 1, _cache_version: str = "v28_half_ppr_pillar"):
     """
     Cached wrapper around src.market_data.compute_custom_redraft_lookup (the
     same league-exact-scoring redraft valuation now shared by main.py and

@@ -22,6 +22,14 @@ VALUES_PICKS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master
 # "dynasty-*" rows still come exclusively from FPECR_URL/DynastyProcess.
 FP_ROS_PPR_URL = "https://raw.githubusercontent.com/henriquefrz/fantasy-dynasty-manager/main/data/fp_ros_ppr_latest.json"
 
+# Same scraper, Half-PPR variant of the same page - lets a league scored
+# at rec=0.5 (e.g. Liga do Inguinho, Samonte Dynasty) value its redraft/ROS
+# FantasyPros ECR pillar off real Half-PPR ranks instead of always being
+# valued off the Full-PPR page regardless of its actual scoring (confirmed
+# real, material mismatch: Kyren Williams ranked PPR #38 vs Half-PPR #16
+# the same week). See fetch_market_database's redraft_lookup_half_ppr.
+FP_ROS_HALF_PPR_URL = "https://raw.githubusercontent.com/henriquefrz/fantasy-dynasty-manager/main/data/fp_ros_half_ppr_latest.json"
+
 POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
 TEAM_ABBR_ALIASES = {
@@ -134,35 +142,38 @@ def get_fp_rankings_raw():
 FP_ROS_CACHE_TTL_SECONDS = 6 * 60 * 60
 
 
-def _fetch_fp_ros_payload():
+def _fetch_fp_ros_payload(url=FP_ROS_PPR_URL, cache_filename="fp_ros_ppr_latest.json", label="FantasyPros ROS rankings"):
     """
-    Fetches our own scraped FantasyPros Rest-of-Season PPR rankings payload
-    ({"scraped_at": "<ISO UTC timestamp>", "rows": [...]} - see
-    scripts/scrape_fantasypros_ros.py and FP_ROS_PPR_URL) from this repo's
-    own GitHub raw content, published by the scheduled scraper workflow.
+    Fetches one of our own scraped FantasyPros Rest-of-Season rankings
+    payloads ({"scraped_at": "<ISO UTC timestamp>", "rows": [...]} - see
+    scripts/scrape_fantasypros_ros.py) from this repo's own GitHub raw
+    content, published by the scheduled scraper workflow. Shared by both
+    the PPR (FP_ROS_PPR_URL, the default) and Half-PPR (FP_ROS_HALF_PPR_URL)
+    variants - same shape, different source page.
     Reused from disk cache in .cache_data/market_csvs/ when younger than
     FP_ROS_CACHE_TTL_SECONDS; falls back to a stale cached copy on fetch
     failure, same resilience pattern as the other raw fetchers in this module.
 
-    Internal - callers want either get_fp_ros_rankings_raw() (the "rows"
-    list, for build_positional_lookup) or get_fp_ros_rankings_scraped_at()
-    (the timestamp, for freshness checks) - both share this same fetch/cache
-    so the payload is only ever downloaded once per TTL window.
+    Internal - callers want get_fp_ros_rankings_raw()/
+    get_fp_ros_half_ppr_rankings_raw() (the "rows" list, for
+    build_positional_lookup) or get_fp_ros_rankings_scraped_at() (the
+    timestamp, for freshness checks) - each pair shares its own
+    fetch/cache so the payload is only ever downloaded once per TTL window.
     """
-    cache_path = os.path.join(CSV_CACHE_DIR, "fp_ros_ppr_latest.json")
+    cache_path = os.path.join(CSV_CACHE_DIR, cache_filename)
 
     if os.path.exists(cache_path):
         cache_age = time.time() - os.path.getmtime(cache_path)
         if cache_age < FP_ROS_CACHE_TTL_SECONDS:
             try:
                 with open(cache_path, "r", encoding="utf-8") as f:
-                    print(f"Info: Using cached FantasyPros ROS rankings (age {cache_age / 3600:.1f}h)")
+                    print(f"Info: Using cached {label} (age {cache_age / 3600:.1f}h)")
                     return json.load(f)
             except Exception as cache_err:
-                print(f"Warning: Failed to read cached FantasyPros ROS rankings {cache_path}: {cache_err}")
+                print(f"Warning: Failed to read cached {label} {cache_path}: {cache_err}")
 
     try:
-        response = requests.get(FP_ROS_PPR_URL, timeout=15)
+        response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
         if data and data.get("rows"):
@@ -174,14 +185,14 @@ def _fetch_fp_ros_payload():
                 pass
         return data
     except Exception as e:
-        print(f"Warning: Failed to fetch FantasyPros ROS rankings: {e}")
+        print(f"Warning: Failed to fetch {label}: {e}")
         if os.path.exists(cache_path):
             try:
                 with open(cache_path, "r", encoding="utf-8") as f:
-                    print("Info: Loaded cached backup for FantasyPros ROS rankings")
+                    print(f"Info: Loaded cached backup for {label}")
                     return json.load(f)
             except Exception as cache_err:
-                print(f"Warning: Failed to read cached FantasyPros ROS rankings {cache_path}: {cache_err}")
+                print(f"Warning: Failed to read cached {label} {cache_path}: {cache_err}")
         return {"scraped_at": None, "rows": []}
 
 
@@ -189,7 +200,7 @@ def get_fp_ros_rankings_raw():
     """
     Returns the "redraft-*" page_type rows list (the part
     build_positional_lookup actually consumes) from the scraped FantasyPros
-    ROS payload. See get_fp_ros_rankings_scraped_at() for the payload's
+    ROS PPR payload. See get_fp_ros_rankings_scraped_at() for the payload's
     timestamp, used by get_market_data_freshness to detect a stale file.
     """
     return _fetch_fp_ros_payload().get("rows") or []
@@ -197,13 +208,33 @@ def get_fp_ros_rankings_raw():
 
 def get_fp_ros_rankings_scraped_at():
     """
-    Returns the ISO UTC timestamp string the scraped FantasyPros ROS payload
-    was generated at, or None if unavailable (fetch failed with no cache,
-    or an old-format cached file predates this field). Used by
+    Returns the ISO UTC timestamp string the scraped FantasyPros ROS PPR
+    payload was generated at, or None if unavailable (fetch failed with no
+    cache, or an old-format cached file predates this field). Used by
     get_market_data_freshness to flag the source as stale even when the
     fetch itself succeeds but the underlying scrape hasn't run in days.
     """
     return _fetch_fp_ros_payload().get("scraped_at")
+
+
+def get_fp_ros_half_ppr_rankings_raw():
+    """
+    Half-PPR mirror of get_fp_ros_rankings_raw() - same "redraft-*" row
+    shape, sourced from the scraper's Half-PPR page instead of PPR. See
+    FP_ROS_HALF_PPR_URL for why this exists: a league scored at rec=0.5
+    needs its own real Half-PPR ECR, not the PPR page reused regardless of
+    the league's actual scoring.
+    """
+    return _fetch_fp_ros_payload(
+        url=FP_ROS_HALF_PPR_URL, cache_filename="fp_ros_half_ppr_latest.json", label="FantasyPros ROS Half-PPR rankings",
+    ).get("rows") or []
+
+
+def get_fp_ros_half_ppr_rankings_scraped_at():
+    """Half-PPR mirror of get_fp_ros_rankings_scraped_at() - see that function."""
+    return _fetch_fp_ros_payload(
+        url=FP_ROS_HALF_PPR_URL, cache_filename="fp_ros_half_ppr_latest.json", label="FantasyPros ROS Half-PPR rankings",
+    ).get("scraped_at")
 
 
 def get_player_ids_raw():
@@ -459,7 +490,36 @@ def _build_player_lookup(fp_rankings_raw, player_ids_raw, ranking_prefix, is_sup
 
 
 def _build_dst_lookup(fp_rankings_raw, ranking_prefix):
+    """
+    Builds the DST (team defense) lookup from "{prefix}-dst" rows (each
+    team's positional ECR) and, unlike before, also reads "{prefix}-overall"
+    rows for DST (the SAME cross-positional overall rank the scraper
+    already writes for every position, including DST - see
+    scrape_fantasypros_ros.py's build_redraft_rows) to set a real
+    rank_ecr_overall instead of hardcoding 999.0.
+
+    That hardcode used to make every DST sort to the absolute bottom of
+    any Overall-Rank-sorted view and show "—" there, even though the
+    source page always had a perfectly real overall rank sitting right
+    next to the positional one it already used (confirmed real case:
+    Houston Texans DST has ecr=152 in both its "redraft-overall" and
+    "redraft-dst" rows - only the first was ever being read).
+    """
     dst_page_type = f"{ranking_prefix}-dst"
+    overall_page_type = f"{ranking_prefix}-overall"
+
+    overall_ecr_by_team = {}
+    for row in fp_rankings_raw:
+        if row.get("page_type") != overall_page_type or row.get("pos") != "DST":
+            continue
+        team = row.get("team")
+        if not team:
+            continue
+        team = TEAM_ABBR_ALIASES.get(team, team)
+        try:
+            overall_ecr_by_team[team] = float(row["ecr"])
+        except (ValueError, TypeError):
+            continue
 
     lookup = {}
 
@@ -482,7 +542,7 @@ def _build_dst_lookup(fp_rankings_raw, ranking_prefix):
         lookup[team] = {
             "rank_ecr": rank_ecr,
             "rank_ecr_pos": rank_ecr,
-            "rank_ecr_overall": 999.0,
+            "rank_ecr_overall": overall_ecr_by_team.get(team, 999.0),
             "player_name": row["player"],
             "position": row["pos"],
         }
@@ -1809,8 +1869,19 @@ def compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex, week=1
     """
     Computes a redraft/ROS valuation lookup customized for a league's exact
     scoring settings (PPR, TE Premium, pass TD weight) and superflex format,
-    falling back directly to market_db["redraft_lookup"] when the league's
-    settings match the standard 0.5 Half-PPR / no-TEP baseline exactly.
+    falling back directly to market_db["redraft_lookup"]/
+    ["redraft_lookup_half_ppr"] when the league's settings match one of the
+    two standard (Full PPR or Half-PPR), no-TEP baselines exactly.
+
+    PPR/Half-PPR source bucketing: FantasyPros only publishes Full-PPR and
+    Half-PPR ROS pages (confirmed live - no Quarter-PPR/Standard variant
+    exists at this URL), so rec >= 0.75 uses the Full-PPR page and anything
+    below that (true Half-PPR's 0.5, Standard's 0.0, Quarter-PPR's 0.25,
+    ...) uses the Half-PPR page as the closer of the two available sources.
+    Before this, every league was valued off the Full-PPR page regardless
+    of its real rec setting - confirmed material for Half-PPR leagues (e.g.
+    Liga do Inguinho, Samonte Dynasty): a volume rusher with few catches
+    like Kyren Williams ranked PPR #38 vs Half-PPR #16 the same week.
 
     Framework-agnostic core of app.py's get_league_custom_redraft_lookup
     (which wraps this in @st.cache_data) - extracted so
@@ -1831,8 +1902,10 @@ def compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex, week=1
     pass_int = scoring_dict.get("pass_int", -2.0)
     fum_lost = scoring_dict.get("fum_lost", -2.0)
 
+    use_half_ppr_source = rec < 0.75
+
     is_standard_baseline = (
-        rec == 0.5
+        rec in (0.5, 1.0)
         and tep == 0.0
         and pass_td == 4.0
         and pass_yd == 0.04
@@ -1845,10 +1918,10 @@ def compute_custom_redraft_lookup(market_db, scoring_tuple, is_superflex, week=1
         and not is_superflex
     )
     if is_standard_baseline:
-        return market_db["redraft_lookup"]
+        return market_db["redraft_lookup_half_ppr"] if use_half_ppr_source else market_db["redraft_lookup"]
 
     base_lk = build_positional_lookup(
-        market_db["fp_ros_rankings"],
+        market_db["fp_ros_half_ppr_rankings"] if use_half_ppr_source else market_db["fp_ros_rankings"],
         market_db["player_ids"],
         "redraft",
         is_superflex=is_superflex,

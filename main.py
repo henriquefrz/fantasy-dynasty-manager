@@ -22,6 +22,7 @@ from src.league_classifier import classify_league
 from src.market_data import (
     get_fp_rankings_raw,
     get_fp_ros_rankings_raw,
+    get_fp_ros_half_ppr_rankings_raw,
     get_player_ids_raw,
     build_positional_lookup,
     get_values_players_raw,
@@ -132,6 +133,7 @@ print("Downloading rankings & market values (FantasyCalc / KeepTradeCut / Dynast
 
 fp_rankings = get_fp_rankings_raw()
 fp_ros_rankings = get_fp_ros_rankings_raw()
+fp_ros_half_ppr_rankings = get_fp_ros_half_ppr_rankings_raw()
 player_ids = get_player_ids_raw()
 values_players = get_values_players_raw()
 values_picks = get_values_picks_raw()
@@ -160,13 +162,27 @@ enrich_lookup_with_consensus_values(dynasty_lookup_sf, values_players, player_id
 dynasty_lookup_1qb = build_positional_lookup(fp_rankings, player_ids, "dynasty")
 enrich_lookup_with_consensus_values(dynasty_lookup_1qb, values_players, player_ids, ktc_raw=ktc_1qb, fc_raw=fc_1qb, is_superflex=False)
 
-# Standard-baseline (0.5 PPR, no TEP) redraft lookup - build_league_context
+# Standard-baseline (Full PPR, no TEP) redraft lookup - build_league_context
 # falls back to this directly for leagues matching that scoring exactly, and
 # otherwise recomputes a league-specific one via compute_custom_redraft_lookup
-# (see src/orchestration.py).
+# (see src/orchestration.py), which also picks between this and
+# redraft_lookup_half_ppr below based on the league's real rec setting.
 redraft_lookup = build_positional_lookup(fp_ros_rankings, player_ids, "redraft")
 enrich_lookup_with_redraft_values(
     redraft_lookup,
+    ktc_fantasy_raw=ktc_fantasy_1qb,
+    projections_raw=ros_projections_raw,
+    player_ids_raw=player_ids,
+    start_week=active_week,
+    end_week=17,
+)
+
+# Half-PPR mirror, same pipeline - see FP_ROS_HALF_PPR_URL in market_data.py
+# for why a separate FantasyPros source page is needed (not just a scoring
+# recompute on top of the PPR page's own ECR ranks).
+redraft_lookup_half_ppr = build_positional_lookup(fp_ros_half_ppr_rankings, player_ids, "redraft")
+enrich_lookup_with_redraft_values(
+    redraft_lookup_half_ppr,
     ktc_fantasy_raw=ktc_fantasy_1qb,
     projections_raw=ros_projections_raw,
     player_ids_raw=player_ids,
@@ -198,10 +214,12 @@ market_db = {
     "dynasty_sf_lookup": dynasty_lookup_sf,
     "dynasty_1qb_lookup": dynasty_lookup_1qb,
     "redraft_lookup": redraft_lookup,
+    "redraft_lookup_half_ppr": redraft_lookup_half_ppr,
     "ktc_sf": ktc_sf,
     "ktc_1qb": ktc_1qb,
     "player_ids": player_ids,
     "fp_ros_rankings": fp_ros_rankings,
+    "fp_ros_half_ppr_rankings": fp_ros_half_ppr_rankings,
     "ros_projections_raw": ros_projections_raw,
     "ktc_redraft_sf": ktc_fantasy_sf,
     "ktc_redraft_1qb": ktc_fantasy_1qb,

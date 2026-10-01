@@ -30,6 +30,7 @@ from src.sleeper_api import (
 from src.market_data import (
     get_fp_rankings_raw,
     get_fp_ros_rankings_raw,
+    get_fp_ros_half_ppr_rankings_raw,
     get_player_ids_raw,
     build_positional_lookup,
     get_values_players_raw,
@@ -260,6 +261,7 @@ def main():
     players = get_players()
     fp_rankings = get_fp_rankings_raw()
     fp_ros_rankings = get_fp_ros_rankings_raw()
+    fp_ros_half_ppr_rankings = get_fp_ros_half_ppr_rankings_raw()
     player_ids = get_player_ids_raw()
     values_players = get_values_players_raw()
 
@@ -279,13 +281,27 @@ def main():
     weekly_proj = get_weekly_projections(active_season, active_week)
     weekly_stats = get_weekly_stats(active_season, active_week)
     ros_proj = get_ros_projections(active_season, start_week=active_week, end_week=17)
-    # Standard-baseline (0.5 PPR, no TEP) redraft lookup - build_league_context
+    # Standard-baseline (Full PPR, no TEP) redraft lookup - build_league_context
     # falls back to this directly for leagues matching that scoring exactly,
     # and otherwise recomputes a league-specific one via
-    # compute_custom_redraft_lookup (see src/orchestration.py).
+    # compute_custom_redraft_lookup (see src/orchestration.py), which also
+    # picks between this and redraft_lk_half_ppr below based on the
+    # league's real rec setting.
     redraft_lk = build_positional_lookup(fp_ros_rankings, player_ids, "redraft")
     enrich_lookup_with_redraft_values(
         redraft_lk,
+        ktc_fantasy_raw=ktc_fantasy_1qb,
+        projections_raw=ros_proj,
+        player_ids_raw=player_ids,
+        start_week=active_week,
+        end_week=17,
+    )
+
+    # Half-PPR mirror, same pipeline - see FP_ROS_HALF_PPR_URL in
+    # market_data.py for why a separate FantasyPros source page is needed.
+    redraft_lk_half_ppr = build_positional_lookup(fp_ros_half_ppr_rankings, player_ids, "redraft")
+    enrich_lookup_with_redraft_values(
+        redraft_lk_half_ppr,
         ktc_fantasy_raw=ktc_fantasy_1qb,
         projections_raw=ros_proj,
         player_ids_raw=player_ids,
@@ -298,10 +314,12 @@ def main():
         "dynasty_sf_lookup": dynasty_sf,
         "dynasty_1qb_lookup": dynasty_1qb,
         "redraft_lookup": redraft_lk,
+        "redraft_lookup_half_ppr": redraft_lk_half_ppr,
         "ktc_sf": ktc_sf,
         "ktc_1qb": ktc_1qb,
         "player_ids": player_ids,
         "fp_ros_rankings": fp_ros_rankings,
+        "fp_ros_half_ppr_rankings": fp_ros_half_ppr_rankings,
         "ros_projections_raw": ros_proj,
         "ktc_redraft_sf": ktc_fantasy_sf,
         "ktc_redraft_1qb": ktc_fantasy_1qb,
