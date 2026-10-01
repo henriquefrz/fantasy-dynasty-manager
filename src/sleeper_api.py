@@ -502,20 +502,41 @@ def get_league_transactions(league_id: str, week: int, current_week: int = None)
     Returns every transaction (trade, waiver, free_agent) Sleeper recorded
     for this league in this week, each with its own "adds"/"drops" dict
     ({player_id: roster_id}) and "status" ("complete" transactions are the
-    only ones that actually changed a roster). Never used in this project
-    before this - see build_weekly_roster_snapshots, which walks these
-    backward from the current roster to reconstruct what a roster looked
-    like in a past week.
+    only ones that actually changed a roster). Used by
+    build_weekly_roster_snapshots, which walks these backward from the
+    current roster to reconstruct what a roster looked like in a past week.
+
+    The CURRENT week (week == current_week) is always fetched live, never
+    served from cache - confirmed real incident this fixes: that week used
+    to get a short 5-minute cache, independent of and uncoordinated with
+    get_league_rosters (which has no cache at all - always live). A
+    transaction processed moments ago could already be reflected in a
+    freshly-fetched roster while this function's stale 5-minute cache
+    still didn't know about it. build_weekly_roster_snapshots undoing a
+    transaction it doesn't know exists is a no-op, so the reconstructed
+    PAST weeks (1, 2, 3...) would transiently show a player who only
+    arrived via that transaction TODAY - self-correcting a few minutes
+    later once the stale cache naturally expired, which looked like "Week
+    1/2 changing on its own with no new transaction" to a user reloading
+    the page. Fetching the current week live every time (one extra, fast
+    API call per league per load) closes that race entirely: both the
+    roster and this week's transactions are now always equally fresh.
+
+    Weeks strictly before current_week are already settled and immutable,
+    so they keep the long LEAGUE_HISTORY_CACHE_TTL_SECONDS cache unchanged.
     """
     cache_key = (str(league_id), int(week))
-    is_historical = current_week is not None and week < current_week
-    ttl = LEAGUE_HISTORY_CACHE_TTL_SECONDS if is_historical else LEAGUE_TRANSACTIONS_CACHE_TTL_SECONDS
+    is_current_week = current_week is not None and week == current_week
 
     cached = _LEAGUE_TRANSACTIONS_CACHE.get(cache_key)
-    if cached is not None:
-        cached_at, cached_data = cached
-        if time.time() - cached_at < ttl:
-            return cached_data
+
+    if not is_current_week:
+        is_historical = current_week is not None and week < current_week
+        ttl = LEAGUE_HISTORY_CACHE_TTL_SECONDS if is_historical else LEAGUE_TRANSACTIONS_CACHE_TTL_SECONDS
+        if cached is not None:
+            cached_at, cached_data = cached
+            if time.time() - cached_at < ttl:
+                return cached_data
 
     url = f"{BASE_URL}/league/{league_id}/transactions/{week}"
     try:
@@ -524,6 +545,9 @@ def get_league_transactions(league_id: str, week: int, current_week: int = None)
             return []
         response.raise_for_status()
         data = response.json()
+        # Still written even for the current week - not read back for
+        # freshness (see is_current_week above), only ever used as an
+        # error fallback below if a later live fetch fails transiently.
         _LEAGUE_TRANSACTIONS_CACHE[cache_key] = (time.time(), data)
         return data
     except Exception as e:

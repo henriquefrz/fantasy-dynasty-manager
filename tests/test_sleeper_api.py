@@ -3,6 +3,7 @@ Converted from scratch/test_conditional_matchups_ttl.py and
 scratch/test_projections_cache_ttl.py. All network calls are mocked -
 these never touch the real Sleeper API.
 """
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -332,3 +333,91 @@ def test_no_transactions_keeps_the_same_roster_every_week():
 
     for week in range(1, 5):
         assert set(snapshots[week][0]["players"]) == {"100", "200"}
+
+
+# ---------------------------------------------------------------------------
+# get_league_transactions: the current week must always be fetched live,
+# never served from the 5-minute cache - regression test for the real
+# incident this fixes. get_league_rosters has no cache at all (always
+# live), while this function's current-week cache used to refresh on its
+# own independent 5-minute clock - a transaction processed moments ago
+# could already show up in a freshly-fetched roster while the stale
+# transactions cache here still didn't know about it yet.
+# build_weekly_roster_snapshots undoing a transaction it doesn't know
+# exists is a no-op, so weeks 1/2/3 would transiently show a player who
+# only arrived via that transaction TODAY - self-correcting a few minutes
+# later once the stale cache naturally expired. That "changes on its own
+# with no new transaction" symptom is exactly what reproducing the race
+# below pins.
+# ---------------------------------------------------------------------------
+
+def test_current_week_always_refetches_live_even_with_a_fresh_cache_entry():
+    """
+    Pre-seeds a brand-new (age=0s, well within the old 5-minute TTL) cache
+    entry for the current week, then confirms a call still goes live
+    instead of trusting it - the fix removes the "is it still fresh"
+    check entirely for week == current_week.
+    """
+    current_week = 4
+    stale_payload = []  # what was cached before the real transaction existed
+    live_payload = [{"status": "complete", "created": 123, "adds": {"NEW": 1}, "drops": {"OLD": 1}}]
+
+    cache_key = (str(LEAGUE_ID), current_week)
+    sleeper_api._LEAGUE_TRANSACTIONS_CACHE[cache_key] = (time.time(), stale_payload)
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response(live_payload)) as mock_get:
+        result = sleeper_api.get_league_transactions(LEAGUE_ID, current_week, current_week=current_week)
+
+    assert mock_get.called, "the current week must always hit the network, never short-circuit on a fresh cache entry"
+    assert result == live_payload, "the live (real) payload must win over the stale cached one for the current week"
+
+
+def test_past_week_still_uses_the_long_historical_cache_unchanged():
+    """Regression guard: weeks strictly before current_week must keep their existing long-TTL cache behavior."""
+    past_week, current_week = 2, 4
+    payload = [{"status": "complete", "created": 1, "adds": {"A": 1}, "drops": {}}]
+
+    with patch("src.sleeper_api.requests.get", return_value=_fake_response(payload)):
+        first = sleeper_api.get_league_transactions(LEAGUE_ID, past_week, current_week=current_week)
+    assert first == payload
+
+    with patch("src.sleeper_api.requests.get") as mock_get:
+        second = sleeper_api.get_league_transactions(LEAGUE_ID, past_week, current_week=current_week)
+
+    assert not mock_get.called, "a past (already-settled) week must still be served from the long-TTL cache, not refetched"
+    assert second == payload
+
+
+def test_build_weekly_roster_snapshots_is_not_fooled_by_a_stale_current_week_cache_entry():
+    """
+    End-to-end reproduction of the real incident at the build_weekly_roster_snapshots
+    level: a stale cache entry for the current week (pre-dating a real
+    transaction) must no longer leak into the reconstructed past weeks.
+    """
+    current_rosters = [{"roster_id": 12, "players": ["NEW_PLAYER", "999"]}]
+    real_transaction = {
+        "status": "complete", "created": 1_000_000,
+        "adds": {"NEW_PLAYER": 12}, "drops": {"OLD_PLAYER": 12},
+    }
+
+    # Pre-seed a stale (empty) cache entry for week 4 - as if it had been
+    # populated moments before the real transaction happened.
+    sleeper_api._LEAGUE_TRANSACTIONS_CACHE[(str(LEAGUE_ID), 4)] = (time.time(), [])
+
+    def fake_get(url, timeout=10):
+        week = int(url.rsplit("/", 1)[-1])
+        return _fake_response([real_transaction] if week == 4 else [])
+
+    with patch("src.sleeper_api.requests.get", side_effect=fake_get):
+        snapshots = sleeper_api.build_weekly_roster_snapshots(LEAGUE_ID, current_rosters, current_week=4)
+
+    for week in (1, 2, 3):
+        r12 = next(r for r in snapshots[week] if r["roster_id"] == 12)
+        assert "NEW_PLAYER" not in r12["players"], (
+            f"week {week}: must not show the player added via TODAY's transaction, "
+            "even though a stale cache entry for the current week existed"
+        )
+        assert "OLD_PLAYER" in r12["players"]
+
+    r12_w4 = next(r for r in snapshots[4] if r["roster_id"] == 12)
+    assert "NEW_PLAYER" in r12_w4["players"]
