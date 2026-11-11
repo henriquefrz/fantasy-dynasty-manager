@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-11-10T21:47:14.281736+00:00",
+  "scraped_at": "2026-11-11T22:53:15.994999+00:00",
   "rows": [
     {
       "id": "22968",
@@ -194,20 +194,20 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "23059",
+      "id": "23886",
       "ecr": "13",
-      "player": "Kyren Williams",
-      "pos": "RB",
-      "team": "LAR",
+      "player": "Christian Watson",
+      "pos": "WR",
+      "team": "GB",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23059",
+      "id": "23886",
       "ecr": "13",
-      "player": "Kyren Williams",
-      "pos": "RB",
-      "team": "LAR",
-      "page_type": "redraft-rb"
+      "player": "Christian Watson",
+      "pos": "WR",
+      "team": "GB",
+      "page_type": "redraft-wr"
     },
     {
       "id": "25409",
@@ -226,8 +226,24 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "19210",
+      "id": "23059",
       "ecr": "15",
+      "player": "Kyren Williams",
+      "pos": "RB",
+      "team": "LAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23059",
+      "ecr": "15",
+      "player": "Kyren Williams",
+      "pos": "RB",
+      "team": "LAR",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "19210",
+      "ecr": "16",
       "player": "D'Andre Swift",
       "pos": "RB",
       "team": "CHI",
@@ -235,47 +251,15 @@
     },
     {
       "id": "19210",
-      "ecr": "15",
+      "ecr": "16",
       "player": "D'Andre Swift",
       "pos": "RB",
       "team": "CHI",
       "page_type": "redraft-rb"
     },
     {
-      "id": "19217",
-      "ecr": "16",
-      "player": "Jonathan Taylor",
-      "pos": "RB",
-      "team": "IND",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19217",
-      "ecr": "16",
-      "player": "Jonathan Taylor",
-      "pos": "RB",
-      "team": "IND",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "23886",
-      "ecr": "17",
-      "player": "Christian Watson",
-      "pos": "WR",
-      "team": "GB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23886",
-      "ecr": "17",
-      "player": "Christian Watson",
-      "pos": "WR",
-      "team": "GB",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "19211",
-      "ecr": "18",
+      "ecr": "17",
       "player": "Tee Higgins",
       "pos": "WR",
       "team": "CIN",
@@ -283,27 +267,43 @@
     },
     {
       "id": "19211",
-      "ecr": "18",
+      "ecr": "17",
       "player": "Tee Higgins",
       "pos": "WR",
       "team": "CIN",
       "page_type": "redraft-wr"
     },
     {
-      "id": "24209",
-      "ecr": "19",
-      "player": "Jaylen Warren",
+      "id": "19217",
+      "ecr": "18",
+      "player": "Jonathan Taylor",
       "pos": "RB",
-      "team": "PIT",
+      "team": "IND",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24209",
-      "ecr": "19",
-      "player": "Jaylen Warren",
+      "id": "19217",
+      "ecr": "18",
+      "player": "Jonathan Taylor",
       "pos": "RB",
-      "team": "PIT",
+      "team": "IND",
       "page_type": "redraft-rb"
+    },
+    {
+      "id": "26024",
+      "ecr": "19",
+      "player": "Matthew Golden",
+      "pos": "WR",
+      "team": "GB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26024",
+      "ecr": "19",
+      "player": "Matthew Golden",
+      "pos": "WR",
+      "team": "GB",
+      "page_type": "redraft-wr"
     },
     {
       "id": "27297",
@@ -322,40 +322,24 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "26024",
+      "id": "24209",
       "ecr": "21",
-      "player": "Matthew Golden",
-      "pos": "WR",
-      "team": "GB",
+      "player": "Jaylen Warren",
+      "pos": "RB",
+      "team": "PIT",
       "page_type": "redraft-overall"
     },
     {
-      "id": "26024",
+      "id": "24209",
       "ecr": "21",
-      "player": "Matthew Golden",
-      "pos": "WR",
-      "team": "GB",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "23180",
-      "ecr": "22",
-      "player": "Puka Nacua",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23180",
-      "ecr": "22",
-      "player": "Puka Nacua",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-wr"
+      "player": "Jaylen Warren",
+      "pos": "RB",
+      "team": "PIT",
+      "page_type": "redraft-rb"
     },
     {
       "id": "20111",
-      "ecr": "23",
+      "ecr": "22",
       "player": "Chris Olave",
       "pos": "WR",
       "team": "NO",
@@ -363,7 +347,7 @@
     },
     {
       "id": "20111",
-      "ecr": "23",
+      "ecr": "22",
       "player": "Chris Olave",
       "pos": "WR",
       "team": "NO",
@@ -371,7 +355,7 @@
     },
     {
       "id": "17298",
-      "ecr": "24",
+      "ecr": "23",
       "player": "Josh Allen",
       "pos": "QB",
       "team": "BUF",
@@ -379,11 +363,27 @@
     },
     {
       "id": "17298",
-      "ecr": "24",
+      "ecr": "23",
       "player": "Josh Allen",
       "pos": "QB",
       "team": "BUF",
       "page_type": "redraft-qb"
+    },
+    {
+      "id": "19236",
+      "ecr": "24",
+      "player": "Justin Jefferson",
+      "pos": "WR",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19236",
+      "ecr": "24",
+      "player": "Justin Jefferson",
+      "pos": "WR",
+      "team": "MIN",
+      "page_type": "redraft-wr"
     },
     {
       "id": "23163",
@@ -402,24 +402,8 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "25324",
-      "ecr": "26",
-      "player": "Chase Brown",
-      "pos": "RB",
-      "team": "CIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25324",
-      "ecr": "26",
-      "player": "Chase Brown",
-      "pos": "RB",
-      "team": "CIN",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "19196",
-      "ecr": "27",
+      "ecr": "26",
       "player": "Joe Burrow",
       "pos": "QB",
       "team": "CIN",
@@ -427,79 +411,31 @@
     },
     {
       "id": "19196",
-      "ecr": "27",
+      "ecr": "26",
       "player": "Joe Burrow",
       "pos": "QB",
       "team": "CIN",
       "page_type": "redraft-qb"
     },
     {
-      "id": "15514",
-      "ecr": "28",
-      "player": "Derrick Henry",
+      "id": "25324",
+      "ecr": "27",
+      "player": "Chase Brown",
       "pos": "RB",
-      "team": "BAL",
+      "team": "CIN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "15514",
-      "ecr": "28",
-      "player": "Derrick Henry",
+      "id": "25324",
+      "ecr": "27",
+      "player": "Chase Brown",
       "pos": "RB",
-      "team": "BAL",
+      "team": "CIN",
       "page_type": "redraft-rb"
-    },
-    {
-      "id": "22955",
-      "ecr": "29",
-      "player": "Brock Bowers",
-      "pos": "TE",
-      "team": "LV",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22955",
-      "ecr": "29",
-      "player": "Brock Bowers",
-      "pos": "TE",
-      "team": "LV",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "27320",
-      "ecr": "30",
-      "player": "Jonah Coleman",
-      "pos": "RB",
-      "team": "DEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27320",
-      "ecr": "30",
-      "player": "Jonah Coleman",
-      "pos": "RB",
-      "team": "DEN",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "20130",
-      "ecr": "31",
-      "player": "Nico Collins",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "20130",
-      "ecr": "31",
-      "player": "Nico Collins",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-wr"
     },
     {
       "id": "23106",
-      "ecr": "32",
+      "ecr": "28",
       "player": "Parker Washington",
       "pos": "WR",
       "team": "JAC",
@@ -507,15 +443,63 @@
     },
     {
       "id": "23106",
-      "ecr": "32",
+      "ecr": "28",
       "player": "Parker Washington",
       "pos": "WR",
       "team": "JAC",
       "page_type": "redraft-wr"
     },
     {
+      "id": "15514",
+      "ecr": "29",
+      "player": "Derrick Henry",
+      "pos": "RB",
+      "team": "BAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "15514",
+      "ecr": "29",
+      "player": "Derrick Henry",
+      "pos": "RB",
+      "team": "BAL",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "22955",
+      "ecr": "30",
+      "player": "Brock Bowers",
+      "pos": "TE",
+      "team": "LV",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22955",
+      "ecr": "30",
+      "player": "Brock Bowers",
+      "pos": "TE",
+      "team": "LV",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "27320",
+      "ecr": "31",
+      "player": "Jonah Coleman",
+      "pos": "RB",
+      "team": "DEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27320",
+      "ecr": "31",
+      "player": "Jonah Coleman",
+      "pos": "RB",
+      "team": "DEN",
+      "page_type": "redraft-rb"
+    },
+    {
       "id": "18705",
-      "ecr": "33",
+      "ecr": "32",
       "player": "Tony Pollard",
       "pos": "RB",
       "team": "TEN",
@@ -523,31 +507,31 @@
     },
     {
       "id": "18705",
-      "ecr": "33",
+      "ecr": "32",
       "player": "Tony Pollard",
       "pos": "RB",
       "team": "TEN",
       "page_type": "redraft-rb"
     },
     {
-      "id": "19236",
-      "ecr": "34",
-      "player": "Justin Jefferson",
+      "id": "20130",
+      "ecr": "33",
+      "player": "Nico Collins",
       "pos": "WR",
-      "team": "MIN",
+      "team": "HOU",
       "page_type": "redraft-overall"
     },
     {
-      "id": "19236",
-      "ecr": "34",
-      "player": "Justin Jefferson",
+      "id": "20130",
+      "ecr": "33",
+      "player": "Nico Collins",
       "pos": "WR",
-      "team": "MIN",
+      "team": "HOU",
       "page_type": "redraft-wr"
     },
     {
       "id": "27016",
-      "ecr": "35",
+      "ecr": "34",
       "player": "Luther Burden III",
       "pos": "WR",
       "team": "CHI",
@@ -555,7 +539,7 @@
     },
     {
       "id": "27016",
-      "ecr": "35",
+      "ecr": "34",
       "player": "Luther Burden III",
       "pos": "WR",
       "team": "CHI",
@@ -563,7 +547,7 @@
     },
     {
       "id": "22916",
-      "ecr": "36",
+      "ecr": "35",
       "player": "Zay Flowers",
       "pos": "WR",
       "team": "BAL",
@@ -571,15 +555,63 @@
     },
     {
       "id": "22916",
-      "ecr": "36",
+      "ecr": "35",
       "player": "Zay Flowers",
       "pos": "WR",
       "team": "BAL",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "23180",
+      "ecr": "36",
+      "player": "Puka Nacua",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23180",
+      "ecr": "36",
+      "player": "Puka Nacua",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "25417",
+      "ecr": "37",
+      "player": "Tetairoa McMillan",
+      "pos": "WR",
+      "team": "CAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25417",
+      "ecr": "37",
+      "player": "Tetairoa McMillan",
+      "pos": "WR",
+      "team": "CAR",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "25984",
+      "ecr": "38",
+      "player": "Ollie Gordon II",
+      "pos": "RB",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25984",
+      "ecr": "38",
+      "player": "Ollie Gordon II",
+      "pos": "RB",
+      "team": "MIA",
+      "page_type": "redraft-rb"
     },
     {
       "id": "22936",
-      "ecr": "37",
+      "ecr": "39",
       "player": "Trey McBride",
       "pos": "TE",
       "team": "ARI",
@@ -587,31 +619,15 @@
     },
     {
       "id": "22936",
-      "ecr": "37",
+      "ecr": "39",
       "player": "Trey McBride",
       "pos": "TE",
       "team": "ARI",
       "page_type": "redraft-te"
     },
     {
-      "id": "25417",
-      "ecr": "38",
-      "player": "Tetairoa McMillan",
-      "pos": "WR",
-      "team": "CAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25417",
-      "ecr": "38",
-      "player": "Tetairoa McMillan",
-      "pos": "WR",
-      "team": "CAR",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "22963",
-      "ecr": "39",
+      "ecr": "40",
       "player": "George Pickens",
       "pos": "WR",
       "team": "DAL",
@@ -619,7 +635,7 @@
     },
     {
       "id": "22963",
-      "ecr": "39",
+      "ecr": "40",
       "player": "George Pickens",
       "pos": "WR",
       "team": "DAL",
@@ -627,7 +643,7 @@
     },
     {
       "id": "23072",
-      "ecr": "40",
+      "ecr": "41",
       "player": "Garrett Wilson",
       "pos": "WR",
       "team": "NYJ",
@@ -635,27 +651,11 @@
     },
     {
       "id": "23072",
-      "ecr": "40",
+      "ecr": "41",
       "player": "Garrett Wilson",
       "pos": "WR",
       "team": "NYJ",
       "page_type": "redraft-wr"
-    },
-    {
-      "id": "25984",
-      "ecr": "41",
-      "player": "Ollie Gordon II",
-      "pos": "RB",
-      "team": "MIA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25984",
-      "ecr": "41",
-      "player": "Ollie Gordon II",
-      "pos": "RB",
-      "team": "MIA",
-      "page_type": "redraft-rb"
     },
     {
       "id": "19797",
@@ -706,35 +706,35 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "23113",
+      "id": "17265",
       "ecr": "45",
-      "player": "Rashee Rice",
+      "player": "DJ Moore",
       "pos": "WR",
-      "team": "KC",
+      "team": "BUF",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23113",
+      "id": "17265",
       "ecr": "45",
-      "player": "Rashee Rice",
+      "player": "DJ Moore",
       "pos": "WR",
-      "team": "KC",
+      "team": "BUF",
       "page_type": "redraft-wr"
     },
     {
-      "id": "17265",
+      "id": "23113",
       "ecr": "46",
-      "player": "DJ Moore",
+      "player": "Rashee Rice",
       "pos": "WR",
-      "team": "BUF",
+      "team": "KC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "17265",
+      "id": "23113",
       "ecr": "46",
-      "player": "DJ Moore",
+      "player": "Rashee Rice",
       "pos": "WR",
-      "team": "BUF",
+      "team": "KC",
       "page_type": "redraft-wr"
     },
     {
@@ -754,40 +754,24 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "23046",
+      "id": "19246",
       "ecr": "48",
-      "player": "Drake Maye",
+      "player": "Jordan Love",
       "pos": "QB",
-      "team": "NE",
+      "team": "GB",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23046",
+      "id": "19246",
       "ecr": "48",
-      "player": "Drake Maye",
+      "player": "Jordan Love",
       "pos": "QB",
-      "team": "NE",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "19780",
-      "ecr": "49",
-      "player": "Trevor Lawrence",
-      "pos": "QB",
-      "team": "JAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19780",
-      "ecr": "49",
-      "player": "Trevor Lawrence",
-      "pos": "QB",
-      "team": "JAC",
+      "team": "GB",
       "page_type": "redraft-qb"
     },
     {
       "id": "23084",
-      "ecr": "50",
+      "ecr": "49",
       "player": "Caleb Williams",
       "pos": "QB",
       "team": "CHI",
@@ -795,47 +779,31 @@
     },
     {
       "id": "23084",
-      "ecr": "50",
+      "ecr": "49",
       "player": "Caleb Williams",
       "pos": "QB",
       "team": "CHI",
       "page_type": "redraft-qb"
     },
     {
-      "id": "18269",
-      "ecr": "51",
-      "player": "Josh Jacobs",
-      "pos": "RB",
-      "team": "GB",
+      "id": "23046",
+      "ecr": "50",
+      "player": "Drake Maye",
+      "pos": "QB",
+      "team": "NE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "18269",
-      "ecr": "51",
-      "player": "Josh Jacobs",
-      "pos": "RB",
-      "team": "GB",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "25989",
-      "ecr": "52",
-      "player": "Ashton Jeanty",
-      "pos": "RB",
-      "team": "LV",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25989",
-      "ecr": "52",
-      "player": "Ashton Jeanty",
-      "pos": "RB",
-      "team": "LV",
-      "page_type": "redraft-rb"
+      "id": "23046",
+      "ecr": "50",
+      "player": "Drake Maye",
+      "pos": "QB",
+      "team": "NE",
+      "page_type": "redraft-qb"
     },
     {
       "id": "26009",
-      "ecr": "53",
+      "ecr": "51",
       "player": "Carnell Tate",
       "pos": "WR",
       "team": "TEN",
@@ -843,47 +811,31 @@
     },
     {
       "id": "26009",
-      "ecr": "53",
+      "ecr": "51",
       "player": "Carnell Tate",
       "pos": "WR",
       "team": "TEN",
       "page_type": "redraft-wr"
     },
     {
-      "id": "22726",
-      "ecr": "54",
-      "player": "Rhamondre Stevenson",
+      "id": "25989",
+      "ecr": "52",
+      "player": "Ashton Jeanty",
       "pos": "RB",
-      "team": "NE",
+      "team": "LV",
       "page_type": "redraft-overall"
     },
     {
-      "id": "22726",
-      "ecr": "54",
-      "player": "Rhamondre Stevenson",
+      "id": "25989",
+      "ecr": "52",
+      "player": "Ashton Jeanty",
       "pos": "RB",
-      "team": "NE",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "23013",
-      "ecr": "55",
-      "player": "Blake Corum",
-      "pos": "RB",
-      "team": "LAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23013",
-      "ecr": "55",
-      "player": "Blake Corum",
-      "pos": "RB",
-      "team": "LAR",
+      "team": "LV",
       "page_type": "redraft-rb"
     },
     {
       "id": "16499",
-      "ecr": "56",
+      "ecr": "53",
       "player": "George Kittle",
       "pos": "TE",
       "team": "SF",
@@ -891,31 +843,63 @@
     },
     {
       "id": "16499",
-      "ecr": "56",
+      "ecr": "53",
       "player": "George Kittle",
       "pos": "TE",
       "team": "SF",
       "page_type": "redraft-te"
     },
     {
-      "id": "19246",
-      "ecr": "57",
-      "player": "Jordan Love",
-      "pos": "QB",
-      "team": "GB",
+      "id": "23013",
+      "ecr": "54",
+      "player": "Blake Corum",
+      "pos": "RB",
+      "team": "LAR",
       "page_type": "redraft-overall"
     },
     {
-      "id": "19246",
-      "ecr": "57",
-      "player": "Jordan Love",
+      "id": "23013",
+      "ecr": "54",
+      "player": "Blake Corum",
+      "pos": "RB",
+      "team": "LAR",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "19780",
+      "ecr": "55",
+      "player": "Trevor Lawrence",
       "pos": "QB",
-      "team": "GB",
+      "team": "JAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19780",
+      "ecr": "55",
+      "player": "Trevor Lawrence",
+      "pos": "QB",
+      "team": "JAC",
       "page_type": "redraft-qb"
     },
     {
+      "id": "17240",
+      "ecr": "56",
+      "player": "Saquon Barkley",
+      "pos": "RB",
+      "team": "PHI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "17240",
+      "ecr": "56",
+      "player": "Saquon Barkley",
+      "pos": "RB",
+      "team": "PHI",
+      "page_type": "redraft-rb"
+    },
+    {
       "id": "26403",
-      "ecr": "58",
+      "ecr": "57",
       "player": "Jalen Coker",
       "pos": "WR",
       "team": "CAR",
@@ -923,31 +907,31 @@
     },
     {
       "id": "26403",
-      "ecr": "58",
+      "ecr": "57",
       "player": "Jalen Coker",
       "pos": "WR",
       "team": "CAR",
       "page_type": "redraft-wr"
     },
     {
-      "id": "17240",
-      "ecr": "59",
-      "player": "Saquon Barkley",
+      "id": "27166",
+      "ecr": "58",
+      "player": "Cam Skattebo",
       "pos": "RB",
-      "team": "PHI",
+      "team": "NYG",
       "page_type": "redraft-overall"
     },
     {
-      "id": "17240",
-      "ecr": "59",
-      "player": "Saquon Barkley",
+      "id": "27166",
+      "ecr": "58",
+      "player": "Cam Skattebo",
       "pos": "RB",
-      "team": "PHI",
+      "team": "NYG",
       "page_type": "redraft-rb"
     },
     {
       "id": "25391",
-      "ecr": "60",
+      "ecr": "59",
       "player": "Quinshon Judkins",
       "pos": "RB",
       "team": "CLE",
@@ -955,11 +939,27 @@
     },
     {
       "id": "25391",
-      "ecr": "60",
+      "ecr": "59",
       "player": "Quinshon Judkins",
       "pos": "RB",
       "team": "CLE",
       "page_type": "redraft-rb"
+    },
+    {
+      "id": "13981",
+      "ecr": "60",
+      "player": "Stefon Diggs",
+      "pos": "WR",
+      "team": "WAS",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "13981",
+      "ecr": "60",
+      "player": "Stefon Diggs",
+      "pos": "WR",
+      "team": "WAS",
+      "page_type": "redraft-wr"
     },
     {
       "id": "19222",
@@ -1010,19 +1010,19 @@
       "page_type": "redraft-qb"
     },
     {
-      "id": "13981",
+      "id": "27331",
       "ecr": "64",
-      "player": "Stefon Diggs",
+      "player": "KC Concepcion Jr.",
       "pos": "WR",
-      "team": "WAS",
+      "team": "CLE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "13981",
+      "id": "27331",
       "ecr": "64",
-      "player": "Stefon Diggs",
+      "player": "KC Concepcion Jr.",
       "pos": "WR",
-      "team": "WAS",
+      "team": "CLE",
       "page_type": "redraft-wr"
     },
     {
@@ -1042,17 +1042,17 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "27331",
+      "id": "27339",
       "ecr": "66",
-      "player": "KC Concepcion Jr.",
+      "player": "Denzel Boston",
       "pos": "WR",
       "team": "CLE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "27331",
+      "id": "27339",
       "ecr": "66",
-      "player": "KC Concepcion Jr.",
+      "player": "Denzel Boston",
       "pos": "WR",
       "team": "CLE",
       "page_type": "redraft-wr"
@@ -1072,26 +1072,10 @@
       "pos": "WR",
       "team": "PIT",
       "page_type": "redraft-wr"
-    },
-    {
-      "id": "27166",
-      "ecr": "68",
-      "player": "Cam Skattebo",
-      "pos": "RB",
-      "team": "NYG",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27166",
-      "ecr": "68",
-      "player": "Cam Skattebo",
-      "pos": "RB",
-      "team": "NYG",
-      "page_type": "redraft-rb"
     },
     {
       "id": "26006",
-      "ecr": "69",
+      "ecr": "68",
       "player": "Colston Loveland",
       "pos": "TE",
       "team": "CHI",
@@ -1099,31 +1083,15 @@
     },
     {
       "id": "26006",
-      "ecr": "69",
+      "ecr": "68",
       "player": "Colston Loveland",
       "pos": "TE",
       "team": "CHI",
       "page_type": "redraft-te"
     },
     {
-      "id": "27339",
-      "ecr": "70",
-      "player": "Denzel Boston",
-      "pos": "WR",
-      "team": "CLE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27339",
-      "ecr": "70",
-      "player": "Denzel Boston",
-      "pos": "WR",
-      "team": "CLE",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "23062",
-      "ecr": "71",
+      "ecr": "69",
       "player": "Emeka Egbuka",
       "pos": "WR",
       "team": "TB",
@@ -1131,7 +1099,7 @@
     },
     {
       "id": "23062",
-      "ecr": "71",
+      "ecr": "69",
       "player": "Emeka Egbuka",
       "pos": "WR",
       "team": "TB",
@@ -1139,7 +1107,7 @@
     },
     {
       "id": "19790",
-      "ecr": "72",
+      "ecr": "70",
       "player": "Jaylen Waddle",
       "pos": "WR",
       "team": "DEN",
@@ -1147,7 +1115,7 @@
     },
     {
       "id": "19790",
-      "ecr": "72",
+      "ecr": "70",
       "player": "Jaylen Waddle",
       "pos": "WR",
       "team": "DEN",
@@ -1155,7 +1123,7 @@
     },
     {
       "id": "26122",
-      "ecr": "73",
+      "ecr": "71",
       "player": "Ladd McConkey",
       "pos": "WR",
       "team": "LAC",
@@ -1163,7 +1131,7 @@
     },
     {
       "id": "26122",
-      "ecr": "73",
+      "ecr": "71",
       "player": "Ladd McConkey",
       "pos": "WR",
       "team": "LAC",
@@ -1171,7 +1139,7 @@
     },
     {
       "id": "28127",
-      "ecr": "74",
+      "ecr": "72",
       "player": "Omar Cooper Jr.",
       "pos": "WR",
       "team": "NYJ",
@@ -1179,31 +1147,47 @@
     },
     {
       "id": "28127",
-      "ecr": "74",
+      "ecr": "72",
       "player": "Omar Cooper Jr.",
       "pos": "WR",
       "team": "NYJ",
       "page_type": "redraft-wr"
     },
     {
-      "id": "19231",
-      "ecr": "75",
-      "player": "Travis Etienne Jr.",
+      "id": "22726",
+      "ecr": "73",
+      "player": "Rhamondre Stevenson",
       "pos": "RB",
-      "team": "NO",
+      "team": "NE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "19231",
-      "ecr": "75",
-      "player": "Travis Etienne Jr.",
+      "id": "22726",
+      "ecr": "73",
+      "player": "Rhamondre Stevenson",
       "pos": "RB",
-      "team": "NO",
+      "team": "NE",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "18269",
+      "ecr": "74",
+      "player": "Josh Jacobs",
+      "pos": "RB",
+      "team": "GB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "18269",
+      "ecr": "74",
+      "player": "Josh Jacobs",
+      "pos": "RB",
+      "team": "GB",
       "page_type": "redraft-rb"
     },
     {
       "id": "24706",
-      "ecr": "76",
+      "ecr": "75",
       "player": "Josh Downs",
       "pos": "WR",
       "team": "KC",
@@ -1211,11 +1195,27 @@
     },
     {
       "id": "24706",
-      "ecr": "76",
+      "ecr": "75",
       "player": "Josh Downs",
       "pos": "WR",
       "team": "KC",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "19231",
+      "ecr": "76",
+      "player": "Travis Etienne Jr.",
+      "pos": "RB",
+      "team": "NO",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19231",
+      "ecr": "76",
+      "player": "Travis Etienne Jr.",
+      "pos": "RB",
+      "team": "NO",
+      "page_type": "redraft-rb"
     },
     {
       "id": "23781",
@@ -1266,19 +1266,19 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "25337",
+      "id": "26035",
       "ecr": "80",
-      "player": "Tre Tucker",
+      "player": "Jordyn Tyson",
       "pos": "WR",
-      "team": "LV",
+      "team": "NO",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25337",
+      "id": "26035",
       "ecr": "80",
-      "player": "Tre Tucker",
+      "player": "Jordyn Tyson",
       "pos": "WR",
-      "team": "LV",
+      "team": "NO",
       "page_type": "redraft-wr"
     },
     {
@@ -1298,24 +1298,8 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "22902",
-      "ecr": "82",
-      "player": "Jayden Daniels",
-      "pos": "QB",
-      "team": "WAS",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22902",
-      "ecr": "82",
-      "player": "Jayden Daniels",
-      "pos": "QB",
-      "team": "WAS",
-      "page_type": "redraft-qb"
-    },
-    {
       "id": "23071",
-      "ecr": "83",
+      "ecr": "82",
       "player": "C.J. Stroud",
       "pos": "QB",
       "team": "HOU",
@@ -1323,42 +1307,58 @@
     },
     {
       "id": "23071",
-      "ecr": "83",
+      "ecr": "82",
       "player": "C.J. Stroud",
       "pos": "QB",
       "team": "HOU",
       "page_type": "redraft-qb"
     },
     {
-      "id": "16413",
-      "ecr": "84",
-      "player": "Patrick Mahomes II",
+      "id": "22902",
+      "ecr": "83",
+      "player": "Jayden Daniels",
       "pos": "QB",
-      "team": "KC",
+      "team": "WAS",
       "page_type": "redraft-overall"
     },
     {
-      "id": "16413",
-      "ecr": "84",
-      "player": "Patrick Mahomes II",
+      "id": "22902",
+      "ecr": "83",
+      "player": "Jayden Daniels",
       "pos": "QB",
-      "team": "KC",
+      "team": "WAS",
       "page_type": "redraft-qb"
     },
     {
-      "id": "25420",
-      "ecr": "85",
-      "player": "Makai Lemon",
-      "pos": "WR",
-      "team": "PHI",
+      "id": "27520",
+      "ecr": "84",
+      "player": "Woody Marks",
+      "pos": "RB",
+      "team": "HOU",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25420",
+      "id": "27520",
+      "ecr": "84",
+      "player": "Woody Marks",
+      "pos": "RB",
+      "team": "HOU",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "25337",
       "ecr": "85",
-      "player": "Makai Lemon",
+      "player": "Tre Tucker",
       "pos": "WR",
-      "team": "PHI",
+      "team": "LV",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25337",
+      "ecr": "85",
+      "player": "Tre Tucker",
+      "pos": "WR",
+      "team": "LV",
       "page_type": "redraft-wr"
     },
     {
@@ -1378,8 +1378,40 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "26039",
+      "id": "23107",
       "ecr": "87",
+      "player": "Jordan Addison",
+      "pos": "WR",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23107",
+      "ecr": "87",
+      "player": "Jordan Addison",
+      "pos": "WR",
+      "team": "MIN",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "16413",
+      "ecr": "88",
+      "player": "Patrick Mahomes II",
+      "pos": "QB",
+      "team": "KC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16413",
+      "ecr": "88",
+      "player": "Patrick Mahomes II",
+      "pos": "QB",
+      "team": "KC",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "26039",
+      "ecr": "89",
       "player": "Germie Bernard",
       "pos": "WR",
       "team": "PIT",
@@ -1387,58 +1419,26 @@
     },
     {
       "id": "26039",
-      "ecr": "87",
+      "ecr": "89",
       "player": "Germie Bernard",
       "pos": "WR",
       "team": "PIT",
       "page_type": "redraft-wr"
     },
     {
-      "id": "26035",
-      "ecr": "88",
-      "player": "Jordyn Tyson",
-      "pos": "WR",
-      "team": "NO",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26035",
-      "ecr": "88",
-      "player": "Jordyn Tyson",
-      "pos": "WR",
-      "team": "NO",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "27520",
-      "ecr": "89",
-      "player": "Woody Marks",
-      "pos": "RB",
-      "team": "HOU",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27520",
-      "ecr": "89",
-      "player": "Woody Marks",
-      "pos": "RB",
-      "team": "HOU",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "25418",
+      "id": "25420",
       "ecr": "90",
-      "player": "Antonio Williams",
+      "player": "Makai Lemon",
       "pos": "WR",
-      "team": "WAS",
+      "team": "PHI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25418",
+      "id": "25420",
       "ecr": "90",
-      "player": "Antonio Williams",
+      "player": "Makai Lemon",
       "pos": "WR",
-      "team": "WAS",
+      "team": "PHI",
       "page_type": "redraft-wr"
     },
     {
@@ -1458,24 +1458,40 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "23107",
+      "id": "11616",
       "ecr": "92",
-      "player": "Jordan Addison",
+      "player": "Keenan Allen",
       "pos": "WR",
-      "team": "MIN",
+      "team": "SF",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23107",
+      "id": "11616",
       "ecr": "92",
-      "player": "Jordan Addison",
+      "player": "Keenan Allen",
       "pos": "WR",
-      "team": "MIN",
+      "team": "SF",
       "page_type": "redraft-wr"
     },
     {
-      "id": "25298",
+      "id": "23152",
       "ecr": "93",
+      "player": "Zach Charbonnet",
+      "pos": "RB",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23152",
+      "ecr": "93",
+      "player": "Zach Charbonnet",
+      "pos": "RB",
+      "team": "SEA",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "25298",
+      "ecr": "94",
       "player": "Tucker Kraft",
       "pos": "TE",
       "team": "GB",
@@ -1483,47 +1499,15 @@
     },
     {
       "id": "25298",
-      "ecr": "93",
+      "ecr": "94",
       "player": "Tucker Kraft",
       "pos": "TE",
       "team": "GB",
       "page_type": "redraft-te"
     },
     {
-      "id": "28135",
-      "ecr": "94",
-      "player": "Caleb Douglas",
-      "pos": "WR",
-      "team": "MIA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28135",
-      "ecr": "94",
-      "player": "Caleb Douglas",
-      "pos": "WR",
-      "team": "MIA",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "22985",
-      "ecr": "95",
-      "player": "Wan'Dale Robinson",
-      "pos": "WR",
-      "team": "TEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22985",
-      "ecr": "95",
-      "player": "Wan'Dale Robinson",
-      "pos": "WR",
-      "team": "TEN",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "23748",
-      "ecr": "96",
+      "ecr": "95",
       "player": "Khalil Shakir",
       "pos": "WR",
       "team": "BUF",
@@ -1531,63 +1515,31 @@
     },
     {
       "id": "23748",
-      "ecr": "96",
+      "ecr": "95",
       "player": "Khalil Shakir",
       "pos": "WR",
       "team": "BUF",
       "page_type": "redraft-wr"
     },
     {
-      "id": "11616",
-      "ecr": "97",
-      "player": "Keenan Allen",
+      "id": "25418",
+      "ecr": "96",
+      "player": "Antonio Williams",
       "pos": "WR",
-      "team": "SF",
+      "team": "WAS",
       "page_type": "redraft-overall"
     },
     {
-      "id": "11616",
-      "ecr": "97",
-      "player": "Keenan Allen",
+      "id": "25418",
+      "ecr": "96",
+      "player": "Antonio Williams",
       "pos": "WR",
-      "team": "SF",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "9451",
-      "ecr": "98",
-      "player": "Matthew Stafford",
-      "pos": "QB",
-      "team": "LAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "9451",
-      "ecr": "98",
-      "player": "Matthew Stafford",
-      "pos": "QB",
-      "team": "LAR",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "24357",
-      "ecr": "99",
-      "player": "Adonai Mitchell",
-      "pos": "WR",
-      "team": "NYJ",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "24357",
-      "ecr": "99",
-      "player": "Adonai Mitchell",
-      "pos": "WR",
-      "team": "NYJ",
+      "team": "WAS",
       "page_type": "redraft-wr"
     },
     {
       "id": "23096",
-      "ecr": "100",
+      "ecr": "97",
       "player": "Tyler Shough",
       "pos": "QB",
       "team": "NO",
@@ -1595,11 +1547,59 @@
     },
     {
       "id": "23096",
-      "ecr": "100",
+      "ecr": "97",
       "player": "Tyler Shough",
       "pos": "QB",
       "team": "NO",
       "page_type": "redraft-qb"
+    },
+    {
+      "id": "24357",
+      "ecr": "98",
+      "player": "Adonai Mitchell",
+      "pos": "WR",
+      "team": "NYJ",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24357",
+      "ecr": "98",
+      "player": "Adonai Mitchell",
+      "pos": "WR",
+      "team": "NYJ",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "22969",
+      "ecr": "99",
+      "player": "Jordan Mason",
+      "pos": "RB",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22969",
+      "ecr": "99",
+      "player": "Jordan Mason",
+      "pos": "RB",
+      "team": "MIN",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "22985",
+      "ecr": "100",
+      "player": "Wan'Dale Robinson",
+      "pos": "WR",
+      "team": "TEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22985",
+      "ecr": "100",
+      "player": "Wan'Dale Robinson",
+      "pos": "WR",
+      "team": "TEN",
+      "page_type": "redraft-wr"
     },
     {
       "id": "25247",
@@ -1618,24 +1618,72 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "22969",
+      "id": "28135",
       "ecr": "102",
-      "player": "Jordan Mason",
-      "pos": "RB",
+      "player": "Caleb Douglas",
+      "pos": "WR",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28135",
+      "ecr": "102",
+      "player": "Caleb Douglas",
+      "pos": "WR",
+      "team": "MIA",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "9451",
+      "ecr": "103",
+      "player": "Matthew Stafford",
+      "pos": "QB",
+      "team": "LAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "9451",
+      "ecr": "103",
+      "player": "Matthew Stafford",
+      "pos": "QB",
+      "team": "LAR",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "11177",
+      "ecr": "104",
+      "player": "Kirk Cousins",
+      "pos": "QB",
       "team": "MIN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "22969",
-      "ecr": "102",
-      "player": "Jordan Mason",
-      "pos": "RB",
+      "id": "11177",
+      "ecr": "104",
+      "player": "Kirk Cousins",
+      "pos": "QB",
       "team": "MIN",
-      "page_type": "redraft-rb"
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "26434",
+      "ecr": "105",
+      "player": "Tyler Warren",
+      "pos": "TE",
+      "team": "IND",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26434",
+      "ecr": "105",
+      "player": "Tyler Warren",
+      "pos": "TE",
+      "team": "IND",
+      "page_type": "redraft-te"
     },
     {
       "id": "22900",
-      "ecr": "103",
+      "ecr": "106",
       "player": "Bryce Young",
       "pos": "QB",
       "team": "CAR",
@@ -1643,7 +1691,7 @@
     },
     {
       "id": "22900",
-      "ecr": "103",
+      "ecr": "106",
       "player": "Bryce Young",
       "pos": "QB",
       "team": "CAR",
@@ -1651,7 +1699,7 @@
     },
     {
       "id": "27050",
-      "ecr": "104",
+      "ecr": "107",
       "player": "Harold Fannin Jr.",
       "pos": "TE",
       "team": "CLE",
@@ -1659,79 +1707,15 @@
     },
     {
       "id": "27050",
-      "ecr": "104",
+      "ecr": "107",
       "player": "Harold Fannin Jr.",
       "pos": "TE",
       "team": "CLE",
       "page_type": "redraft-te"
     },
     {
-      "id": "26398",
-      "ecr": "105",
-      "player": "Ryan Flournoy",
-      "pos": "WR",
-      "team": "DAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26398",
-      "ecr": "105",
-      "player": "Ryan Flournoy",
-      "pos": "WR",
-      "team": "DAL",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "26314",
-      "ecr": "106",
-      "player": "Malik Washington",
-      "pos": "WR",
-      "team": "MIA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26314",
-      "ecr": "106",
-      "player": "Malik Washington",
-      "pos": "WR",
-      "team": "MIA",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "26434",
-      "ecr": "107",
-      "player": "Tyler Warren",
-      "pos": "TE",
-      "team": "IND",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26434",
-      "ecr": "107",
-      "player": "Tyler Warren",
-      "pos": "TE",
-      "team": "IND",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "11594",
-      "ecr": "108",
-      "player": "Travis Kelce",
-      "pos": "TE",
-      "team": "KC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "11594",
-      "ecr": "108",
-      "player": "Travis Kelce",
-      "pos": "TE",
-      "team": "KC",
-      "page_type": "redraft-te"
-    },
-    {
       "id": "25304",
-      "ecr": "109",
+      "ecr": "108",
       "player": "DeMario Douglas",
       "pos": "WR",
       "team": "NE",
@@ -1739,47 +1723,15 @@
     },
     {
       "id": "25304",
-      "ecr": "109",
+      "ecr": "108",
       "player": "DeMario Douglas",
       "pos": "WR",
       "team": "NE",
       "page_type": "redraft-wr"
     },
     {
-      "id": "23152",
-      "ecr": "110",
-      "player": "Zach Charbonnet",
-      "pos": "RB",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23152",
-      "ecr": "110",
-      "player": "Zach Charbonnet",
-      "pos": "RB",
-      "team": "SEA",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "19647",
-      "ecr": "111",
-      "player": "Rico Dowdle",
-      "pos": "RB",
-      "team": "PIT",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19647",
-      "ecr": "111",
-      "player": "Rico Dowdle",
-      "pos": "RB",
-      "team": "PIT",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "25395",
-      "ecr": "112",
+      "ecr": "109",
       "player": "Omarion Hampton",
       "pos": "RB",
       "team": "LAC",
@@ -1787,27 +1739,75 @@
     },
     {
       "id": "25395",
-      "ecr": "112",
+      "ecr": "109",
       "player": "Omarion Hampton",
       "pos": "RB",
       "team": "LAC",
       "page_type": "redraft-rb"
     },
     {
-      "id": "16673",
-      "ecr": "113",
-      "player": "Aaron Jones Sr.",
-      "pos": "RB",
-      "team": "MIN",
+      "id": "11594",
+      "ecr": "110",
+      "player": "Travis Kelce",
+      "pos": "TE",
+      "team": "KC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "16673",
-      "ecr": "113",
-      "player": "Aaron Jones Sr.",
+      "id": "11594",
+      "ecr": "110",
+      "player": "Travis Kelce",
+      "pos": "TE",
+      "team": "KC",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "26398",
+      "ecr": "111",
+      "player": "Ryan Flournoy",
+      "pos": "WR",
+      "team": "DAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26398",
+      "ecr": "111",
+      "player": "Ryan Flournoy",
+      "pos": "WR",
+      "team": "DAL",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "19647",
+      "ecr": "112",
+      "player": "Rico Dowdle",
       "pos": "RB",
-      "team": "MIN",
+      "team": "PIT",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19647",
+      "ecr": "112",
+      "player": "Rico Dowdle",
+      "pos": "RB",
+      "team": "PIT",
       "page_type": "redraft-rb"
+    },
+    {
+      "id": "25361",
+      "ecr": "113",
+      "player": "Tank Dell",
+      "pos": "WR",
+      "team": "HOU",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25361",
+      "ecr": "113",
+      "player": "Tank Dell",
+      "pos": "WR",
+      "team": "HOU",
+      "page_type": "redraft-wr"
     },
     {
       "id": "18244",
@@ -1826,24 +1826,8 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "11177",
-      "ecr": "115",
-      "player": "Kirk Cousins",
-      "pos": "QB",
-      "team": "MIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "11177",
-      "ecr": "115",
-      "player": "Kirk Cousins",
-      "pos": "QB",
-      "team": "MIN",
-      "page_type": "redraft-qb"
-    },
-    {
       "id": "23891",
-      "ecr": "116",
+      "ecr": "115",
       "player": "Rachaad White",
       "pos": "RB",
       "team": "WAS",
@@ -1851,15 +1835,47 @@
     },
     {
       "id": "23891",
-      "ecr": "116",
+      "ecr": "115",
       "player": "Rachaad White",
       "pos": "RB",
       "team": "WAS",
       "page_type": "redraft-rb"
     },
     {
-      "id": "9001",
+      "id": "26314",
+      "ecr": "116",
+      "player": "Malik Washington",
+      "pos": "WR",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26314",
+      "ecr": "116",
+      "player": "Malik Washington",
+      "pos": "WR",
+      "team": "MIA",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "16673",
       "ecr": "117",
+      "player": "Aaron Jones Sr.",
+      "pos": "RB",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16673",
+      "ecr": "117",
+      "player": "Aaron Jones Sr.",
+      "pos": "RB",
+      "team": "MIN",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "9001",
+      "ecr": "118",
       "player": "Aaron Rodgers",
       "pos": "QB",
       "team": "PIT",
@@ -1867,27 +1883,11 @@
     },
     {
       "id": "9001",
-      "ecr": "117",
+      "ecr": "118",
       "player": "Aaron Rodgers",
       "pos": "QB",
       "team": "PIT",
       "page_type": "redraft-qb"
-    },
-    {
-      "id": "25361",
-      "ecr": "118",
-      "player": "Tank Dell",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25361",
-      "ecr": "118",
-      "player": "Tank Dell",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-wr"
     },
     {
       "id": "27329",
@@ -1922,40 +1922,24 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "26409",
+      "id": "22910",
       "ecr": "121",
-      "player": "Devaughn Vele",
-      "pos": "WR",
-      "team": "NO",
+      "player": "Bo Nix",
+      "pos": "QB",
+      "team": "DEN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "26409",
+      "id": "22910",
       "ecr": "121",
-      "player": "Devaughn Vele",
-      "pos": "WR",
-      "team": "NO",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "23079",
-      "ecr": "122",
-      "player": "Seth McGowan",
-      "pos": "RB",
-      "team": "IND",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23079",
-      "ecr": "122",
-      "player": "Seth McGowan",
-      "pos": "RB",
-      "team": "IND",
-      "page_type": "redraft-rb"
+      "player": "Bo Nix",
+      "pos": "QB",
+      "team": "DEN",
+      "page_type": "redraft-qb"
     },
     {
       "id": "17253",
-      "ecr": "123",
+      "ecr": "122",
       "player": "Courtland Sutton",
       "pos": "WR",
       "team": "DEN",
@@ -1963,63 +1947,31 @@
     },
     {
       "id": "17253",
-      "ecr": "123",
+      "ecr": "122",
       "player": "Courtland Sutton",
       "pos": "WR",
       "team": "DEN",
       "page_type": "redraft-wr"
     },
     {
-      "id": "23064",
-      "ecr": "124",
-      "player": "Marvin Harrison Jr.",
-      "pos": "WR",
-      "team": "HOU",
+      "id": "17270",
+      "ecr": "123",
+      "player": "Dallas Goedert",
+      "pos": "TE",
+      "team": "PHI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23064",
-      "ecr": "124",
-      "player": "Marvin Harrison Jr.",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "25345",
-      "ecr": "125",
-      "player": "Brenton Strange",
+      "id": "17270",
+      "ecr": "123",
+      "player": "Dallas Goedert",
       "pos": "TE",
-      "team": "JAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25345",
-      "ecr": "125",
-      "player": "Brenton Strange",
-      "pos": "TE",
-      "team": "JAC",
+      "team": "PHI",
       "page_type": "redraft-te"
     },
     {
-      "id": "23019",
-      "ecr": "126",
-      "player": "Xavier Worthy",
-      "pos": "WR",
-      "team": "KC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23019",
-      "ecr": "126",
-      "player": "Xavier Worthy",
-      "pos": "WR",
-      "team": "KC",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "22973",
-      "ecr": "127",
+      "ecr": "124",
       "player": "Michael Penix Jr.",
       "pos": "QB",
       "team": "ATL",
@@ -2027,11 +1979,59 @@
     },
     {
       "id": "22973",
-      "ecr": "127",
+      "ecr": "124",
       "player": "Michael Penix Jr.",
       "pos": "QB",
       "team": "ATL",
       "page_type": "redraft-qb"
+    },
+    {
+      "id": "23064",
+      "ecr": "125",
+      "player": "Marvin Harrison Jr.",
+      "pos": "WR",
+      "team": "HOU",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23064",
+      "ecr": "125",
+      "player": "Marvin Harrison Jr.",
+      "pos": "WR",
+      "team": "HOU",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "24172",
+      "ecr": "126",
+      "player": "Tyler Allgeier",
+      "pos": "RB",
+      "team": "ARI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24172",
+      "ecr": "126",
+      "player": "Tyler Allgeier",
+      "pos": "RB",
+      "team": "ARI",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "25345",
+      "ecr": "127",
+      "player": "Brenton Strange",
+      "pos": "TE",
+      "team": "JAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25345",
+      "ecr": "127",
+      "player": "Brenton Strange",
+      "pos": "TE",
+      "team": "JAC",
+      "page_type": "redraft-te"
     },
     {
       "id": "20164",
@@ -2050,24 +2050,8 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "17270",
-      "ecr": "129",
-      "player": "Dallas Goedert",
-      "pos": "TE",
-      "team": "PHI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "17270",
-      "ecr": "129",
-      "player": "Dallas Goedert",
-      "pos": "TE",
-      "team": "PHI",
-      "page_type": "redraft-te"
-    },
-    {
       "id": "11687",
-      "ecr": "130",
+      "ecr": "129",
       "player": "Geno Smith",
       "pos": "QB",
       "team": "NYJ",
@@ -2075,31 +2059,31 @@
     },
     {
       "id": "11687",
-      "ecr": "130",
+      "ecr": "129",
       "player": "Geno Smith",
       "pos": "QB",
       "team": "NYJ",
       "page_type": "redraft-qb"
     },
     {
-      "id": "24172",
-      "ecr": "131",
-      "player": "Tyler Allgeier",
-      "pos": "RB",
-      "team": "ARI",
+      "id": "23019",
+      "ecr": "130",
+      "player": "Xavier Worthy",
+      "pos": "WR",
+      "team": "KC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24172",
-      "ecr": "131",
-      "player": "Tyler Allgeier",
-      "pos": "RB",
-      "team": "ARI",
-      "page_type": "redraft-rb"
+      "id": "23019",
+      "ecr": "130",
+      "player": "Xavier Worthy",
+      "pos": "WR",
+      "team": "KC",
+      "page_type": "redraft-wr"
     },
     {
       "id": "28107",
-      "ecr": "132",
+      "ecr": "131",
       "player": "Emmett Johnson",
       "pos": "RB",
       "team": "KC",
@@ -2107,31 +2091,15 @@
     },
     {
       "id": "28107",
-      "ecr": "132",
+      "ecr": "131",
       "player": "Emmett Johnson",
       "pos": "RB",
       "team": "KC",
       "page_type": "redraft-rb"
     },
     {
-      "id": "28108",
-      "ecr": "133",
-      "player": "Mike Washington Jr.",
-      "pos": "RB",
-      "team": "LV",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28108",
-      "ecr": "133",
-      "player": "Mike Washington Jr.",
-      "pos": "RB",
-      "team": "LV",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "16406",
-      "ecr": "134",
+      "ecr": "132",
       "player": "Chris Godwin Jr.",
       "pos": "WR",
       "team": "TB",
@@ -2139,15 +2107,31 @@
     },
     {
       "id": "16406",
-      "ecr": "134",
+      "ecr": "132",
       "player": "Chris Godwin Jr.",
       "pos": "WR",
       "team": "TB",
       "page_type": "redraft-wr"
     },
     {
+      "id": "26409",
+      "ecr": "133",
+      "player": "Devaughn Vele",
+      "pos": "WR",
+      "team": "NO",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26409",
+      "ecr": "133",
+      "player": "Devaughn Vele",
+      "pos": "WR",
+      "team": "NO",
+      "page_type": "redraft-wr"
+    },
+    {
       "id": "28401",
-      "ecr": "135",
+      "ecr": "134",
       "player": "Kaelon Black",
       "pos": "RB",
       "team": "SF",
@@ -2155,47 +2139,31 @@
     },
     {
       "id": "28401",
-      "ecr": "135",
+      "ecr": "134",
       "player": "Kaelon Black",
       "pos": "RB",
       "team": "SF",
       "page_type": "redraft-rb"
     },
     {
-      "id": "22910",
-      "ecr": "136",
-      "player": "Bo Nix",
-      "pos": "QB",
-      "team": "DEN",
+      "id": "28108",
+      "ecr": "135",
+      "player": "Mike Washington Jr.",
+      "pos": "RB",
+      "team": "LV",
       "page_type": "redraft-overall"
     },
     {
-      "id": "22910",
-      "ecr": "136",
-      "player": "Bo Nix",
-      "pos": "QB",
-      "team": "DEN",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "16421",
-      "ecr": "137",
-      "player": "Alvin Kamara",
+      "id": "28108",
+      "ecr": "135",
+      "player": "Mike Washington Jr.",
       "pos": "RB",
-      "team": "NO",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "16421",
-      "ecr": "137",
-      "player": "Alvin Kamara",
-      "pos": "RB",
-      "team": "NO",
+      "team": "LV",
       "page_type": "redraft-rb"
     },
     {
       "id": "18290",
-      "ecr": "138",
+      "ecr": "136",
       "player": "T.J. Hockenson",
       "pos": "TE",
       "team": "MIN",
@@ -2203,31 +2171,15 @@
     },
     {
       "id": "18290",
-      "ecr": "138",
+      "ecr": "136",
       "player": "T.J. Hockenson",
       "pos": "TE",
       "team": "MIN",
       "page_type": "redraft-te"
     },
     {
-      "id": "18239",
-      "ecr": "139",
-      "player": "David Montgomery",
-      "pos": "RB",
-      "team": "HOU",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18239",
-      "ecr": "139",
-      "player": "David Montgomery",
-      "pos": "RB",
-      "team": "HOU",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "23982",
-      "ecr": "140",
+      "ecr": "137",
       "player": "Chig Okonkwo",
       "pos": "TE",
       "team": "WAS",
@@ -2235,31 +2187,63 @@
     },
     {
       "id": "23982",
-      "ecr": "140",
+      "ecr": "137",
       "player": "Chig Okonkwo",
       "pos": "TE",
       "team": "WAS",
       "page_type": "redraft-te"
     },
     {
-      "id": "26019",
-      "ecr": "141",
-      "player": "Keon Coleman",
-      "pos": "WR",
-      "team": "BUF",
+      "id": "18239",
+      "ecr": "138",
+      "player": "David Montgomery",
+      "pos": "RB",
+      "team": "HOU",
       "page_type": "redraft-overall"
     },
     {
-      "id": "26019",
-      "ecr": "141",
-      "player": "Keon Coleman",
-      "pos": "WR",
-      "team": "BUF",
-      "page_type": "redraft-wr"
+      "id": "18239",
+      "ecr": "138",
+      "player": "David Montgomery",
+      "pos": "RB",
+      "team": "HOU",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "16421",
+      "ecr": "139",
+      "player": "Alvin Kamara",
+      "pos": "RB",
+      "team": "NO",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16421",
+      "ecr": "139",
+      "player": "Alvin Kamara",
+      "pos": "RB",
+      "team": "NO",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "23018",
+      "ecr": "140",
+      "player": "J.J. McCarthy",
+      "pos": "QB",
+      "team": "NYG",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23018",
+      "ecr": "140",
+      "player": "J.J. McCarthy",
+      "pos": "QB",
+      "team": "NYG",
+      "page_type": "redraft-qb"
     },
     {
       "id": "23794",
-      "ecr": "142",
+      "ecr": "141",
       "player": "Romeo Doubs",
       "pos": "WR",
       "team": "NE",
@@ -2267,7 +2251,7 @@
     },
     {
       "id": "23794",
-      "ecr": "142",
+      "ecr": "141",
       "player": "Romeo Doubs",
       "pos": "WR",
       "team": "NE",
@@ -2275,7 +2259,7 @@
     },
     {
       "id": "23310",
-      "ecr": "143",
+      "ecr": "142",
       "player": "Kenny Gainwell",
       "pos": "RB",
       "team": "TB",
@@ -2283,27 +2267,43 @@
     },
     {
       "id": "23310",
-      "ecr": "143",
+      "ecr": "142",
       "player": "Kenny Gainwell",
       "pos": "RB",
       "team": "TB",
       "page_type": "redraft-rb"
     },
     {
-      "id": "23018",
-      "ecr": "144",
-      "player": "J.J. McCarthy",
-      "pos": "QB",
-      "team": "NYG",
+      "id": "12123",
+      "ecr": "143",
+      "player": "Davante Adams",
+      "pos": "WR",
+      "team": "LAR",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23018",
+      "id": "12123",
+      "ecr": "143",
+      "player": "Davante Adams",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "26019",
       "ecr": "144",
-      "player": "J.J. McCarthy",
-      "pos": "QB",
-      "team": "NYG",
-      "page_type": "redraft-qb"
+      "player": "Keon Coleman",
+      "pos": "WR",
+      "team": "BUF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26019",
+      "ecr": "144",
+      "player": "Keon Coleman",
+      "pos": "WR",
+      "team": "BUF",
+      "page_type": "redraft-wr"
     },
     {
       "id": "28138",
@@ -2322,20 +2322,20 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "12123",
+      "id": "23079",
       "ecr": "146",
-      "player": "Davante Adams",
-      "pos": "WR",
-      "team": "LAR",
+      "player": "Seth McGowan",
+      "pos": "RB",
+      "team": "IND",
       "page_type": "redraft-overall"
     },
     {
-      "id": "12123",
+      "id": "23079",
       "ecr": "146",
-      "player": "Davante Adams",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-wr"
+      "player": "Seth McGowan",
+      "pos": "RB",
+      "team": "IND",
+      "page_type": "redraft-rb"
     },
     {
       "id": "17272",
@@ -2351,27 +2351,11 @@
       "player": "Mike Gesicki",
       "pos": "TE",
       "team": "CIN",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "15561",
-      "ecr": "148",
-      "player": "Hunter Henry",
-      "pos": "TE",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "15561",
-      "ecr": "148",
-      "player": "Hunter Henry",
-      "pos": "TE",
-      "team": "NE",
       "page_type": "redraft-te"
     },
     {
       "id": "17237",
-      "ecr": "149",
+      "ecr": "148",
       "player": "Baker Mayfield",
       "pos": "QB",
       "team": "TB",
@@ -2379,111 +2363,31 @@
     },
     {
       "id": "17237",
-      "ecr": "149",
+      "ecr": "148",
       "player": "Baker Mayfield",
       "pos": "QB",
       "team": "TB",
       "page_type": "redraft-qb"
     },
     {
-      "id": "27142",
-      "ecr": "150",
-      "player": "RJ Harvey",
-      "pos": "RB",
-      "team": "DEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27142",
-      "ecr": "150",
-      "player": "RJ Harvey",
-      "pos": "RB",
-      "team": "DEN",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "27337",
-      "ecr": "151",
-      "player": "Ja'Kobi Lane",
-      "pos": "WR",
-      "team": "BAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27337",
-      "ecr": "151",
-      "player": "Ja'Kobi Lane",
-      "pos": "WR",
-      "team": "BAL",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "22986",
-      "ecr": "152",
-      "player": "Chris Rodriguez Jr.",
-      "pos": "RB",
-      "team": "JAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22986",
-      "ecr": "152",
-      "player": "Chris Rodriguez Jr.",
-      "pos": "RB",
-      "team": "JAC",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "27102",
-      "ecr": "153",
-      "player": "Dylan Sampson",
-      "pos": "RB",
-      "team": "CLE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27102",
-      "ecr": "153",
-      "player": "Dylan Sampson",
-      "pos": "RB",
-      "team": "CLE",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "23000",
-      "ecr": "154",
-      "player": "Brian Thomas Jr.",
-      "pos": "WR",
-      "team": "JAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23000",
-      "ecr": "154",
-      "player": "Brian Thomas Jr.",
-      "pos": "WR",
-      "team": "JAC",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "23091",
-      "ecr": "155",
-      "player": "Terrance Ferguson",
+      "id": "15561",
+      "ecr": "149",
+      "player": "Hunter Henry",
       "pos": "TE",
-      "team": "LAR",
+      "team": "NE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23091",
-      "ecr": "155",
-      "player": "Terrance Ferguson",
+      "id": "15561",
+      "ecr": "149",
+      "player": "Hunter Henry",
       "pos": "TE",
-      "team": "LAR",
+      "team": "NE",
       "page_type": "redraft-te"
     },
     {
       "id": "24354",
-      "ecr": "156",
+      "ecr": "150",
       "player": "Dontayvion Wicks",
       "pos": "WR",
       "team": "PHI",
@@ -2491,7 +2395,7 @@
     },
     {
       "id": "24354",
-      "ecr": "156",
+      "ecr": "150",
       "player": "Dontayvion Wicks",
       "pos": "WR",
       "team": "PHI",
@@ -2499,7 +2403,7 @@
     },
     {
       "id": "19245",
-      "ecr": "157",
+      "ecr": "151",
       "player": "J.K. Dobbins",
       "pos": "RB",
       "team": "DEN",
@@ -2507,15 +2411,47 @@
     },
     {
       "id": "19245",
-      "ecr": "157",
+      "ecr": "151",
       "player": "J.K. Dobbins",
       "pos": "RB",
       "team": "DEN",
       "page_type": "redraft-rb"
     },
     {
+      "id": "27142",
+      "ecr": "152",
+      "player": "RJ Harvey",
+      "pos": "RB",
+      "team": "DEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27142",
+      "ecr": "152",
+      "player": "RJ Harvey",
+      "pos": "RB",
+      "team": "DEN",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "22986",
+      "ecr": "153",
+      "player": "Chris Rodriguez Jr.",
+      "pos": "RB",
+      "team": "JAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22986",
+      "ecr": "153",
+      "player": "Chris Rodriguez Jr.",
+      "pos": "RB",
+      "team": "JAC",
+      "page_type": "redraft-rb"
+    },
+    {
       "id": "19562",
-      "ecr": "158",
+      "ecr": "154",
       "player": "Juwan Johnson",
       "pos": "TE",
       "team": "NO",
@@ -2523,31 +2459,63 @@
     },
     {
       "id": "19562",
-      "ecr": "158",
+      "ecr": "154",
       "player": "Juwan Johnson",
       "pos": "TE",
       "team": "NO",
       "page_type": "redraft-te"
     },
     {
-      "id": "23123",
-      "ecr": "159",
-      "player": "Quentin Johnston",
-      "pos": "WR",
-      "team": "LAC",
+      "id": "27102",
+      "ecr": "155",
+      "player": "Dylan Sampson",
+      "pos": "RB",
+      "team": "CLE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23123",
-      "ecr": "159",
-      "player": "Quentin Johnston",
+      "id": "27102",
+      "ecr": "155",
+      "player": "Dylan Sampson",
+      "pos": "RB",
+      "team": "CLE",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "27337",
+      "ecr": "156",
+      "player": "Ja'Kobi Lane",
       "pos": "WR",
-      "team": "LAC",
+      "team": "BAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27337",
+      "ecr": "156",
+      "player": "Ja'Kobi Lane",
+      "pos": "WR",
+      "team": "BAL",
       "page_type": "redraft-wr"
     },
     {
+      "id": "23091",
+      "ecr": "157",
+      "player": "Terrance Ferguson",
+      "pos": "TE",
+      "team": "LAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23091",
+      "ecr": "157",
+      "player": "Terrance Ferguson",
+      "pos": "TE",
+      "team": "LAR",
+      "page_type": "redraft-te"
+    },
+    {
       "id": "20163",
-      "ecr": "160",
+      "ecr": "158",
       "player": "Pat Freiermuth",
       "pos": "TE",
       "team": "PIT",
@@ -2555,15 +2523,63 @@
     },
     {
       "id": "20163",
-      "ecr": "160",
+      "ecr": "158",
       "player": "Pat Freiermuth",
       "pos": "TE",
       "team": "PIT",
       "page_type": "redraft-te"
     },
     {
-      "id": "23056",
+      "id": "22997",
+      "ecr": "159",
+      "player": "Corey Kiner",
+      "pos": "RB",
+      "team": "NE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22997",
+      "ecr": "159",
+      "player": "Corey Kiner",
+      "pos": "RB",
+      "team": "NE",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "23000",
+      "ecr": "160",
+      "player": "Brian Thomas Jr.",
+      "pos": "WR",
+      "team": "JAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23000",
+      "ecr": "160",
+      "player": "Brian Thomas Jr.",
+      "pos": "WR",
+      "team": "JAC",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "23123",
       "ecr": "161",
+      "player": "Quentin Johnston",
+      "pos": "WR",
+      "team": "LAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23123",
+      "ecr": "161",
+      "player": "Quentin Johnston",
+      "pos": "WR",
+      "team": "LAC",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "23056",
+      "ecr": "162",
       "player": "Michael Mayer",
       "pos": "TE",
       "team": "LV",
@@ -2571,27 +2587,11 @@
     },
     {
       "id": "23056",
-      "ecr": "161",
+      "ecr": "162",
       "player": "Michael Mayer",
       "pos": "TE",
       "team": "LV",
       "page_type": "redraft-te"
-    },
-    {
-      "id": "23791",
-      "ecr": "162",
-      "player": "Alec Pierce",
-      "pos": "WR",
-      "team": "IND",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23791",
-      "ecr": "162",
-      "player": "Alec Pierce",
-      "pos": "WR",
-      "team": "IND",
-      "page_type": "redraft-wr"
     },
     {
       "id": "14104",
@@ -2626,56 +2626,8 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "20094",
-      "ecr": "165",
-      "player": "Brian Robinson Jr.",
-      "pos": "RB",
-      "team": "ATL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "20094",
-      "ecr": "165",
-      "player": "Brian Robinson Jr.",
-      "pos": "RB",
-      "team": "ATL",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "26215",
-      "ecr": "166",
-      "player": "Tre' Harris",
-      "pos": "WR",
-      "team": "LAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26215",
-      "ecr": "166",
-      "player": "Tre' Harris",
-      "pos": "WR",
-      "team": "LAC",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "27994",
-      "ecr": "167",
-      "player": "Malachi Fields",
-      "pos": "WR",
-      "team": "NYG",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27994",
-      "ecr": "167",
-      "player": "Malachi Fields",
-      "pos": "WR",
-      "team": "NYG",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "27211",
-      "ecr": "168",
+      "ecr": "165",
       "player": "Pat Bryant",
       "pos": "WR",
       "team": "DEN",
@@ -2683,31 +2635,15 @@
     },
     {
       "id": "27211",
-      "ecr": "168",
+      "ecr": "165",
       "player": "Pat Bryant",
       "pos": "WR",
       "team": "DEN",
       "page_type": "redraft-wr"
     },
     {
-      "id": "23153",
-      "ecr": "169",
-      "player": "Greg Dulcich",
-      "pos": "TE",
-      "team": "MIA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23153",
-      "ecr": "169",
-      "player": "Greg Dulcich",
-      "pos": "TE",
-      "team": "MIA",
-      "page_type": "redraft-te"
-    },
-    {
       "id": "16423",
-      "ecr": "170",
+      "ecr": "166",
       "player": "Samaje Perine",
       "pos": "RB",
       "team": "CIN",
@@ -2715,11 +2651,75 @@
     },
     {
       "id": "16423",
-      "ecr": "170",
+      "ecr": "166",
       "player": "Samaje Perine",
       "pos": "RB",
       "team": "CIN",
       "page_type": "redraft-rb"
+    },
+    {
+      "id": "26215",
+      "ecr": "167",
+      "player": "Tre' Harris",
+      "pos": "WR",
+      "team": "LAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26215",
+      "ecr": "167",
+      "player": "Tre' Harris",
+      "pos": "WR",
+      "team": "LAC",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "27994",
+      "ecr": "168",
+      "player": "Malachi Fields",
+      "pos": "WR",
+      "team": "NYG",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27994",
+      "ecr": "168",
+      "player": "Malachi Fields",
+      "pos": "WR",
+      "team": "NYG",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "23791",
+      "ecr": "169",
+      "player": "Alec Pierce",
+      "pos": "WR",
+      "team": "IND",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23791",
+      "ecr": "169",
+      "player": "Alec Pierce",
+      "pos": "WR",
+      "team": "IND",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "17236",
+      "ecr": "170",
+      "player": "Sam Darnold",
+      "pos": "QB",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "17236",
+      "ecr": "170",
+      "player": "Sam Darnold",
+      "pos": "QB",
+      "team": "SEA",
+      "page_type": "redraft-qb"
     },
     {
       "id": "17349",
@@ -2738,19 +2738,19 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "23499",
+      "id": "15642",
       "ecr": "172",
-      "player": "Malik Willis",
+      "player": "Jacoby Brissett",
       "pos": "QB",
-      "team": "MIA",
+      "team": "BAL",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23499",
+      "id": "15642",
       "ecr": "172",
-      "player": "Malik Willis",
+      "player": "Jacoby Brissett",
       "pos": "QB",
-      "team": "MIA",
+      "team": "BAL",
       "page_type": "redraft-qb"
     },
     {
@@ -2770,120 +2770,8 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "23065",
-      "ecr": "174",
-      "player": "TreVeyon Henderson",
-      "pos": "RB",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23065",
-      "ecr": "174",
-      "player": "TreVeyon Henderson",
-      "pos": "RB",
-      "team": "NE",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "17236",
-      "ecr": "175",
-      "player": "Sam Darnold",
-      "pos": "QB",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "17236",
-      "ecr": "175",
-      "player": "Sam Darnold",
-      "pos": "QB",
-      "team": "SEA",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "26038",
-      "ecr": "176",
-      "player": "Chris Bell",
-      "pos": "WR",
-      "team": "MIA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26038",
-      "ecr": "176",
-      "player": "Chris Bell",
-      "pos": "WR",
-      "team": "MIA",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "8260",
-      "ecr": "177",
-      "player": "Seattle Seahawks",
-      "pos": "DST",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8260",
-      "ecr": "177",
-      "player": "Seattle Seahawks",
-      "pos": "DST",
-      "team": "SEA",
-      "page_type": "redraft-dst"
-    },
-    {
-      "id": "24901",
-      "ecr": "178",
-      "player": "Bam Knight",
-      "pos": "RB",
-      "team": "ARI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "24901",
-      "ecr": "178",
-      "player": "Bam Knight",
-      "pos": "RB",
-      "team": "ARI",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "8120",
-      "ecr": "179",
-      "player": "Houston Texans",
-      "pos": "DST",
-      "team": "HOU",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8120",
-      "ecr": "179",
-      "player": "Houston Texans",
-      "pos": "DST",
-      "team": "HOU",
-      "page_type": "redraft-dst"
-    },
-    {
-      "id": "27316",
-      "ecr": "180",
-      "player": "Jacory Croskey-Merritt",
-      "pos": "RB",
-      "team": "WAS",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27316",
-      "ecr": "180",
-      "player": "Jacory Croskey-Merritt",
-      "pos": "RB",
-      "team": "WAS",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "26055",
-      "ecr": "181",
+      "ecr": "174",
       "player": "Kenyon Sadiq",
       "pos": "TE",
       "team": "NYJ",
@@ -2891,106 +2779,218 @@
     },
     {
       "id": "26055",
-      "ecr": "181",
+      "ecr": "174",
       "player": "Kenyon Sadiq",
       "pos": "TE",
       "team": "NYJ",
       "page_type": "redraft-te"
     },
     {
-      "id": "24687",
-      "ecr": "182",
-      "player": "Rashid Shaheed",
-      "pos": "WR",
-      "team": "SEA",
+      "id": "23153",
+      "ecr": "175",
+      "player": "Greg Dulcich",
+      "pos": "TE",
+      "team": "MIA",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24687",
-      "ecr": "182",
-      "player": "Rashid Shaheed",
-      "pos": "WR",
-      "team": "SEA",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "26335",
-      "ecr": "183",
-      "player": "AJ Barner",
+      "id": "23153",
+      "ecr": "175",
+      "player": "Greg Dulcich",
       "pos": "TE",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26335",
-      "ecr": "183",
-      "player": "AJ Barner",
-      "pos": "TE",
-      "team": "SEA",
+      "team": "MIA",
       "page_type": "redraft-te"
     },
     {
-      "id": "8090",
-      "ecr": "184",
-      "player": "Denver Broncos",
-      "pos": "DST",
-      "team": "DEN",
+      "id": "20094",
+      "ecr": "176",
+      "player": "Brian Robinson Jr.",
+      "pos": "RB",
+      "team": "ATL",
       "page_type": "redraft-overall"
     },
     {
-      "id": "8090",
-      "ecr": "184",
-      "player": "Denver Broncos",
+      "id": "20094",
+      "ecr": "176",
+      "player": "Brian Robinson Jr.",
+      "pos": "RB",
+      "team": "ATL",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "23065",
+      "ecr": "177",
+      "player": "TreVeyon Henderson",
+      "pos": "RB",
+      "team": "NE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23065",
+      "ecr": "177",
+      "player": "TreVeyon Henderson",
+      "pos": "RB",
+      "team": "NE",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "23054",
+      "ecr": "178",
+      "player": "Audric Estime",
+      "pos": "RB",
+      "team": "NO",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23054",
+      "ecr": "178",
+      "player": "Audric Estime",
+      "pos": "RB",
+      "team": "NO",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "27449",
+      "ecr": "179",
+      "player": "Konata Mumpfield",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27449",
+      "ecr": "179",
+      "player": "Konata Mumpfield",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "8260",
+      "ecr": "180",
+      "player": "Seattle Seahawks",
       "pos": "DST",
-      "team": "DEN",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8260",
+      "ecr": "180",
+      "player": "Seattle Seahawks",
+      "pos": "DST",
+      "team": "SEA",
       "page_type": "redraft-dst"
     },
     {
-      "id": "28896",
-      "ecr": "185",
-      "player": "Roman Wilson",
+      "id": "27486",
+      "ecr": "181",
+      "player": "Jordan Watkins",
       "pos": "WR",
-      "team": "PIT",
+      "team": "SF",
       "page_type": "redraft-overall"
     },
     {
-      "id": "28896",
-      "ecr": "185",
-      "player": "Roman Wilson",
+      "id": "27486",
+      "ecr": "181",
+      "player": "Jordan Watkins",
       "pos": "WR",
-      "team": "PIT",
+      "team": "SF",
       "page_type": "redraft-wr"
     },
     {
-      "id": "26005",
-      "ecr": "186",
-      "player": "Mason Taylor",
-      "pos": "TE",
-      "team": "NYJ",
+      "id": "24901",
+      "ecr": "182",
+      "player": "Bam Knight",
+      "pos": "RB",
+      "team": "ARI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "26005",
+      "id": "24901",
+      "ecr": "182",
+      "player": "Bam Knight",
+      "pos": "RB",
+      "team": "ARI",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "8120",
+      "ecr": "183",
+      "player": "Houston Texans",
+      "pos": "DST",
+      "team": "HOU",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8120",
+      "ecr": "183",
+      "player": "Houston Texans",
+      "pos": "DST",
+      "team": "HOU",
+      "page_type": "redraft-dst"
+    },
+    {
+      "id": "24687",
+      "ecr": "184",
+      "player": "Rashid Shaheed",
+      "pos": "WR",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24687",
+      "ecr": "184",
+      "player": "Rashid Shaheed",
+      "pos": "WR",
+      "team": "SEA",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "27316",
+      "ecr": "185",
+      "player": "Jacory Croskey-Merritt",
+      "pos": "RB",
+      "team": "WAS",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27316",
+      "ecr": "185",
+      "player": "Jacory Croskey-Merritt",
+      "pos": "RB",
+      "team": "WAS",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "26335",
       "ecr": "186",
-      "player": "Mason Taylor",
+      "player": "AJ Barner",
       "pos": "TE",
-      "team": "NYJ",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26335",
+      "ecr": "186",
+      "player": "AJ Barner",
+      "pos": "TE",
+      "team": "SEA",
       "page_type": "redraft-te"
     },
     {
-      "id": "8140",
+      "id": "8090",
       "ecr": "187",
-      "player": "Jacksonville Jaguars",
+      "player": "Denver Broncos",
       "pos": "DST",
-      "team": "JAC",
+      "team": "DEN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "8140",
+      "id": "8090",
       "ecr": "187",
-      "player": "Jacksonville Jaguars",
+      "player": "Denver Broncos",
       "pos": "DST",
-      "team": "JAC",
+      "team": "DEN",
       "page_type": "redraft-dst"
     },
     {
@@ -3010,8 +3010,24 @@
       "page_type": "redraft-dst"
     },
     {
-      "id": "19278",
+      "id": "8140",
       "ecr": "189",
+      "player": "Jacksonville Jaguars",
+      "pos": "DST",
+      "team": "JAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8140",
+      "ecr": "189",
+      "player": "Jacksonville Jaguars",
+      "pos": "DST",
+      "team": "JAC",
+      "page_type": "redraft-dst"
+    },
+    {
+      "id": "19278",
+      "ecr": "190",
       "player": "Michael Pittman Jr.",
       "pos": "WR",
       "team": "PIT",
@@ -3019,31 +3035,47 @@
     },
     {
       "id": "19278",
-      "ecr": "189",
+      "ecr": "190",
       "player": "Michael Pittman Jr.",
       "pos": "WR",
       "team": "PIT",
       "page_type": "redraft-wr"
     },
     {
-      "id": "16081",
-      "ecr": "190",
-      "player": "Kalif Raymond",
-      "pos": "WR",
-      "team": "CHI",
+      "id": "26005",
+      "ecr": "191",
+      "player": "Mason Taylor",
+      "pos": "TE",
+      "team": "NYJ",
       "page_type": "redraft-overall"
     },
     {
-      "id": "16081",
-      "ecr": "190",
-      "player": "Kalif Raymond",
+      "id": "26005",
+      "ecr": "191",
+      "player": "Mason Taylor",
+      "pos": "TE",
+      "team": "NYJ",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "26038",
+      "ecr": "192",
+      "player": "Chris Bell",
       "pos": "WR",
-      "team": "CHI",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26038",
+      "ecr": "192",
+      "player": "Chris Bell",
+      "pos": "WR",
+      "team": "MIA",
       "page_type": "redraft-wr"
     },
     {
       "id": "8170",
-      "ecr": "191",
+      "ecr": "193",
       "player": "Minnesota Vikings",
       "pos": "DST",
       "team": "MIN",
@@ -3051,7 +3083,7 @@
     },
     {
       "id": "8170",
-      "ecr": "191",
+      "ecr": "193",
       "player": "Minnesota Vikings",
       "pos": "DST",
       "team": "MIN",
@@ -3059,7 +3091,7 @@
     },
     {
       "id": "8240",
-      "ecr": "192",
+      "ecr": "194",
       "player": "Pittsburgh Steelers",
       "pos": "DST",
       "team": "PIT",
@@ -3067,127 +3099,15 @@
     },
     {
       "id": "8240",
-      "ecr": "192",
+      "ecr": "194",
       "player": "Pittsburgh Steelers",
       "pos": "DST",
       "team": "PIT",
       "page_type": "redraft-dst"
     },
     {
-      "id": "22997",
-      "ecr": "193",
-      "player": "Corey Kiner",
-      "pos": "RB",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22997",
-      "ecr": "193",
-      "player": "Corey Kiner",
-      "pos": "RB",
-      "team": "NE",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "15642",
-      "ecr": "194",
-      "player": "Jacoby Brissett",
-      "pos": "QB",
-      "team": "BAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "15642",
-      "ecr": "194",
-      "player": "Jacoby Brissett",
-      "pos": "QB",
-      "team": "BAL",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "18280",
-      "ecr": "195",
-      "player": "Devin Singletary",
-      "pos": "RB",
-      "team": "NYG",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18280",
-      "ecr": "195",
-      "player": "Devin Singletary",
-      "pos": "RB",
-      "team": "NYG",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "16489",
-      "ecr": "196",
-      "player": "Mack Hollins",
-      "pos": "WR",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "16489",
-      "ecr": "196",
-      "player": "Mack Hollins",
-      "pos": "WR",
-      "team": "NE",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "23054",
-      "ecr": "197",
-      "player": "Audric Estime",
-      "pos": "RB",
-      "team": "NO",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23054",
-      "ecr": "197",
-      "player": "Audric Estime",
-      "pos": "RB",
-      "team": "NO",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "28154",
-      "ecr": "198",
-      "player": "Eli Raridon",
-      "pos": "TE",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28154",
-      "ecr": "198",
-      "player": "Eli Raridon",
-      "pos": "TE",
-      "team": "NE",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "8150",
-      "ecr": "199",
-      "player": "Kansas City Chiefs",
-      "pos": "DST",
-      "team": "KC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8150",
-      "ecr": "199",
-      "player": "Kansas City Chiefs",
-      "pos": "DST",
-      "team": "KC",
-      "page_type": "redraft-dst"
-    },
-    {
       "id": "22967",
-      "ecr": "200",
+      "ecr": "195",
       "player": "Darnell Washington",
       "pos": "TE",
       "team": "PIT",
@@ -3195,63 +3115,47 @@
     },
     {
       "id": "22967",
-      "ecr": "200",
+      "ecr": "195",
       "player": "Darnell Washington",
       "pos": "TE",
       "team": "PIT",
       "page_type": "redraft-te"
     },
     {
-      "id": "26475",
-      "ecr": "201",
-      "player": "Cam Little",
-      "pos": "K",
-      "team": "JAC",
+      "id": "28896",
+      "ecr": "196",
+      "player": "Roman Wilson",
+      "pos": "WR",
+      "team": "PIT",
       "page_type": "redraft-overall"
     },
     {
-      "id": "26475",
-      "ecr": "201",
-      "player": "Cam Little",
-      "pos": "K",
-      "team": "JAC",
-      "page_type": "redraft-k"
+      "id": "28896",
+      "ecr": "196",
+      "player": "Roman Wilson",
+      "pos": "WR",
+      "team": "PIT",
+      "page_type": "redraft-wr"
     },
     {
-      "id": "15756",
-      "ecr": "202",
-      "player": "Ka'imi Fairbairn",
-      "pos": "K",
-      "team": "HOU",
+      "id": "28154",
+      "ecr": "197",
+      "player": "Eli Raridon",
+      "pos": "TE",
+      "team": "NE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "15756",
-      "ecr": "202",
-      "player": "Ka'imi Fairbairn",
-      "pos": "K",
-      "team": "HOU",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "26068",
-      "ecr": "203",
-      "player": "Brandon Aubrey",
-      "pos": "K",
-      "team": "DAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26068",
-      "ecr": "203",
-      "player": "Brandon Aubrey",
-      "pos": "K",
-      "team": "DAL",
-      "page_type": "redraft-k"
+      "id": "28154",
+      "ecr": "197",
+      "player": "Eli Raridon",
+      "pos": "TE",
+      "team": "NE",
+      "page_type": "redraft-te"
     },
     {
       "id": "19372",
-      "ecr": "204",
+      "ecr": "198",
       "player": "Colby Parkinson",
       "pos": "TE",
       "team": "LAR",
@@ -3259,15 +3163,143 @@
     },
     {
       "id": "19372",
-      "ecr": "204",
+      "ecr": "198",
       "player": "Colby Parkinson",
       "pos": "TE",
       "team": "LAR",
       "page_type": "redraft-te"
     },
     {
-      "id": "25360",
+      "id": "16489",
+      "ecr": "199",
+      "player": "Mack Hollins",
+      "pos": "WR",
+      "team": "NE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16489",
+      "ecr": "199",
+      "player": "Mack Hollins",
+      "pos": "WR",
+      "team": "NE",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "15756",
+      "ecr": "200",
+      "player": "Ka'imi Fairbairn",
+      "pos": "K",
+      "team": "HOU",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "15756",
+      "ecr": "200",
+      "player": "Ka'imi Fairbairn",
+      "pos": "K",
+      "team": "HOU",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "18280",
+      "ecr": "201",
+      "player": "Devin Singletary",
+      "pos": "RB",
+      "team": "NYG",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "18280",
+      "ecr": "201",
+      "player": "Devin Singletary",
+      "pos": "RB",
+      "team": "NYG",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "8150",
+      "ecr": "202",
+      "player": "Kansas City Chiefs",
+      "pos": "DST",
+      "team": "KC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8150",
+      "ecr": "202",
+      "player": "Kansas City Chiefs",
+      "pos": "DST",
+      "team": "KC",
+      "page_type": "redraft-dst"
+    },
+    {
+      "id": "26475",
+      "ecr": "203",
+      "player": "Cam Little",
+      "pos": "K",
+      "team": "JAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26475",
+      "ecr": "203",
+      "player": "Cam Little",
+      "pos": "K",
+      "team": "JAC",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "27165",
+      "ecr": "204",
+      "player": "Kaleb Johnson",
+      "pos": "RB",
+      "team": "GB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27165",
+      "ecr": "204",
+      "player": "Kaleb Johnson",
+      "pos": "RB",
+      "team": "GB",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "26068",
       "ecr": "205",
+      "player": "Brandon Aubrey",
+      "pos": "K",
+      "team": "DAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26068",
+      "ecr": "205",
+      "player": "Brandon Aubrey",
+      "pos": "K",
+      "team": "DAL",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "16081",
+      "ecr": "206",
+      "player": "Kalif Raymond",
+      "pos": "WR",
+      "team": "CHI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16081",
+      "ecr": "206",
+      "player": "Kalif Raymond",
+      "pos": "WR",
+      "team": "CHI",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "25360",
+      "ecr": "207",
       "player": "Keaton Mitchell",
       "pos": "RB",
       "team": "LAC",
@@ -3275,7 +3307,7 @@
     },
     {
       "id": "25360",
-      "ecr": "205",
+      "ecr": "207",
       "player": "Keaton Mitchell",
       "pos": "RB",
       "team": "LAC",
@@ -3283,7 +3315,7 @@
     },
     {
       "id": "25323",
-      "ecr": "206",
+      "ecr": "208",
       "player": "Tyjae Spears",
       "pos": "RB",
       "team": "TEN",
@@ -3291,79 +3323,15 @@
     },
     {
       "id": "25323",
-      "ecr": "206",
+      "ecr": "208",
       "player": "Tyjae Spears",
       "pos": "RB",
       "team": "TEN",
       "page_type": "redraft-rb"
-    },
-    {
-      "id": "26355",
-      "ecr": "207",
-      "player": "Kimani Vidal",
-      "pos": "RB",
-      "team": "LAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26355",
-      "ecr": "207",
-      "player": "Kimani Vidal",
-      "pos": "RB",
-      "team": "LAC",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "28130",
-      "ecr": "208",
-      "player": "Ted Hurst III",
-      "pos": "WR",
-      "team": "TB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28130",
-      "ecr": "208",
-      "player": "Ted Hurst III",
-      "pos": "WR",
-      "team": "TB",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "19201",
-      "ecr": "209",
-      "player": "Jerry Jeudy",
-      "pos": "WR",
-      "team": "CLE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19201",
-      "ecr": "209",
-      "player": "Jerry Jeudy",
-      "pos": "WR",
-      "team": "CLE",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "27449",
-      "ecr": "210",
-      "player": "Konata Mumpfield",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27449",
-      "ecr": "210",
-      "player": "Konata Mumpfield",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-wr"
     },
     {
       "id": "8180",
-      "ecr": "211",
+      "ecr": "209",
       "player": "New England Patriots",
       "pos": "DST",
       "team": "NE",
@@ -3371,11 +3339,43 @@
     },
     {
       "id": "8180",
-      "ecr": "211",
+      "ecr": "209",
       "player": "New England Patriots",
       "pos": "DST",
       "team": "NE",
       "page_type": "redraft-dst"
+    },
+    {
+      "id": "26355",
+      "ecr": "210",
+      "player": "Kimani Vidal",
+      "pos": "RB",
+      "team": "LAC",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26355",
+      "ecr": "210",
+      "player": "Kimani Vidal",
+      "pos": "RB",
+      "team": "LAC",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "19201",
+      "ecr": "211",
+      "player": "Jerry Jeudy",
+      "pos": "WR",
+      "team": "CLE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19201",
+      "ecr": "211",
+      "player": "Jerry Jeudy",
+      "pos": "WR",
+      "team": "CLE",
+      "page_type": "redraft-wr"
     },
     {
       "id": "19794",
@@ -3394,72 +3394,24 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "23297",
+      "id": "28130",
       "ecr": "213",
-      "player": "Evan McPherson",
-      "pos": "K",
-      "team": "CIN",
+      "player": "Ted Hurst III",
+      "pos": "WR",
+      "team": "TB",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23297",
+      "id": "28130",
       "ecr": "213",
-      "player": "Evan McPherson",
-      "pos": "K",
-      "team": "CIN",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "28178",
-      "ecr": "214",
-      "player": "Dohnte Meyers",
+      "player": "Ted Hurst III",
       "pos": "WR",
-      "team": "CIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28178",
-      "ecr": "214",
-      "player": "Dohnte Meyers",
-      "pos": "WR",
-      "team": "CIN",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "22989",
-      "ecr": "215",
-      "player": "Kayshon Boutte",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22989",
-      "ecr": "215",
-      "player": "Kayshon Boutte",
-      "pos": "WR",
-      "team": "HOU",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "16433",
-      "ecr": "216",
-      "player": "Cooper Kupp",
-      "pos": "WR",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "16433",
-      "ecr": "216",
-      "player": "Cooper Kupp",
-      "pos": "WR",
-      "team": "SEA",
+      "team": "TB",
       "page_type": "redraft-wr"
     },
     {
       "id": "24755",
-      "ecr": "217",
+      "ecr": "214",
       "player": "Cam Ward",
       "pos": "QB",
       "team": "TEN",
@@ -3467,15 +3419,111 @@
     },
     {
       "id": "24755",
-      "ecr": "217",
+      "ecr": "214",
       "player": "Cam Ward",
       "pos": "QB",
       "team": "TEN",
       "page_type": "redraft-qb"
     },
     {
-      "id": "23118",
+      "id": "23297",
+      "ecr": "215",
+      "player": "Evan McPherson",
+      "pos": "K",
+      "team": "CIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23297",
+      "ecr": "215",
+      "player": "Evan McPherson",
+      "pos": "K",
+      "team": "CIN",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "16398",
+      "ecr": "216",
+      "player": "Deshaun Watson",
+      "pos": "QB",
+      "team": "CLE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16398",
+      "ecr": "216",
+      "player": "Deshaun Watson",
+      "pos": "QB",
+      "team": "CLE",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "22989",
+      "ecr": "217",
+      "player": "Kayshon Boutte",
+      "pos": "WR",
+      "team": "HOU",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22989",
+      "ecr": "217",
+      "player": "Kayshon Boutte",
+      "pos": "WR",
+      "team": "HOU",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "16433",
       "ecr": "218",
+      "player": "Cooper Kupp",
+      "pos": "WR",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16433",
+      "ecr": "218",
+      "player": "Cooper Kupp",
+      "pos": "WR",
+      "team": "SEA",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "28178",
+      "ecr": "219",
+      "player": "Dohnte Meyers",
+      "pos": "WR",
+      "team": "CIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28178",
+      "ecr": "219",
+      "player": "Dohnte Meyers",
+      "pos": "WR",
+      "team": "CIN",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "14003",
+      "ecr": "220",
+      "player": "Jason Myers",
+      "pos": "K",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "14003",
+      "ecr": "220",
+      "player": "Jason Myers",
+      "pos": "K",
+      "team": "SEA",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "23118",
+      "ecr": "221",
       "player": "MarShawn Lloyd",
       "pos": "RB",
       "team": "GB",
@@ -3483,31 +3531,15 @@
     },
     {
       "id": "23118",
-      "ecr": "218",
+      "ecr": "221",
       "player": "MarShawn Lloyd",
       "pos": "RB",
       "team": "GB",
       "page_type": "redraft-rb"
     },
     {
-      "id": "14003",
-      "ecr": "219",
-      "player": "Jason Myers",
-      "pos": "K",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "14003",
-      "ecr": "219",
-      "player": "Jason Myers",
-      "pos": "K",
-      "team": "SEA",
-      "page_type": "redraft-k"
-    },
-    {
       "id": "27446",
-      "ecr": "220",
+      "ecr": "222",
       "player": "Isaac TeSlaa",
       "pos": "WR",
       "team": "DET",
@@ -3515,31 +3547,31 @@
     },
     {
       "id": "27446",
-      "ecr": "220",
+      "ecr": "222",
       "player": "Isaac TeSlaa",
       "pos": "WR",
       "team": "DET",
       "page_type": "redraft-wr"
     },
     {
-      "id": "16398",
-      "ecr": "221",
-      "player": "Deshaun Watson",
-      "pos": "QB",
-      "team": "CLE",
+      "id": "23181",
+      "ecr": "223",
+      "player": "Cade Otton",
+      "pos": "TE",
+      "team": "TB",
       "page_type": "redraft-overall"
     },
     {
-      "id": "16398",
-      "ecr": "221",
-      "player": "Deshaun Watson",
-      "pos": "QB",
-      "team": "CLE",
-      "page_type": "redraft-qb"
+      "id": "23181",
+      "ecr": "223",
+      "player": "Cade Otton",
+      "pos": "TE",
+      "team": "TB",
+      "page_type": "redraft-te"
     },
     {
       "id": "19058",
-      "ecr": "222",
+      "ecr": "224",
       "player": "Chase McLaughlin",
       "pos": "K",
       "team": "TB",
@@ -3547,7 +3579,7 @@
     },
     {
       "id": "19058",
-      "ecr": "222",
+      "ecr": "224",
       "player": "Chase McLaughlin",
       "pos": "K",
       "team": "TB",
@@ -3555,7 +3587,7 @@
     },
     {
       "id": "25997",
-      "ecr": "223",
+      "ecr": "225",
       "player": "Oronde Gadsden II",
       "pos": "TE",
       "team": "LAC",
@@ -3563,43 +3595,11 @@
     },
     {
       "id": "25997",
-      "ecr": "223",
+      "ecr": "225",
       "player": "Oronde Gadsden II",
       "pos": "TE",
       "team": "LAC",
       "page_type": "redraft-te"
-    },
-    {
-      "id": "27486",
-      "ecr": "224",
-      "player": "Jordan Watkins",
-      "pos": "WR",
-      "team": "SF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27486",
-      "ecr": "224",
-      "player": "Jordan Watkins",
-      "pos": "WR",
-      "team": "SF",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "18600",
-      "ecr": "225",
-      "player": "Kyler Murray",
-      "pos": "QB",
-      "team": "MIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18600",
-      "ecr": "225",
-      "player": "Kyler Murray",
-      "pos": "QB",
-      "team": "MIN",
-      "page_type": "redraft-qb"
     },
     {
       "id": "25332",
@@ -3618,184 +3618,8 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "18256",
-      "ecr": "227",
-      "player": "Justice Hill",
-      "pos": "RB",
-      "team": "BAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18256",
-      "ecr": "227",
-      "player": "Justice Hill",
-      "pos": "RB",
-      "team": "BAL",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "26341",
-      "ecr": "228",
-      "player": "Will Reichard",
-      "pos": "K",
-      "team": "MIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26341",
-      "ecr": "228",
-      "player": "Will Reichard",
-      "pos": "K",
-      "team": "MIN",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "26191",
-      "ecr": "229",
-      "player": "Ray Davis",
-      "pos": "RB",
-      "team": "BUF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26191",
-      "ecr": "229",
-      "player": "Ray Davis",
-      "pos": "RB",
-      "team": "BUF",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "8270",
-      "ecr": "230",
-      "player": "San Francisco 49ers",
-      "pos": "DST",
-      "team": "SF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8270",
-      "ecr": "230",
-      "player": "San Francisco 49ers",
-      "pos": "DST",
-      "team": "SF",
-      "page_type": "redraft-dst"
-    },
-    {
-      "id": "27165",
-      "ecr": "231",
-      "player": "Kaleb Johnson",
-      "pos": "RB",
-      "team": "GB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27165",
-      "ecr": "231",
-      "player": "Kaleb Johnson",
-      "pos": "RB",
-      "team": "GB",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "22718",
-      "ecr": "232",
-      "player": "Jake Ferguson",
-      "pos": "TE",
-      "team": "DAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22718",
-      "ecr": "232",
-      "player": "Jake Ferguson",
-      "pos": "TE",
-      "team": "DAL",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "26075",
-      "ecr": "233",
-      "player": "Jake Bates",
-      "pos": "K",
-      "team": "DET",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26075",
-      "ecr": "233",
-      "player": "Jake Bates",
-      "pos": "K",
-      "team": "DET",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "27487",
-      "ecr": "234",
-      "player": "Kyle Williams",
-      "pos": "WR",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27487",
-      "ecr": "234",
-      "player": "Kyle Williams",
-      "pos": "WR",
-      "team": "NE",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "8100",
-      "ecr": "235",
-      "player": "Detroit Lions",
-      "pos": "DST",
-      "team": "DET",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8100",
-      "ecr": "235",
-      "player": "Detroit Lions",
-      "pos": "DST",
-      "team": "DET",
-      "page_type": "redraft-dst"
-    },
-    {
-      "id": "17575",
-      "ecr": "236",
-      "player": "Eddy Pineiro",
-      "pos": "K",
-      "team": "SF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "17575",
-      "ecr": "236",
-      "player": "Eddy Pineiro",
-      "pos": "K",
-      "team": "SF",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "25885",
-      "ecr": "237",
-      "player": "Emanuel Wilson",
-      "pos": "RB",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25885",
-      "ecr": "237",
-      "player": "Emanuel Wilson",
-      "pos": "RB",
-      "team": "SEA",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "18635",
-      "ecr": "238",
+      "ecr": "227",
       "player": "Justin Herbert",
       "pos": "QB",
       "team": "LAC",
@@ -3803,15 +3627,143 @@
     },
     {
       "id": "18635",
-      "ecr": "238",
+      "ecr": "227",
       "player": "Justin Herbert",
       "pos": "QB",
       "team": "LAC",
       "page_type": "redraft-qb"
     },
     {
+      "id": "8270",
+      "ecr": "228",
+      "player": "San Francisco 49ers",
+      "pos": "DST",
+      "team": "SF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8270",
+      "ecr": "228",
+      "player": "San Francisco 49ers",
+      "pos": "DST",
+      "team": "SF",
+      "page_type": "redraft-dst"
+    },
+    {
+      "id": "18256",
+      "ecr": "229",
+      "player": "Justice Hill",
+      "pos": "RB",
+      "team": "BAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "18256",
+      "ecr": "229",
+      "player": "Justice Hill",
+      "pos": "RB",
+      "team": "BAL",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "26341",
+      "ecr": "230",
+      "player": "Will Reichard",
+      "pos": "K",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26341",
+      "ecr": "230",
+      "player": "Will Reichard",
+      "pos": "K",
+      "team": "MIN",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "23499",
+      "ecr": "231",
+      "player": "Malik Willis",
+      "pos": "QB",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23499",
+      "ecr": "231",
+      "player": "Malik Willis",
+      "pos": "QB",
+      "team": "MIA",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "27487",
+      "ecr": "232",
+      "player": "Kyle Williams",
+      "pos": "WR",
+      "team": "NE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27487",
+      "ecr": "232",
+      "player": "Kyle Williams",
+      "pos": "WR",
+      "team": "NE",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "26075",
+      "ecr": "233",
+      "player": "Jake Bates",
+      "pos": "K",
+      "team": "DET",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26075",
+      "ecr": "233",
+      "player": "Jake Bates",
+      "pos": "K",
+      "team": "DET",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "17575",
+      "ecr": "234",
+      "player": "Eddy Pineiro",
+      "pos": "K",
+      "team": "SF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "17575",
+      "ecr": "234",
+      "player": "Eddy Pineiro",
+      "pos": "K",
+      "team": "SF",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "26191",
+      "ecr": "235",
+      "player": "Ray Davis",
+      "pos": "RB",
+      "team": "BUF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26191",
+      "ecr": "235",
+      "player": "Ray Davis",
+      "pos": "RB",
+      "team": "BUF",
+      "page_type": "redraft-rb"
+    },
+    {
       "id": "8230",
-      "ecr": "239",
+      "ecr": "236",
       "player": "Philadelphia Eagles",
       "pos": "DST",
       "team": "PHI",
@@ -3819,63 +3771,15 @@
     },
     {
       "id": "8230",
-      "ecr": "239",
+      "ecr": "236",
       "player": "Philadelphia Eagles",
       "pos": "DST",
       "team": "PHI",
       "page_type": "redraft-dst"
     },
     {
-      "id": "27144",
-      "ecr": "240",
-      "player": "Savion Williams",
-      "pos": "WR",
-      "team": "GB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27144",
-      "ecr": "240",
-      "player": "Savion Williams",
-      "pos": "WR",
-      "team": "GB",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "25987",
-      "ecr": "241",
-      "player": "Jaylen Wright",
-      "pos": "RB",
-      "team": "MIA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25987",
-      "ecr": "241",
-      "player": "Jaylen Wright",
-      "pos": "RB",
-      "team": "MIA",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "23181",
-      "ecr": "242",
-      "player": "Cade Otton",
-      "pos": "TE",
-      "team": "TB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23181",
-      "ecr": "242",
-      "player": "Cade Otton",
-      "pos": "TE",
-      "team": "TB",
-      "page_type": "redraft-te"
-    },
-    {
       "id": "13731",
-      "ecr": "243",
+      "ecr": "237",
       "player": "Cairo Santos",
       "pos": "K",
       "team": "CHI",
@@ -3883,15 +3787,47 @@
     },
     {
       "id": "13731",
-      "ecr": "243",
+      "ecr": "237",
       "player": "Cairo Santos",
       "pos": "K",
       "team": "CHI",
       "page_type": "redraft-k"
     },
     {
+      "id": "25885",
+      "ecr": "238",
+      "player": "Emanuel Wilson",
+      "pos": "RB",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25885",
+      "ecr": "238",
+      "player": "Emanuel Wilson",
+      "pos": "RB",
+      "team": "SEA",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "8110",
+      "ecr": "239",
+      "player": "Green Bay Packers",
+      "pos": "DST",
+      "team": "GB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8110",
+      "ecr": "239",
+      "player": "Green Bay Packers",
+      "pos": "DST",
+      "team": "GB",
+      "page_type": "redraft-dst"
+    },
+    {
       "id": "23101",
-      "ecr": "244",
+      "ecr": "240",
       "player": "Jahan Dotson",
       "pos": "WR",
       "team": "ATL",
@@ -3899,15 +3835,31 @@
     },
     {
       "id": "23101",
-      "ecr": "244",
+      "ecr": "240",
       "player": "Jahan Dotson",
       "pos": "WR",
       "team": "ATL",
       "page_type": "redraft-wr"
     },
     {
+      "id": "8100",
+      "ecr": "241",
+      "player": "Detroit Lions",
+      "pos": "DST",
+      "team": "DET",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8100",
+      "ecr": "241",
+      "player": "Detroit Lions",
+      "pos": "DST",
+      "team": "DET",
+      "page_type": "redraft-dst"
+    },
+    {
       "id": "26148",
-      "ecr": "245",
+      "ecr": "242",
       "player": "Jonathon Brooks",
       "pos": "RB",
       "team": "CAR",
@@ -3915,15 +3867,47 @@
     },
     {
       "id": "26148",
-      "ecr": "245",
+      "ecr": "242",
       "player": "Jonathon Brooks",
       "pos": "RB",
       "team": "CAR",
       "page_type": "redraft-rb"
     },
     {
+      "id": "25987",
+      "ecr": "243",
+      "player": "Jaylen Wright",
+      "pos": "RB",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25987",
+      "ecr": "243",
+      "player": "Jaylen Wright",
+      "pos": "RB",
+      "team": "MIA",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "28013",
+      "ecr": "244",
+      "player": "Fernando Mendoza",
+      "pos": "QB",
+      "team": "LV",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28013",
+      "ecr": "244",
+      "player": "Fernando Mendoza",
+      "pos": "QB",
+      "team": "LV",
+      "page_type": "redraft-qb"
+    },
+    {
       "id": "8070",
-      "ecr": "246",
+      "ecr": "245",
       "player": "Cleveland Browns",
       "pos": "DST",
       "team": "CLE",
@@ -3931,11 +3915,27 @@
     },
     {
       "id": "8070",
-      "ecr": "246",
+      "ecr": "245",
       "player": "Cleveland Browns",
       "pos": "DST",
       "team": "CLE",
       "page_type": "redraft-dst"
+    },
+    {
+      "id": "24177",
+      "ecr": "246",
+      "player": "Jalen Nailor",
+      "pos": "WR",
+      "team": "LV",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24177",
+      "ecr": "246",
+      "player": "Jalen Nailor",
+      "pos": "WR",
+      "team": "LV",
+      "page_type": "redraft-wr"
     },
     {
       "id": "23679",
@@ -3954,24 +3954,56 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "24177",
+      "id": "19760",
       "ecr": "248",
-      "player": "Jalen Nailor",
-      "pos": "WR",
-      "team": "LV",
+      "player": "Tyler Bass",
+      "pos": "K",
+      "team": "BUF",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24177",
+      "id": "19760",
       "ecr": "248",
-      "player": "Jalen Nailor",
-      "pos": "WR",
-      "team": "LV",
-      "page_type": "redraft-wr"
+      "player": "Tyler Bass",
+      "pos": "K",
+      "team": "BUF",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "8290",
+      "ecr": "249",
+      "player": "Tampa Bay Buccaneers",
+      "pos": "DST",
+      "team": "TB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8290",
+      "ecr": "249",
+      "player": "Tampa Bay Buccaneers",
+      "pos": "DST",
+      "team": "TB",
+      "page_type": "redraft-dst"
+    },
+    {
+      "id": "13029",
+      "ecr": "250",
+      "player": "Chris Boswell",
+      "pos": "K",
+      "team": "PIT",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "13029",
+      "ecr": "250",
+      "player": "Chris Boswell",
+      "pos": "K",
+      "team": "PIT",
+      "page_type": "redraft-k"
     },
     {
       "id": "22976",
-      "ecr": "249",
+      "ecr": "251",
       "player": "Tyler Goodson",
       "pos": "RB",
       "team": "DAL",
@@ -3979,7 +4011,7 @@
     },
     {
       "id": "22976",
-      "ecr": "249",
+      "ecr": "251",
       "player": "Tyler Goodson",
       "pos": "RB",
       "team": "DAL",
@@ -3987,7 +4019,7 @@
     },
     {
       "id": "28424",
-      "ecr": "250",
+      "ecr": "252",
       "player": "Cyrus Allen",
       "pos": "WR",
       "team": "KC",
@@ -3995,45 +4027,13 @@
     },
     {
       "id": "28424",
-      "ecr": "250",
+      "ecr": "252",
       "player": "Cyrus Allen",
       "pos": "WR",
       "team": "KC",
       "page_type": "redraft-wr"
     },
     {
-      "id": "19760",
-      "ecr": "251",
-      "player": "Tyler Bass",
-      "pos": "K",
-      "team": "BUF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19760",
-      "ecr": "251",
-      "player": "Tyler Bass",
-      "pos": "K",
-      "team": "BUF",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "13029",
-      "ecr": "252",
-      "player": "Chris Boswell",
-      "pos": "K",
-      "team": "PIT",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "13029",
-      "ecr": "252",
-      "player": "Chris Boswell",
-      "pos": "K",
-      "team": "PIT",
-      "page_type": "redraft-k"
-    },
-    {
       "id": "26034",
       "ecr": "253",
       "player": "Travis Hunter",
@@ -4050,24 +4050,8 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "8110",
-      "ecr": "254",
-      "player": "Green Bay Packers",
-      "pos": "DST",
-      "team": "GB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8110",
-      "ecr": "254",
-      "player": "Green Bay Packers",
-      "pos": "DST",
-      "team": "GB",
-      "page_type": "redraft-dst"
-    },
-    {
       "id": "16411",
-      "ecr": "255",
+      "ecr": "254",
       "player": "Evan Engram",
       "pos": "TE",
       "team": "DEN",
@@ -4075,13 +4059,29 @@
     },
     {
       "id": "16411",
-      "ecr": "255",
+      "ecr": "254",
       "player": "Evan Engram",
       "pos": "TE",
       "team": "DEN",
       "page_type": "redraft-te"
     },
     {
+      "id": "19590",
+      "ecr": "255",
+      "player": "Jauan Jennings",
+      "pos": "WR",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19590",
+      "ecr": "255",
+      "player": "Jauan Jennings",
+      "pos": "WR",
+      "team": "MIN",
+      "page_type": "redraft-wr"
+    },
+    {
       "id": "22980",
       "ecr": "256",
       "player": "Tyrone Tracy Jr.",
@@ -4098,8 +4098,24 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "8020",
+      "id": "22905",
       "ecr": "257",
+      "player": "Treylon Burks",
+      "pos": "WR",
+      "team": "WAS",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22905",
+      "ecr": "257",
+      "player": "Treylon Burks",
+      "pos": "WR",
+      "team": "WAS",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "8020",
+      "ecr": "258",
       "player": "Baltimore Ravens",
       "pos": "DST",
       "team": "BAL",
@@ -4107,27 +4123,11 @@
     },
     {
       "id": "8020",
-      "ecr": "257",
+      "ecr": "258",
       "player": "Baltimore Ravens",
       "pos": "DST",
       "team": "BAL",
       "page_type": "redraft-dst"
-    },
-    {
-      "id": "19590",
-      "ecr": "258",
-      "player": "Jauan Jennings",
-      "pos": "WR",
-      "team": "MIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19590",
-      "ecr": "258",
-      "player": "Jauan Jennings",
-      "pos": "WR",
-      "team": "MIN",
-      "page_type": "redraft-wr"
     },
     {
       "id": "19810",
@@ -4146,72 +4146,40 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "24343",
+      "id": "8050",
       "ecr": "260",
-      "player": "Nicholas Singleton",
-      "pos": "RB",
-      "team": "TEN",
+      "player": "Chicago Bears",
+      "pos": "DST",
+      "team": "CHI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24343",
+      "id": "8050",
       "ecr": "260",
-      "player": "Nicholas Singleton",
-      "pos": "RB",
-      "team": "TEN",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "22905",
-      "ecr": "261",
-      "player": "Treylon Burks",
-      "pos": "WR",
-      "team": "WAS",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22905",
-      "ecr": "261",
-      "player": "Treylon Burks",
-      "pos": "WR",
-      "team": "WAS",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "8290",
-      "ecr": "262",
-      "player": "Tampa Bay Buccaneers",
+      "player": "Chicago Bears",
       "pos": "DST",
-      "team": "TB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8290",
-      "ecr": "262",
-      "player": "Tampa Bay Buccaneers",
-      "pos": "DST",
-      "team": "TB",
+      "team": "CHI",
       "page_type": "redraft-dst"
     },
     {
-      "id": "28129",
-      "ecr": "263",
-      "player": "Bryce Lance",
-      "pos": "WR",
-      "team": "NO",
+      "id": "24343",
+      "ecr": "261",
+      "player": "Nicholas Singleton",
+      "pos": "RB",
+      "team": "TEN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "28129",
-      "ecr": "263",
-      "player": "Bryce Lance",
-      "pos": "WR",
-      "team": "NO",
-      "page_type": "redraft-wr"
+      "id": "24343",
+      "ecr": "261",
+      "player": "Nicholas Singleton",
+      "pos": "RB",
+      "team": "TEN",
+      "page_type": "redraft-rb"
     },
     {
       "id": "16483",
-      "ecr": "264",
+      "ecr": "262",
       "player": "Austin Ekeler",
       "pos": "RB",
       "team": "WAS",
@@ -4219,27 +4187,59 @@
     },
     {
       "id": "16483",
-      "ecr": "264",
+      "ecr": "262",
       "player": "Austin Ekeler",
       "pos": "RB",
       "team": "WAS",
       "page_type": "redraft-rb"
     },
     {
-      "id": "15802",
-      "ecr": "265",
-      "player": "Tyreek Hill",
+      "id": "28129",
+      "ecr": "263",
+      "player": "Bryce Lance",
       "pos": "WR",
-      "team": "FA",
+      "team": "NO",
       "page_type": "redraft-overall"
     },
     {
-      "id": "15802",
-      "ecr": "265",
-      "player": "Tyreek Hill",
+      "id": "28129",
+      "ecr": "263",
+      "player": "Bryce Lance",
       "pos": "WR",
-      "team": "FA",
+      "team": "NO",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "27866",
+      "ecr": "264",
+      "player": "Darius Cooper",
+      "pos": "WR",
+      "team": "PHI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27866",
+      "ecr": "264",
+      "player": "Darius Cooper",
+      "pos": "WR",
+      "team": "PHI",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "8060",
+      "ecr": "265",
+      "player": "Cincinnati Bengals",
+      "pos": "DST",
+      "team": "CIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8060",
+      "ecr": "265",
+      "player": "Cincinnati Bengals",
+      "pos": "DST",
+      "team": "CIN",
+      "page_type": "redraft-dst"
     },
     {
       "id": "18406",
@@ -4274,40 +4274,88 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "8060",
+      "id": "27445",
       "ecr": "268",
-      "player": "Cincinnati Bengals",
-      "pos": "DST",
-      "team": "CIN",
+      "player": "Efton Chism III",
+      "pos": "WR",
+      "team": "NE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "8060",
+      "id": "27445",
       "ecr": "268",
-      "player": "Cincinnati Bengals",
-      "pos": "DST",
-      "team": "CIN",
-      "page_type": "redraft-dst"
+      "player": "Efton Chism III",
+      "pos": "WR",
+      "team": "NE",
+      "page_type": "redraft-wr"
     },
     {
-      "id": "8050",
+      "id": "27534",
       "ecr": "269",
-      "player": "Chicago Bears",
-      "pos": "DST",
-      "team": "CHI",
+      "player": "Tyler Loop",
+      "pos": "K",
+      "team": "BAL",
       "page_type": "redraft-overall"
     },
     {
-      "id": "8050",
+      "id": "27534",
       "ecr": "269",
-      "player": "Chicago Bears",
-      "pos": "DST",
-      "team": "CHI",
-      "page_type": "redraft-dst"
+      "player": "Tyler Loop",
+      "pos": "K",
+      "team": "BAL",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "22718",
+      "ecr": "270",
+      "player": "Jake Ferguson",
+      "pos": "TE",
+      "team": "DAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22718",
+      "ecr": "270",
+      "player": "Jake Ferguson",
+      "pos": "TE",
+      "team": "DAL",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "27144",
+      "ecr": "271",
+      "player": "Savion Williams",
+      "pos": "WR",
+      "team": "GB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27144",
+      "ecr": "271",
+      "player": "Savion Williams",
+      "pos": "WR",
+      "team": "GB",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "27291",
+      "ecr": "272",
+      "player": "Andy Borregales",
+      "pos": "K",
+      "team": "NE",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27291",
+      "ecr": "272",
+      "player": "Andy Borregales",
+      "pos": "K",
+      "team": "NE",
+      "page_type": "redraft-k"
     },
     {
       "id": "22915",
-      "ecr": "270",
+      "ecr": "273",
       "player": "George Holani",
       "pos": "RB",
       "team": "SEA",
@@ -4315,63 +4363,31 @@
     },
     {
       "id": "22915",
-      "ecr": "270",
+      "ecr": "273",
       "player": "George Holani",
       "pos": "RB",
       "team": "SEA",
       "page_type": "redraft-rb"
     },
     {
-      "id": "27866",
-      "ecr": "271",
-      "player": "Darius Cooper",
-      "pos": "WR",
-      "team": "PHI",
+      "id": "18600",
+      "ecr": "274",
+      "player": "Kyler Murray",
+      "pos": "QB",
+      "team": "MIN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "27866",
-      "ecr": "271",
-      "player": "Darius Cooper",
-      "pos": "WR",
-      "team": "PHI",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "27445",
-      "ecr": "272",
-      "player": "Efton Chism III",
-      "pos": "WR",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27445",
-      "ecr": "272",
-      "player": "Efton Chism III",
-      "pos": "WR",
-      "team": "NE",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "8030",
-      "ecr": "273",
-      "player": "Buffalo Bills",
-      "pos": "DST",
-      "team": "BUF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8030",
-      "ecr": "273",
-      "player": "Buffalo Bills",
-      "pos": "DST",
-      "team": "BUF",
-      "page_type": "redraft-dst"
+      "id": "18600",
+      "ecr": "274",
+      "player": "Kyler Murray",
+      "pos": "QB",
+      "team": "MIN",
+      "page_type": "redraft-qb"
     },
     {
       "id": "23901",
-      "ecr": "274",
+      "ecr": "275",
       "player": "Cameron Dicker",
       "pos": "K",
       "team": "LAC",
@@ -4379,26 +4395,10 @@
     },
     {
       "id": "23901",
-      "ecr": "274",
+      "ecr": "275",
       "player": "Cameron Dicker",
       "pos": "K",
       "team": "LAC",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "27534",
-      "ecr": "275",
-      "player": "Tyler Loop",
-      "pos": "K",
-      "team": "BAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27534",
-      "ecr": "275",
-      "player": "Tyler Loop",
-      "pos": "K",
-      "team": "BAL",
       "page_type": "redraft-k"
     },
     {
@@ -4418,72 +4418,8 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "23179",
-      "ecr": "277",
-      "player": "Jalen McMillan",
-      "pos": "WR",
-      "team": "TB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23179",
-      "ecr": "277",
-      "player": "Jalen McMillan",
-      "pos": "WR",
-      "team": "TB",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "27291",
-      "ecr": "278",
-      "player": "Andy Borregales",
-      "pos": "K",
-      "team": "NE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27291",
-      "ecr": "278",
-      "player": "Andy Borregales",
-      "pos": "K",
-      "team": "NE",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "26309",
-      "ecr": "279",
-      "player": "Sione Vaki",
-      "pos": "RB",
-      "team": "DET",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26309",
-      "ecr": "279",
-      "player": "Sione Vaki",
-      "pos": "RB",
-      "team": "DET",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "23092",
-      "ecr": "280",
-      "player": "Troy Franklin",
-      "pos": "WR",
-      "team": "DEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23092",
-      "ecr": "280",
-      "player": "Troy Franklin",
-      "pos": "WR",
-      "team": "DEN",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "8250",
-      "ecr": "281",
+      "ecr": "277",
       "player": "Los Angeles Chargers",
       "pos": "DST",
       "team": "LAC",
@@ -4491,15 +4427,111 @@
     },
     {
       "id": "8250",
-      "ecr": "281",
+      "ecr": "277",
       "player": "Los Angeles Chargers",
       "pos": "DST",
       "team": "LAC",
       "page_type": "redraft-dst"
     },
     {
-      "id": "8190",
+      "id": "26309",
+      "ecr": "278",
+      "player": "Sione Vaki",
+      "pos": "RB",
+      "team": "DET",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26309",
+      "ecr": "278",
+      "player": "Sione Vaki",
+      "pos": "RB",
+      "team": "DET",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "23179",
+      "ecr": "279",
+      "player": "Jalen McMillan",
+      "pos": "WR",
+      "team": "TB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23179",
+      "ecr": "279",
+      "player": "Jalen McMillan",
+      "pos": "WR",
+      "team": "TB",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "28507",
+      "ecr": "280",
+      "player": "Trey Smack",
+      "pos": "K",
+      "team": "GB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28507",
+      "ecr": "280",
+      "player": "Trey Smack",
+      "pos": "K",
+      "team": "GB",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "8030",
+      "ecr": "281",
+      "player": "Buffalo Bills",
+      "pos": "DST",
+      "team": "BUF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8030",
+      "ecr": "281",
+      "player": "Buffalo Bills",
+      "pos": "DST",
+      "team": "BUF",
+      "page_type": "redraft-dst"
+    },
+    {
+      "id": "23092",
       "ecr": "282",
+      "player": "Troy Franklin",
+      "pos": "WR",
+      "team": "DEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23092",
+      "ecr": "282",
+      "player": "Troy Franklin",
+      "pos": "WR",
+      "team": "DEN",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "28141",
+      "ecr": "283",
+      "player": "Reggie Virgil",
+      "pos": "WR",
+      "team": "ARI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28141",
+      "ecr": "283",
+      "player": "Reggie Virgil",
+      "pos": "WR",
+      "team": "ARI",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "8190",
+      "ecr": "284",
       "player": "New Orleans Saints",
       "pos": "DST",
       "team": "NO",
@@ -4507,90 +4539,58 @@
     },
     {
       "id": "8190",
-      "ecr": "282",
+      "ecr": "284",
       "player": "New Orleans Saints",
       "pos": "DST",
       "team": "NO",
       "page_type": "redraft-dst"
     },
     {
-      "id": "28507",
-      "ecr": "283",
-      "player": "Trey Smack",
-      "pos": "K",
-      "team": "GB",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28507",
-      "ecr": "283",
-      "player": "Trey Smack",
-      "pos": "K",
-      "team": "GB",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "26763",
-      "ecr": "284",
-      "player": "Spencer Shrader",
-      "pos": "K",
-      "team": "IND",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26763",
-      "ecr": "284",
-      "player": "Spencer Shrader",
-      "pos": "K",
-      "team": "IND",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "17258",
+      "id": "15802",
       "ecr": "285",
-      "player": "Calvin Ridley",
+      "player": "Tyreek Hill",
       "pos": "WR",
-      "team": "TEN",
+      "team": "FA",
       "page_type": "redraft-overall"
     },
     {
-      "id": "17258",
+      "id": "15802",
       "ecr": "285",
-      "player": "Calvin Ridley",
+      "player": "Tyreek Hill",
       "pos": "WR",
-      "team": "TEN",
+      "team": "FA",
       "page_type": "redraft-wr"
     },
     {
-      "id": "25322",
+      "id": "25977",
       "ecr": "286",
-      "player": "Roschon Johnson",
+      "player": "Isaiah Davis",
       "pos": "RB",
-      "team": "CHI",
+      "team": "NYJ",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25322",
+      "id": "25977",
       "ecr": "286",
-      "player": "Roschon Johnson",
+      "player": "Isaiah Davis",
       "pos": "RB",
-      "team": "CHI",
+      "team": "NYJ",
       "page_type": "redraft-rb"
     },
     {
-      "id": "25977",
+      "id": "25322",
       "ecr": "287",
-      "player": "Isaiah Davis",
+      "player": "Roschon Johnson",
       "pos": "RB",
-      "team": "NYJ",
+      "team": "CHI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25977",
+      "id": "25322",
       "ecr": "287",
-      "player": "Isaiah Davis",
+      "player": "Roschon Johnson",
       "pos": "RB",
-      "team": "NYJ",
+      "team": "CHI",
       "page_type": "redraft-rb"
     },
     {
@@ -4610,24 +4610,8 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "23144",
-      "ecr": "289",
-      "player": "Eli Stowers",
-      "pos": "TE",
-      "team": "PHI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23144",
-      "ecr": "289",
-      "player": "Eli Stowers",
-      "pos": "TE",
-      "team": "PHI",
-      "page_type": "redraft-te"
-    },
-    {
       "id": "16712",
-      "ecr": "290",
+      "ecr": "289",
       "player": "Harrison Butker",
       "pos": "K",
       "team": "KC",
@@ -4635,7 +4619,7 @@
     },
     {
       "id": "16712",
-      "ecr": "290",
+      "ecr": "289",
       "player": "Harrison Butker",
       "pos": "K",
       "team": "KC",
@@ -4643,7 +4627,7 @@
     },
     {
       "id": "8080",
-      "ecr": "291",
+      "ecr": "290",
       "player": "Dallas Cowboys",
       "pos": "DST",
       "team": "DAL",
@@ -4651,47 +4635,47 @@
     },
     {
       "id": "8080",
-      "ecr": "291",
+      "ecr": "290",
       "player": "Dallas Cowboys",
       "pos": "DST",
       "team": "DAL",
       "page_type": "redraft-dst"
     },
     {
-      "id": "8200",
-      "ecr": "292",
-      "player": "New York Giants",
-      "pos": "DST",
-      "team": "NYG",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "8200",
-      "ecr": "292",
-      "player": "New York Giants",
-      "pos": "DST",
-      "team": "NYG",
-      "page_type": "redraft-dst"
-    },
-    {
-      "id": "27109",
-      "ecr": "293",
-      "player": "Gunnar Helm",
-      "pos": "TE",
+      "id": "17258",
+      "ecr": "291",
+      "player": "Calvin Ridley",
+      "pos": "WR",
       "team": "TEN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "27109",
-      "ecr": "293",
-      "player": "Gunnar Helm",
-      "pos": "TE",
+      "id": "17258",
+      "ecr": "291",
+      "player": "Calvin Ridley",
+      "pos": "WR",
       "team": "TEN",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "23144",
+      "ecr": "292",
+      "player": "Eli Stowers",
+      "pos": "TE",
+      "team": "PHI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23144",
+      "ecr": "292",
+      "player": "Eli Stowers",
+      "pos": "TE",
+      "team": "PHI",
       "page_type": "redraft-te"
     },
     {
       "id": "27059",
-      "ecr": "294",
+      "ecr": "293",
       "player": "Elic Ayomanor",
       "pos": "WR",
       "team": "TEN",
@@ -4699,27 +4683,43 @@
     },
     {
       "id": "27059",
-      "ecr": "294",
+      "ecr": "293",
       "player": "Elic Ayomanor",
       "pos": "WR",
       "team": "TEN",
       "page_type": "redraft-wr"
     },
     {
-      "id": "28013",
-      "ecr": "295",
-      "player": "Fernando Mendoza",
-      "pos": "QB",
-      "team": "LV",
+      "id": "27109",
+      "ecr": "294",
+      "player": "Gunnar Helm",
+      "pos": "TE",
+      "team": "TEN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "28013",
+      "id": "27109",
+      "ecr": "294",
+      "player": "Gunnar Helm",
+      "pos": "TE",
+      "team": "TEN",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "16026",
       "ecr": "295",
-      "player": "Fernando Mendoza",
-      "pos": "QB",
-      "team": "LV",
-      "page_type": "redraft-qb"
+      "player": "Wil Lutz",
+      "pos": "K",
+      "team": "DEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "16026",
+      "ecr": "295",
+      "player": "Wil Lutz",
+      "pos": "K",
+      "team": "DEN",
+      "page_type": "redraft-k"
     },
     {
       "id": "22756",
@@ -4738,40 +4738,24 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "25823",
+      "id": "8200",
       "ecr": "297",
-      "player": "Chris Brooks",
-      "pos": "RB",
-      "team": "GB",
+      "player": "New York Giants",
+      "pos": "DST",
+      "team": "NYG",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25823",
+      "id": "8200",
       "ecr": "297",
-      "player": "Chris Brooks",
-      "pos": "RB",
-      "team": "GB",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "17268",
-      "ecr": "298",
-      "player": "Christian Kirk",
-      "pos": "WR",
-      "team": "SF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "17268",
-      "ecr": "298",
-      "player": "Christian Kirk",
-      "pos": "WR",
-      "team": "SF",
-      "page_type": "redraft-wr"
+      "player": "New York Giants",
+      "pos": "DST",
+      "team": "NYG",
+      "page_type": "redraft-dst"
     },
     {
       "id": "25419",
-      "ecr": "299",
+      "ecr": "298",
       "player": "Zachariah Branch",
       "pos": "WR",
       "team": "ATL",
@@ -4779,11 +4763,27 @@
     },
     {
       "id": "25419",
-      "ecr": "299",
+      "ecr": "298",
       "player": "Zachariah Branch",
       "pos": "WR",
       "team": "ATL",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "8300",
+      "ecr": "299",
+      "player": "Tennessee Titans",
+      "pos": "DST",
+      "team": "TEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8300",
+      "ecr": "299",
+      "player": "Tennessee Titans",
+      "pos": "DST",
+      "team": "TEN",
+      "page_type": "redraft-dst"
     },
     {
       "id": "26022",
@@ -4802,88 +4802,24 @@
       "page_type": "redraft-wr"
     },
     {
-      "id": "8300",
+      "id": "25823",
       "ecr": "301",
-      "player": "Tennessee Titans",
-      "pos": "DST",
-      "team": "TEN",
+      "player": "Chris Brooks",
+      "pos": "RB",
+      "team": "GB",
       "page_type": "redraft-overall"
     },
     {
-      "id": "8300",
+      "id": "25823",
       "ecr": "301",
-      "player": "Tennessee Titans",
-      "pos": "DST",
-      "team": "TEN",
-      "page_type": "redraft-dst"
-    },
-    {
-      "id": "28141",
-      "ecr": "302",
-      "player": "Reggie Virgil",
-      "pos": "WR",
-      "team": "ARI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28141",
-      "ecr": "302",
-      "player": "Reggie Virgil",
-      "pos": "WR",
-      "team": "ARI",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "16026",
-      "ecr": "303",
-      "player": "Wil Lutz",
-      "pos": "K",
-      "team": "DEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "16026",
-      "ecr": "303",
-      "player": "Wil Lutz",
-      "pos": "K",
-      "team": "DEN",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "22795",
-      "ecr": "304",
-      "player": "Tommy Tremble",
-      "pos": "TE",
-      "team": "CAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22795",
-      "ecr": "304",
-      "player": "Tommy Tremble",
-      "pos": "TE",
-      "team": "CAR",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "19483",
-      "ecr": "305",
-      "player": "Van Jefferson",
-      "pos": "WR",
-      "team": "WAS",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19483",
-      "ecr": "305",
-      "player": "Van Jefferson",
-      "pos": "WR",
-      "team": "WAS",
-      "page_type": "redraft-wr"
+      "player": "Chris Brooks",
+      "pos": "RB",
+      "team": "GB",
+      "page_type": "redraft-rb"
     },
     {
       "id": "8130",
-      "ecr": "306",
+      "ecr": "302",
       "player": "Indianapolis Colts",
       "pos": "DST",
       "team": "IND",
@@ -4891,15 +4827,47 @@
     },
     {
       "id": "8130",
-      "ecr": "306",
+      "ecr": "302",
       "player": "Indianapolis Colts",
       "pos": "DST",
       "team": "IND",
       "page_type": "redraft-dst"
     },
     {
+      "id": "22795",
+      "ecr": "303",
+      "player": "Tommy Tremble",
+      "pos": "TE",
+      "team": "CAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22795",
+      "ecr": "303",
+      "player": "Tommy Tremble",
+      "pos": "TE",
+      "team": "CAR",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "19483",
+      "ecr": "304",
+      "player": "Van Jefferson",
+      "pos": "WR",
+      "team": "WAS",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19483",
+      "ecr": "304",
+      "player": "Van Jefferson",
+      "pos": "WR",
+      "team": "WAS",
+      "page_type": "redraft-wr"
+    },
+    {
       "id": "26638",
-      "ecr": "307",
+      "ecr": "305",
       "player": "Harrison Mevis",
       "pos": "K",
       "team": "FA",
@@ -4907,15 +4875,31 @@
     },
     {
       "id": "26638",
-      "ecr": "307",
+      "ecr": "305",
       "player": "Harrison Mevis",
       "pos": "K",
       "team": "FA",
       "page_type": "redraft-k"
     },
     {
+      "id": "24360",
+      "ecr": "306",
+      "player": "Kendre Miller",
+      "pos": "RB",
+      "team": "DAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24360",
+      "ecr": "306",
+      "player": "Kendre Miller",
+      "pos": "RB",
+      "team": "DAL",
+      "page_type": "redraft-rb"
+    },
+    {
       "id": "24173",
-      "ecr": "308",
+      "ecr": "307",
       "player": "Pierre Strong Jr.",
       "pos": "RB",
       "team": "GB",
@@ -4923,31 +4907,15 @@
     },
     {
       "id": "24173",
-      "ecr": "308",
+      "ecr": "307",
       "player": "Pierre Strong Jr.",
       "pos": "RB",
       "team": "GB",
       "page_type": "redraft-rb"
     },
     {
-      "id": "18232",
-      "ecr": "309",
-      "player": "Daniel Jones",
-      "pos": "QB",
-      "team": "IND",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18232",
-      "ecr": "309",
-      "player": "Daniel Jones",
-      "pos": "QB",
-      "team": "IND",
-      "page_type": "redraft-qb"
-    },
-    {
       "id": "25396",
-      "ecr": "310",
+      "ecr": "308",
       "player": "CJ Donaldson",
       "pos": "RB",
       "team": "NO",
@@ -4955,31 +4923,15 @@
     },
     {
       "id": "25396",
-      "ecr": "310",
+      "ecr": "308",
       "player": "CJ Donaldson",
       "pos": "RB",
       "team": "NO",
       "page_type": "redraft-rb"
     },
     {
-      "id": "27224",
-      "ecr": "311",
-      "player": "Jack Bech",
-      "pos": "WR",
-      "team": "LV",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27224",
-      "ecr": "311",
-      "player": "Jack Bech",
-      "pos": "WR",
-      "team": "LV",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "28084",
-      "ecr": "312",
+      "ecr": "309",
       "player": "Demond Claiborne",
       "pos": "RB",
       "team": "MIN",
@@ -4987,47 +4939,15 @@
     },
     {
       "id": "28084",
-      "ecr": "312",
+      "ecr": "309",
       "player": "Demond Claiborne",
       "pos": "RB",
       "team": "MIN",
       "page_type": "redraft-rb"
     },
     {
-      "id": "16399",
-      "ecr": "313",
-      "player": "David Njoku",
-      "pos": "TE",
-      "team": "LAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "16399",
-      "ecr": "313",
-      "player": "David Njoku",
-      "pos": "TE",
-      "team": "LAC",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "19302",
-      "ecr": "314",
-      "player": "Najee Harris",
-      "pos": "RB",
-      "team": "FA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "19302",
-      "ecr": "314",
-      "player": "Najee Harris",
-      "pos": "RB",
-      "team": "FA",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "25430",
-      "ecr": "315",
+      "ecr": "310",
       "player": "Oscar Delp",
       "pos": "TE",
       "team": "NO",
@@ -5035,31 +4955,47 @@
     },
     {
       "id": "25430",
-      "ecr": "315",
+      "ecr": "310",
       "player": "Oscar Delp",
       "pos": "TE",
       "team": "NO",
       "page_type": "redraft-te"
     },
     {
-      "id": "17527",
-      "ecr": "316",
-      "player": "Noah Fant",
+      "id": "16399",
+      "ecr": "311",
+      "player": "David Njoku",
       "pos": "TE",
-      "team": "NO",
+      "team": "LAC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "17527",
-      "ecr": "316",
-      "player": "Noah Fant",
+      "id": "16399",
+      "ecr": "311",
+      "player": "David Njoku",
       "pos": "TE",
-      "team": "NO",
+      "team": "LAC",
       "page_type": "redraft-te"
     },
     {
+      "id": "27224",
+      "ecr": "312",
+      "player": "Jack Bech",
+      "pos": "WR",
+      "team": "LV",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27224",
+      "ecr": "312",
+      "player": "Jack Bech",
+      "pos": "WR",
+      "team": "LV",
+      "page_type": "redraft-wr"
+    },
+    {
       "id": "28067",
-      "ecr": "317",
+      "ecr": "313",
       "player": "Kevin Coleman Jr.",
       "pos": "WR",
       "team": "MIA",
@@ -5067,79 +5003,15 @@
     },
     {
       "id": "28067",
-      "ecr": "317",
+      "ecr": "313",
       "player": "Kevin Coleman Jr.",
       "pos": "WR",
       "team": "MIA",
       "page_type": "redraft-wr"
     },
     {
-      "id": "18545",
-      "ecr": "318",
-      "player": "Matt Gay",
-      "pos": "K",
-      "team": "LV",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18545",
-      "ecr": "318",
-      "player": "Matt Gay",
-      "pos": "K",
-      "team": "LV",
-      "page_type": "redraft-k"
-    },
-    {
-      "id": "24360",
-      "ecr": "319",
-      "player": "Kendre Miller",
-      "pos": "RB",
-      "team": "FA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "24360",
-      "ecr": "319",
-      "player": "Kendre Miller",
-      "pos": "RB",
-      "team": "FA",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "28168",
-      "ecr": "320",
-      "player": "Matt Hibner",
-      "pos": "TE",
-      "team": "BAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28168",
-      "ecr": "320",
-      "player": "Matt Hibner",
-      "pos": "TE",
-      "team": "BAL",
-      "page_type": "redraft-te"
-    },
-    {
-      "id": "26003",
-      "ecr": "321",
-      "player": "Brevyn Spann-Ford",
-      "pos": "TE",
-      "team": "DAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "26003",
-      "ecr": "321",
-      "player": "Brevyn Spann-Ford",
-      "pos": "TE",
-      "team": "DAL",
-      "page_type": "redraft-te"
-    },
-    {
       "id": "27097",
-      "ecr": "322",
+      "ecr": "314",
       "player": "DJ Giddens",
       "pos": "RB",
       "team": "IND",
@@ -5147,47 +5019,79 @@
     },
     {
       "id": "27097",
-      "ecr": "322",
+      "ecr": "314",
       "player": "DJ Giddens",
       "pos": "RB",
       "team": "IND",
       "page_type": "redraft-rb"
     },
     {
-      "id": "27147",
-      "ecr": "323",
-      "player": "Tez Johnson",
-      "pos": "WR",
-      "team": "TB",
+      "id": "17527",
+      "ecr": "315",
+      "player": "Noah Fant",
+      "pos": "TE",
+      "team": "NO",
       "page_type": "redraft-overall"
     },
     {
-      "id": "27147",
-      "ecr": "323",
-      "player": "Tez Johnson",
-      "pos": "WR",
-      "team": "TB",
-      "page_type": "redraft-wr"
+      "id": "17527",
+      "ecr": "315",
+      "player": "Noah Fant",
+      "pos": "TE",
+      "team": "NO",
+      "page_type": "redraft-te"
     },
     {
-      "id": "28132",
-      "ecr": "324",
-      "player": "Zavion Thomas",
-      "pos": "WR",
-      "team": "CHI",
+      "id": "18545",
+      "ecr": "316",
+      "player": "Matt Gay",
+      "pos": "K",
+      "team": "LV",
       "page_type": "redraft-overall"
     },
     {
-      "id": "28132",
-      "ecr": "324",
-      "player": "Zavion Thomas",
+      "id": "18545",
+      "ecr": "316",
+      "player": "Matt Gay",
+      "pos": "K",
+      "team": "LV",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "17268",
+      "ecr": "317",
+      "player": "Christian Kirk",
       "pos": "WR",
-      "team": "CHI",
+      "team": "SF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "17268",
+      "ecr": "317",
+      "player": "Christian Kirk",
+      "pos": "WR",
+      "team": "SF",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "28168",
+      "ecr": "318",
+      "player": "Matt Hibner",
+      "pos": "TE",
+      "team": "BAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28168",
+      "ecr": "318",
+      "player": "Matt Hibner",
+      "pos": "TE",
+      "team": "BAL",
+      "page_type": "redraft-te"
     },
     {
       "id": "28176",
-      "ecr": "325",
+      "ecr": "319",
       "player": "Dominic Zvada",
       "pos": "K",
       "team": "NYG",
@@ -5195,11 +5099,107 @@
     },
     {
       "id": "28176",
-      "ecr": "325",
+      "ecr": "319",
       "player": "Dominic Zvada",
       "pos": "K",
       "team": "NYG",
       "page_type": "redraft-k"
+    },
+    {
+      "id": "26763",
+      "ecr": "320",
+      "player": "Spencer Shrader",
+      "pos": "K",
+      "team": "IND",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26763",
+      "ecr": "320",
+      "player": "Spencer Shrader",
+      "pos": "K",
+      "team": "IND",
+      "page_type": "redraft-k"
+    },
+    {
+      "id": "19302",
+      "ecr": "321",
+      "player": "Najee Harris",
+      "pos": "RB",
+      "team": "FA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19302",
+      "ecr": "321",
+      "player": "Najee Harris",
+      "pos": "RB",
+      "team": "FA",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "20126",
+      "ecr": "322",
+      "player": "Tutu Atwell",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "20126",
+      "ecr": "322",
+      "player": "Tutu Atwell",
+      "pos": "WR",
+      "team": "LAR",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "26003",
+      "ecr": "323",
+      "player": "Brevyn Spann-Ford",
+      "pos": "TE",
+      "team": "DAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "26003",
+      "ecr": "323",
+      "player": "Brevyn Spann-Ford",
+      "pos": "TE",
+      "team": "DAL",
+      "page_type": "redraft-te"
+    },
+    {
+      "id": "27147",
+      "ecr": "324",
+      "player": "Tez Johnson",
+      "pos": "WR",
+      "team": "TB",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27147",
+      "ecr": "324",
+      "player": "Tez Johnson",
+      "pos": "WR",
+      "team": "TB",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "28132",
+      "ecr": "325",
+      "player": "Zavion Thomas",
+      "pos": "WR",
+      "team": "CHI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "28132",
+      "ecr": "325",
+      "player": "Zavion Thomas",
+      "pos": "WR",
+      "team": "CHI",
+      "page_type": "redraft-wr"
     },
     {
       "id": "26136",
@@ -5250,40 +5250,8 @@
       "page_type": "redraft-k"
     },
     {
-      "id": "27076",
-      "ecr": "329",
-      "player": "Jalen Royals",
-      "pos": "WR",
-      "team": "KC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27076",
-      "ecr": "329",
-      "player": "Jalen Royals",
-      "pos": "WR",
-      "team": "KC",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "23080",
-      "ecr": "330",
-      "player": "Marvin Mims Jr.",
-      "pos": "WR",
-      "team": "DEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23080",
-      "ecr": "330",
-      "player": "Marvin Mims Jr.",
-      "pos": "WR",
-      "team": "DEN",
-      "page_type": "redraft-wr"
-    },
-    {
       "id": "25354",
-      "ecr": "331",
+      "ecr": "329",
       "player": "Chad Ryland",
       "pos": "K",
       "team": "ARI",
@@ -5291,31 +5259,47 @@
     },
     {
       "id": "25354",
-      "ecr": "331",
+      "ecr": "329",
       "player": "Chad Ryland",
       "pos": "K",
       "team": "ARI",
       "page_type": "redraft-k"
     },
     {
-      "id": "27463",
-      "ecr": "332",
-      "player": "Elijah Sarratt",
+      "id": "27076",
+      "ecr": "330",
+      "player": "Jalen Royals",
       "pos": "WR",
-      "team": "BAL",
+      "team": "KC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "27463",
-      "ecr": "332",
-      "player": "Elijah Sarratt",
+      "id": "27076",
+      "ecr": "330",
+      "player": "Jalen Royals",
       "pos": "WR",
-      "team": "BAL",
+      "team": "KC",
       "page_type": "redraft-wr"
     },
     {
+      "id": "18232",
+      "ecr": "331",
+      "player": "Daniel Jones",
+      "pos": "QB",
+      "team": "IND",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "18232",
+      "ecr": "331",
+      "player": "Daniel Jones",
+      "pos": "QB",
+      "team": "IND",
+      "page_type": "redraft-qb"
+    },
+    {
       "id": "24362",
-      "ecr": "333",
+      "ecr": "332",
       "player": "Kaytron Allen",
       "pos": "RB",
       "team": "MIA",
@@ -5323,47 +5307,15 @@
     },
     {
       "id": "24362",
-      "ecr": "333",
+      "ecr": "332",
       "player": "Kaytron Allen",
       "pos": "RB",
       "team": "MIA",
       "page_type": "redraft-rb"
-    },
-    {
-      "id": "16447",
-      "ecr": "334",
-      "player": "James Conner",
-      "pos": "RB",
-      "team": "ARI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "16447",
-      "ecr": "334",
-      "player": "James Conner",
-      "pos": "RB",
-      "team": "ARI",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "22845",
-      "ecr": "335",
-      "player": "Joshua Palmer",
-      "pos": "WR",
-      "team": "BUF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22845",
-      "ecr": "335",
-      "player": "Joshua Palmer",
-      "pos": "WR",
-      "team": "BUF",
-      "page_type": "redraft-wr"
     },
     {
       "id": "8040",
-      "ecr": "336",
+      "ecr": "333",
       "player": "Carolina Panthers",
       "pos": "DST",
       "team": "CAR",
@@ -5371,31 +5323,47 @@
     },
     {
       "id": "8040",
-      "ecr": "336",
+      "ecr": "333",
       "player": "Carolina Panthers",
       "pos": "DST",
       "team": "CAR",
       "page_type": "redraft-dst"
     },
     {
-      "id": "23104",
-      "ecr": "337",
-      "player": "Theo Johnson",
-      "pos": "TE",
-      "team": "NYG",
+      "id": "16447",
+      "ecr": "334",
+      "player": "James Conner",
+      "pos": "RB",
+      "team": "ARI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23104",
-      "ecr": "337",
-      "player": "Theo Johnson",
-      "pos": "TE",
-      "team": "NYG",
-      "page_type": "redraft-te"
+      "id": "16447",
+      "ecr": "334",
+      "player": "James Conner",
+      "pos": "RB",
+      "team": "ARI",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "8010",
+      "ecr": "335",
+      "player": "Atlanta Falcons",
+      "pos": "DST",
+      "team": "ATL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "8010",
+      "ecr": "335",
+      "player": "Atlanta Falcons",
+      "pos": "DST",
+      "team": "ATL",
+      "page_type": "redraft-dst"
     },
     {
       "id": "23196",
-      "ecr": "338",
+      "ecr": "336",
       "player": "Simi Fehoko",
       "pos": "WR",
       "team": "ARI",
@@ -5403,15 +5371,31 @@
     },
     {
       "id": "23196",
-      "ecr": "338",
+      "ecr": "336",
       "player": "Simi Fehoko",
       "pos": "WR",
       "team": "ARI",
       "page_type": "redraft-wr"
     },
     {
+      "id": "19270",
+      "ecr": "337",
+      "player": "Devin Duvernay",
+      "pos": "WR",
+      "team": "ARI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "19270",
+      "ecr": "337",
+      "player": "Devin Duvernay",
+      "pos": "WR",
+      "team": "ARI",
+      "page_type": "redraft-wr"
+    },
+    {
       "id": "22813",
-      "ecr": "339",
+      "ecr": "338",
       "player": "Elijah Mitchell",
       "pos": "RB",
       "team": "PHI",
@@ -5419,7 +5403,7 @@
     },
     {
       "id": "22813",
-      "ecr": "339",
+      "ecr": "338",
       "player": "Elijah Mitchell",
       "pos": "RB",
       "team": "PHI",
@@ -5427,7 +5411,7 @@
     },
     {
       "id": "27993",
-      "ecr": "340",
+      "ecr": "339",
       "player": "Max Klare",
       "pos": "TE",
       "team": "LAR",
@@ -5435,27 +5419,43 @@
     },
     {
       "id": "27993",
-      "ecr": "340",
+      "ecr": "339",
       "player": "Max Klare",
       "pos": "TE",
       "team": "LAR",
       "page_type": "redraft-te"
     },
     {
-      "id": "19270",
-      "ecr": "341",
-      "player": "Devin Duvernay",
+      "id": "22845",
+      "ecr": "340",
+      "player": "Joshua Palmer",
       "pos": "WR",
-      "team": "ARI",
+      "team": "BUF",
       "page_type": "redraft-overall"
     },
     {
-      "id": "19270",
-      "ecr": "341",
-      "player": "Devin Duvernay",
+      "id": "22845",
+      "ecr": "340",
+      "player": "Joshua Palmer",
       "pos": "WR",
-      "team": "ARI",
+      "team": "BUF",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "23104",
+      "ecr": "341",
+      "player": "Theo Johnson",
+      "pos": "TE",
+      "team": "NYG",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23104",
+      "ecr": "341",
+      "player": "Theo Johnson",
+      "pos": "TE",
+      "team": "NYG",
+      "page_type": "redraft-te"
     },
     {
       "id": "18631",
@@ -5490,8 +5490,24 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "27138",
+      "id": "22953",
       "ecr": "344",
+      "player": "Carson Beck",
+      "pos": "QB",
+      "team": "ARI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "22953",
+      "ecr": "344",
+      "player": "Carson Beck",
+      "pos": "QB",
+      "team": "ARI",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "27138",
+      "ecr": "345",
       "player": "Mitchell Evans",
       "pos": "TE",
       "team": "CAR",
@@ -5499,7 +5515,7 @@
     },
     {
       "id": "27138",
-      "ecr": "344",
+      "ecr": "345",
       "player": "Mitchell Evans",
       "pos": "TE",
       "team": "CAR",
@@ -5507,7 +5523,7 @@
     },
     {
       "id": "8220",
-      "ecr": "345",
+      "ecr": "346",
       "player": "Las Vegas Raiders",
       "pos": "DST",
       "team": "LV",
@@ -5515,7 +5531,7 @@
     },
     {
       "id": "8220",
-      "ecr": "345",
+      "ecr": "346",
       "player": "Las Vegas Raiders",
       "pos": "DST",
       "team": "LV",
@@ -5523,7 +5539,7 @@
     },
     {
       "id": "25654",
-      "ecr": "346",
+      "ecr": "347",
       "player": "Emari Demercado",
       "pos": "RB",
       "team": "HOU",
@@ -5531,43 +5547,27 @@
     },
     {
       "id": "25654",
-      "ecr": "346",
+      "ecr": "347",
       "player": "Emari Demercado",
       "pos": "RB",
       "team": "HOU",
       "page_type": "redraft-rb"
     },
     {
-      "id": "25393",
-      "ecr": "347",
-      "player": "Trevor Etienne",
-      "pos": "RB",
-      "team": "CAR",
+      "id": "25968",
+      "ecr": "348",
+      "player": "Shedeur Sanders",
+      "pos": "QB",
+      "team": "CLE",
       "page_type": "redraft-overall"
     },
     {
-      "id": "25393",
-      "ecr": "347",
-      "player": "Trevor Etienne",
-      "pos": "RB",
-      "team": "CAR",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "20126",
+      "id": "25968",
       "ecr": "348",
-      "player": "Tutu Atwell",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "20126",
-      "ecr": "348",
-      "player": "Tutu Atwell",
-      "pos": "WR",
-      "team": "LAR",
-      "page_type": "redraft-wr"
+      "player": "Shedeur Sanders",
+      "pos": "QB",
+      "team": "CLE",
+      "page_type": "redraft-qb"
     },
     {
       "id": "8210",
@@ -5602,8 +5602,56 @@
       "page_type": "redraft-te"
     },
     {
-      "id": "27261",
+      "id": "25393",
       "ecr": "351",
+      "player": "Trevor Etienne",
+      "pos": "RB",
+      "team": "CAR",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25393",
+      "ecr": "351",
+      "player": "Trevor Etienne",
+      "pos": "RB",
+      "team": "CAR",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "23080",
+      "ecr": "352",
+      "player": "Marvin Mims Jr.",
+      "pos": "WR",
+      "team": "DEN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23080",
+      "ecr": "352",
+      "player": "Marvin Mims Jr.",
+      "pos": "WR",
+      "team": "DEN",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "25967",
+      "ecr": "353",
+      "player": "Joe Milton III",
+      "pos": "QB",
+      "team": "PHI",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "25967",
+      "ecr": "353",
+      "player": "Joe Milton III",
+      "pos": "QB",
+      "team": "PHI",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "27261",
+      "ecr": "354",
       "player": "Ryan Fitzgerald",
       "pos": "K",
       "team": "CAR",
@@ -5611,31 +5659,15 @@
     },
     {
       "id": "27261",
-      "ecr": "351",
+      "ecr": "354",
       "player": "Ryan Fitzgerald",
       "pos": "K",
       "team": "CAR",
       "page_type": "redraft-k"
     },
     {
-      "id": "25967",
-      "ecr": "352",
-      "player": "Joe Milton III",
-      "pos": "QB",
-      "team": "PHI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25967",
-      "ecr": "352",
-      "player": "Joe Milton III",
-      "pos": "QB",
-      "team": "PHI",
-      "page_type": "redraft-qb"
-    },
-    {
       "id": "28155",
-      "ecr": "353",
+      "ecr": "355",
       "player": "Josh Cuevas",
       "pos": "TE",
       "team": "BAL",
@@ -5643,43 +5675,11 @@
     },
     {
       "id": "28155",
-      "ecr": "353",
+      "ecr": "355",
       "player": "Josh Cuevas",
       "pos": "TE",
       "team": "BAL",
       "page_type": "redraft-te"
-    },
-    {
-      "id": "27310",
-      "ecr": "354",
-      "player": "Jordan James",
-      "pos": "RB",
-      "team": "SF",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27310",
-      "ecr": "354",
-      "player": "Jordan James",
-      "pos": "RB",
-      "team": "SF",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "25968",
-      "ecr": "355",
-      "player": "Shedeur Sanders",
-      "pos": "QB",
-      "team": "CLE",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "25968",
-      "ecr": "355",
-      "player": "Shedeur Sanders",
-      "pos": "QB",
-      "team": "CLE",
-      "page_type": "redraft-qb"
     },
     {
       "id": "26212",
@@ -5714,24 +5714,8 @@
       "page_type": "redraft-rb"
     },
     {
-      "id": "18562",
-      "ecr": "358",
-      "player": "Gardner Minshew II",
-      "pos": "QB",
-      "team": "ARI",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18562",
-      "ecr": "358",
-      "player": "Gardner Minshew II",
-      "pos": "QB",
-      "team": "ARI",
-      "page_type": "redraft-qb"
-    },
-    {
       "id": "28125",
-      "ecr": "359",
+      "ecr": "358",
       "player": "CJ Daniels",
       "pos": "WR",
       "team": "LAR",
@@ -5739,15 +5723,47 @@
     },
     {
       "id": "28125",
-      "ecr": "359",
+      "ecr": "358",
       "player": "CJ Daniels",
       "pos": "WR",
       "team": "LAR",
       "page_type": "redraft-wr"
     },
     {
-      "id": "28157",
+      "id": "27463",
+      "ecr": "359",
+      "player": "Elijah Sarratt",
+      "pos": "WR",
+      "team": "BAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27463",
+      "ecr": "359",
+      "player": "Elijah Sarratt",
+      "pos": "WR",
+      "team": "BAL",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "27310",
       "ecr": "360",
+      "player": "Jordan James",
+      "pos": "RB",
+      "team": "SF",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "27310",
+      "ecr": "360",
+      "player": "Jordan James",
+      "pos": "RB",
+      "team": "SF",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "28157",
+      "ecr": "361",
       "player": "Marlin Klein",
       "pos": "TE",
       "team": "HOU",
@@ -5755,63 +5771,15 @@
     },
     {
       "id": "28157",
-      "ecr": "360",
+      "ecr": "361",
       "player": "Marlin Klein",
       "pos": "TE",
       "team": "HOU",
       "page_type": "redraft-te"
     },
     {
-      "id": "24367",
-      "ecr": "361",
-      "player": "Adam Randall",
-      "pos": "RB",
-      "team": "BAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "24367",
-      "ecr": "361",
-      "player": "Adam Randall",
-      "pos": "RB",
-      "team": "BAL",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "27285",
-      "ecr": "362",
-      "player": "LeQuint Allen Jr.",
-      "pos": "RB",
-      "team": "JAC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27285",
-      "ecr": "362",
-      "player": "LeQuint Allen Jr.",
-      "pos": "RB",
-      "team": "JAC",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "27259",
-      "ecr": "363",
-      "player": "Brashard Smith",
-      "pos": "RB",
-      "team": "KC",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "27259",
-      "ecr": "363",
-      "player": "Brashard Smith",
-      "pos": "RB",
-      "team": "KC",
-      "page_type": "redraft-rb"
-    },
-    {
       "id": "28126",
-      "ecr": "364",
+      "ecr": "362",
       "player": "Skyler Bell",
       "pos": "WR",
       "team": "BUF",
@@ -5819,95 +5787,63 @@
     },
     {
       "id": "28126",
-      "ecr": "364",
+      "ecr": "362",
       "player": "Skyler Bell",
       "pos": "WR",
       "team": "BUF",
       "page_type": "redraft-wr"
     },
     {
-      "id": "17233",
-      "ecr": "365",
-      "player": "Lamar Jackson",
-      "pos": "QB",
+      "id": "24367",
+      "ecr": "363",
+      "player": "Adam Randall",
+      "pos": "RB",
       "team": "BAL",
       "page_type": "redraft-overall"
     },
     {
-      "id": "17233",
-      "ecr": "365",
-      "player": "Lamar Jackson",
-      "pos": "QB",
+      "id": "24367",
+      "ecr": "363",
+      "player": "Adam Randall",
+      "pos": "RB",
       "team": "BAL",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "24335",
-      "ecr": "366",
-      "player": "Jarquez Hunter",
-      "pos": "RB",
-      "team": "NO",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "24335",
-      "ecr": "366",
-      "player": "Jarquez Hunter",
-      "pos": "RB",
-      "team": "NO",
       "page_type": "redraft-rb"
     },
     {
-      "id": "24347",
-      "ecr": "367",
-      "player": "Anthony Richardson Sr.",
-      "pos": "QB",
-      "team": "IND",
+      "id": "27285",
+      "ecr": "364",
+      "player": "LeQuint Allen Jr.",
+      "pos": "RB",
+      "team": "JAC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24347",
-      "ecr": "367",
-      "player": "Anthony Richardson Sr.",
-      "pos": "QB",
-      "team": "IND",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "23682",
-      "ecr": "368",
-      "player": "Devin Neal",
+      "id": "27285",
+      "ecr": "364",
+      "player": "LeQuint Allen Jr.",
       "pos": "RB",
-      "team": "WAS",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "23682",
-      "ecr": "368",
-      "player": "Devin Neal",
-      "pos": "RB",
-      "team": "WAS",
+      "team": "JAC",
       "page_type": "redraft-rb"
     },
     {
-      "id": "22953",
-      "ecr": "369",
-      "player": "Carson Beck",
-      "pos": "QB",
-      "team": "ARI",
+      "id": "27259",
+      "ecr": "365",
+      "player": "Brashard Smith",
+      "pos": "RB",
+      "team": "KC",
       "page_type": "redraft-overall"
     },
     {
-      "id": "22953",
-      "ecr": "369",
-      "player": "Carson Beck",
-      "pos": "QB",
-      "team": "ARI",
-      "page_type": "redraft-qb"
+      "id": "27259",
+      "ecr": "365",
+      "player": "Brashard Smith",
+      "pos": "RB",
+      "team": "KC",
+      "page_type": "redraft-rb"
     },
     {
       "id": "25335",
-      "ecr": "370",
+      "ecr": "366",
       "player": "Andrei Iosivas",
       "pos": "WR",
       "team": "CIN",
@@ -5915,79 +5851,111 @@
     },
     {
       "id": "25335",
-      "ecr": "370",
+      "ecr": "366",
       "player": "Andrei Iosivas",
       "pos": "WR",
       "team": "CIN",
       "page_type": "redraft-wr"
     },
     {
-      "id": "24344",
-      "ecr": "371",
-      "player": "Jaydon Blue",
-      "pos": "RB",
+      "id": "23066",
+      "ecr": "367",
+      "player": "Kyle McCord",
+      "pos": "QB",
+      "team": "MIA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23066",
+      "ecr": "367",
+      "player": "Kyle McCord",
+      "pos": "QB",
+      "team": "MIA",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "18226",
+      "ecr": "368",
+      "player": "Hollywood Brown",
+      "pos": "WR",
       "team": "PHI",
       "page_type": "redraft-overall"
     },
     {
-      "id": "24344",
-      "ecr": "371",
-      "player": "Jaydon Blue",
-      "pos": "RB",
+      "id": "18226",
+      "ecr": "368",
+      "player": "Hollywood Brown",
+      "pos": "WR",
       "team": "PHI",
+      "page_type": "redraft-wr"
+    },
+    {
+      "id": "18225",
+      "ecr": "369",
+      "player": "Drew Lock",
+      "pos": "QB",
+      "team": "SEA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "18225",
+      "ecr": "369",
+      "player": "Drew Lock",
+      "pos": "QB",
+      "team": "SEA",
+      "page_type": "redraft-qb"
+    },
+    {
+      "id": "23682",
+      "ecr": "370",
+      "player": "Devin Neal",
+      "pos": "RB",
+      "team": "WAS",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "23682",
+      "ecr": "370",
+      "player": "Devin Neal",
+      "pos": "RB",
+      "team": "WAS",
       "page_type": "redraft-rb"
     },
     {
-      "id": "18226",
+      "id": "24344",
+      "ecr": "371",
+      "player": "Jaydon Blue",
+      "pos": "RB",
+      "team": "FA",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24344",
+      "ecr": "371",
+      "player": "Jaydon Blue",
+      "pos": "RB",
+      "team": "FA",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "17233",
       "ecr": "372",
-      "player": "Hollywood Brown",
-      "pos": "WR",
-      "team": "PHI",
+      "player": "Lamar Jackson",
+      "pos": "QB",
+      "team": "BAL",
       "page_type": "redraft-overall"
     },
     {
-      "id": "18226",
+      "id": "17233",
       "ecr": "372",
-      "player": "Hollywood Brown",
-      "pos": "WR",
-      "team": "PHI",
-      "page_type": "redraft-wr"
-    },
-    {
-      "id": "15520",
-      "ecr": "373",
-      "player": "Carson Wentz",
+      "player": "Lamar Jackson",
       "pos": "QB",
-      "team": "MIN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "15520",
-      "ecr": "373",
-      "player": "Carson Wentz",
-      "pos": "QB",
-      "team": "MIN",
-      "page_type": "redraft-qb"
-    },
-    {
-      "id": "18225",
-      "ecr": "374",
-      "player": "Drew Lock",
-      "pos": "QB",
-      "team": "SEA",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "18225",
-      "ecr": "374",
-      "player": "Drew Lock",
-      "pos": "QB",
-      "team": "SEA",
+      "team": "BAL",
       "page_type": "redraft-qb"
     },
     {
       "id": "26037",
-      "ecr": "375",
+      "ecr": "373",
       "player": "Colbie Young",
       "pos": "WR",
       "team": "CIN",
@@ -5995,15 +5963,31 @@
     },
     {
       "id": "26037",
-      "ecr": "375",
+      "ecr": "373",
       "player": "Colbie Young",
       "pos": "WR",
       "team": "CIN",
       "page_type": "redraft-wr"
+    },
+    {
+      "id": "24347",
+      "ecr": "374",
+      "player": "Anthony Richardson Sr.",
+      "pos": "QB",
+      "team": "IND",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24347",
+      "ecr": "374",
+      "player": "Anthony Richardson Sr.",
+      "pos": "QB",
+      "team": "IND",
+      "page_type": "redraft-qb"
     },
     {
       "id": "25876",
-      "ecr": "376",
+      "ecr": "375",
       "player": "Jaleel McLaughlin",
       "pos": "RB",
       "team": "CLE",
@@ -6011,7 +5995,7 @@
     },
     {
       "id": "25876",
-      "ecr": "376",
+      "ecr": "375",
       "player": "Jaleel McLaughlin",
       "pos": "RB",
       "team": "CLE",
@@ -6019,7 +6003,7 @@
     },
     {
       "id": "16460",
-      "ecr": "377",
+      "ecr": "376",
       "player": "Jonnu Smith",
       "pos": "TE",
       "team": "GB",
@@ -6027,7 +6011,7 @@
     },
     {
       "id": "16460",
-      "ecr": "377",
+      "ecr": "376",
       "player": "Jonnu Smith",
       "pos": "TE",
       "team": "GB",
@@ -6035,7 +6019,7 @@
     },
     {
       "id": "11689",
-      "ecr": "378",
+      "ecr": "377",
       "player": "Zach Ertz",
       "pos": "TE",
       "team": "PHI",
@@ -6043,7 +6027,7 @@
     },
     {
       "id": "11689",
-      "ecr": "378",
+      "ecr": "377",
       "player": "Zach Ertz",
       "pos": "TE",
       "team": "PHI",
@@ -6051,7 +6035,7 @@
     },
     {
       "id": "16540",
-      "ecr": "379",
+      "ecr": "378",
       "player": "Jake Elliott",
       "pos": "K",
       "team": "PHI",
@@ -6059,7 +6043,7 @@
     },
     {
       "id": "16540",
-      "ecr": "379",
+      "ecr": "378",
       "player": "Jake Elliott",
       "pos": "K",
       "team": "PHI",
@@ -6067,7 +6051,7 @@
     },
     {
       "id": "26329",
-      "ecr": "380",
+      "ecr": "379",
       "player": "Jawhar Jordan",
       "pos": "RB",
       "team": "HOU",
@@ -6075,7 +6059,7 @@
     },
     {
       "id": "26329",
-      "ecr": "380",
+      "ecr": "379",
       "player": "Jawhar Jordan",
       "pos": "RB",
       "team": "HOU",
@@ -6083,7 +6067,7 @@
     },
     {
       "id": "25416",
-      "ecr": "381",
+      "ecr": "380",
       "player": "Barion Brown",
       "pos": "WR",
       "team": "NO",
@@ -6091,7 +6075,7 @@
     },
     {
       "id": "25416",
-      "ecr": "381",
+      "ecr": "380",
       "player": "Barion Brown",
       "pos": "WR",
       "team": "NO",
@@ -6099,7 +6083,7 @@
     },
     {
       "id": "26310",
-      "ecr": "382",
+      "ecr": "381",
       "player": "Ben Sinnott",
       "pos": "TE",
       "team": "WAS",
@@ -6107,7 +6091,7 @@
     },
     {
       "id": "26310",
-      "ecr": "382",
+      "ecr": "381",
       "player": "Ben Sinnott",
       "pos": "TE",
       "team": "WAS",
@@ -6115,7 +6099,7 @@
     },
     {
       "id": "28079",
-      "ecr": "383",
+      "ecr": "382",
       "player": "Justin Joly",
       "pos": "TE",
       "team": "MIA",
@@ -6123,7 +6107,7 @@
     },
     {
       "id": "28079",
-      "ecr": "383",
+      "ecr": "382",
       "player": "Justin Joly",
       "pos": "TE",
       "team": "MIA",
@@ -6131,7 +6115,7 @@
     },
     {
       "id": "28161",
-      "ecr": "384",
+      "ecr": "383",
       "player": "Sam Roush",
       "pos": "TE",
       "team": "CHI",
@@ -6139,7 +6123,7 @@
     },
     {
       "id": "28161",
-      "ecr": "384",
+      "ecr": "383",
       "player": "Sam Roush",
       "pos": "TE",
       "team": "CHI",
@@ -6147,7 +6131,7 @@
     },
     {
       "id": "26012",
-      "ecr": "385",
+      "ecr": "384",
       "player": "Malik Benson",
       "pos": "WR",
       "team": "LV",
@@ -6155,7 +6139,7 @@
     },
     {
       "id": "26012",
-      "ecr": "385",
+      "ecr": "384",
       "player": "Malik Benson",
       "pos": "WR",
       "team": "LV",
@@ -6163,7 +6147,7 @@
     },
     {
       "id": "28133",
-      "ecr": "386",
+      "ecr": "385",
       "player": "Brenen Thompson",
       "pos": "WR",
       "team": "LAC",
@@ -6171,95 +6155,79 @@
     },
     {
       "id": "28133",
-      "ecr": "386",
+      "ecr": "385",
       "player": "Brenen Thompson",
       "pos": "WR",
       "team": "LAC",
       "page_type": "redraft-wr"
     },
     {
-      "id": "8010",
-      "ecr": "387",
-      "player": "Atlanta Falcons",
-      "pos": "DST",
-      "team": "ATL",
+      "id": "28297",
+      "ecr": "386",
+      "player": "Eli Heidenreich",
+      "pos": "RB",
+      "team": "PIT",
       "page_type": "redraft-overall"
     },
     {
-      "id": "8010",
-      "ecr": "387",
-      "player": "Atlanta Falcons",
-      "pos": "DST",
-      "team": "ATL",
-      "page_type": "redraft-dst"
+      "id": "28297",
+      "ecr": "386",
+      "player": "Eli Heidenreich",
+      "pos": "RB",
+      "team": "PIT",
+      "page_type": "redraft-rb"
     },
     {
-      "id": "23066",
-      "ecr": "388",
-      "player": "Kyle McCord",
-      "pos": "QB",
-      "team": "MIA",
+      "id": "22728",
+      "ecr": "387",
+      "player": "Michael Carter",
+      "pos": "RB",
+      "team": "TEN",
       "page_type": "redraft-overall"
     },
     {
-      "id": "23066",
+      "id": "22728",
+      "ecr": "387",
+      "player": "Michael Carter",
+      "pos": "RB",
+      "team": "TEN",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "24352",
       "ecr": "388",
-      "player": "Kyle McCord",
+      "player": "Israel Abanikanda",
+      "pos": "RB",
+      "team": "DAL",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "24352",
+      "ecr": "388",
+      "player": "Israel Abanikanda",
+      "pos": "RB",
+      "team": "DAL",
+      "page_type": "redraft-rb"
+    },
+    {
+      "id": "15520",
+      "ecr": "389",
+      "player": "Carson Wentz",
       "pos": "QB",
-      "team": "MIA",
+      "team": "MIN",
+      "page_type": "redraft-overall"
+    },
+    {
+      "id": "15520",
+      "ecr": "389",
+      "player": "Carson Wentz",
+      "pos": "QB",
+      "team": "MIN",
       "page_type": "redraft-qb"
-    },
-    {
-      "id": "28297",
-      "ecr": "389",
-      "player": "Eli Heidenreich",
-      "pos": "RB",
-      "team": "PIT",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "28297",
-      "ecr": "389",
-      "player": "Eli Heidenreich",
-      "pos": "RB",
-      "team": "PIT",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "22728",
-      "ecr": "390",
-      "player": "Michael Carter",
-      "pos": "RB",
-      "team": "TEN",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "22728",
-      "ecr": "390",
-      "player": "Michael Carter",
-      "pos": "RB",
-      "team": "TEN",
-      "page_type": "redraft-rb"
-    },
-    {
-      "id": "24352",
-      "ecr": "391",
-      "player": "Israel Abanikanda",
-      "pos": "RB",
-      "team": "DAL",
-      "page_type": "redraft-overall"
-    },
-    {
-      "id": "24352",
-      "ecr": "391",
-      "player": "Israel Abanikanda",
-      "pos": "RB",
-      "team": "DAL",
-      "page_type": "redraft-rb"
     },
     {
       "id": "13891",
-      "ecr": "392",
+      "ecr": "390",
       "player": "Jameis Winston",
       "pos": "QB",
       "team": "NYG",
@@ -6267,7 +6235,7 @@
     },
     {
       "id": "13891",
-      "ecr": "392",
+      "ecr": "390",
       "player": "Jameis Winston",
       "pos": "QB",
       "team": "NYG",
