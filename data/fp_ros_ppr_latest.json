@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-11-11T22:53:15.925259+00:00",
+  "scraped_at": "2026-11-12T22:13:03.447387+00:00",
   "rows": [
     {
       "id": "22968",
@@ -4502,7 +4502,7 @@
       "ecr": "282",
       "player": "Harrison Mevis",
       "pos": "K",
-      "team": "FA",
+      "team": "BAL",
       "page_type": "redraft-overall"
     },
     {
@@ -4510,7 +4510,7 @@
       "ecr": "282",
       "player": "Harrison Mevis",
       "pos": "K",
-      "team": "FA",
+      "team": "BAL",
       "page_type": "redraft-k"
     },
     {
@@ -6438,7 +6438,7 @@
       "ecr": "403",
       "player": "Odell Beckham Jr.",
       "pos": "WR",
-      "team": "FA",
+      "team": "MIN",
       "page_type": "redraft-overall"
     },
     {
@@ -6446,7 +6446,7 @@
       "ecr": "403",
       "player": "Odell Beckham Jr.",
       "pos": "WR",
-      "team": "FA",
+      "team": "MIN",
       "page_type": "redraft-wr"
     },
     {
